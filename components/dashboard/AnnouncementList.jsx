@@ -1,31 +1,15 @@
-// components/AnnouncementList.tsx
+// components/dashboard/AnnouncementList.jsx
 import {
-    PrismColors,
-    PrismRadius,
-    PrismShadows,
-    PrismSpacing,
-    PrismTypography,
+  PrismColors,
+  PrismRadius,
+  PrismShadows,
+  PrismSpacing,
+  PrismTypography,
 } from "@/constants/prismTheme";
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-export interface Announcement {
-  id: string;
-  title: string;
-  preview: string;
-}
-
-interface AnnouncementItemProps {
-  title: string;
-  preview: string;
-  onPress?: () => void;
-}
-
-export const AnnouncementItem: React.FC<AnnouncementItemProps> = ({
-  title,
-  preview,
-  onPress,
-}) => (
+export const AnnouncementItem = ({ title, preview, onPress }) => (
   <TouchableOpacity style={styles.item} onPress={onPress} activeOpacity={0.75}>
     <View style={styles.iconWrapper}>
       <Text style={styles.itemIcon}>ℹ</Text>
@@ -42,17 +26,7 @@ export const AnnouncementItem: React.FC<AnnouncementItemProps> = ({
   </TouchableOpacity>
 );
 
-interface AnnouncementListProps {
-  announcements?: Announcement[];
-  onSeeAll?: () => void;
-  onItemPress?: (item: Announcement) => void;
-}
-
-const AnnouncementList: React.FC<AnnouncementListProps> = ({
-  announcements = [],
-  onSeeAll,
-  onItemPress,
-}) => {
+const AnnouncementList = ({ announcements = [], onSeeAll, onItemPress }) => {
   return (
     <View style={styles.container}>
       <View style={styles.sectionHeader}>

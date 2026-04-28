@@ -4,9 +4,7 @@
     "jsx": "react-native",
     "strict": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     }
   },
   "include": [
@@ -14,6 +12,13 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "nativewind-env.d.ts"
-  ]
+    "nativewind-env.d.ts",
+    "constants/prismTheme.js",
+    "components/dashboard/AnnouncementList.jsx",
+    "components/dashboard/TimeinButton.jsx",
+    "components/dashboard/DashboardHeader.jsx",
+    "components/dashboard/Notificationtoast.jsx",
+    "components/dashboard/Shiftstatuscard.jsx",
+    "components/dashboard/Bottomtabbar.jsx"
+, "components/dashboard/Index.jsx", "components/dashboard/ClockOutModal.jsx", "app/login.jsx", "app/(tabs)/index.jsx", "app/(tabs)/_layout.jsx", "app/(tabs)/explore.jsx", "components/external-link.jsx", "app/modal.jsx", "components/haptic-tab.jsx", "components/parallax-scroll-view.jsx", "components/hello-wave.jsx", "components/themed-view.jsx", "components/themed-text.jsx", "app/_layout.jsx"  ]
 }

@@ -1,28 +1,20 @@
-// components/TimeInButton.tsx
+// components/dashboard/TimeInButton.jsx
 import {
-    PrismColors,
-    PrismShadows,
-    PrismSpacing,
-    PrismTypography,
+  PrismColors,
+  PrismShadows,
+  PrismSpacing,
+  PrismTypography,
 } from "@/constants/prismTheme";
 import React, { useEffect, useRef } from "react";
 import {
-    Animated,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
-interface TimeInButtonProps {
-  isOnDuty?: boolean;
-  onPress?: () => void;
-}
-
-const TimeInButton: React.FC<TimeInButtonProps> = ({
-  isOnDuty = false,
-  onPress,
-}) => {
+const TimeInButton = ({ isOnDuty = false, onPress }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseOpacity = useRef(new Animated.Value(0.6)).current;
 
@@ -66,7 +58,6 @@ const TimeInButton: React.FC<TimeInButtonProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* Pulse ring */}
       <Animated.View
         style={[
           styles.pulseRing,
@@ -76,8 +67,6 @@ const TimeInButton: React.FC<TimeInButtonProps> = ({
           },
         ]}
       />
-
-      {/* Main button */}
       <TouchableOpacity
         style={[styles.button, isOnDuty && styles.buttonActive]}
         onPress={onPress}

@@ -1,34 +1,20 @@
-// components/BottomTabBar.tsx
+// components/dashboard/BottomTabBar.jsx
 import {
-    PrismColors,
-    PrismShadows,
-    PrismSpacing,
-    PrismTypography,
+  PrismColors,
+  PrismShadows,
+  PrismSpacing,
+  PrismTypography,
 } from "@/constants/prismTheme";
 import React from "react";
 import {
-    Platform,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
-type TabKey = "home" | "schedule" | "payslip" | "profile";
-
-interface TabItemProps {
-  icon: string;
-  label: string;
-  isActive: boolean;
-  onPress: () => void;
-}
-
-const TabItem: React.FC<TabItemProps> = ({
-  icon,
-  label,
-  isActive,
-  onPress,
-}) => (
+const TabItem = ({ icon, label, isActive, onPress }) => (
   <TouchableOpacity
     style={styles.tabItem}
     onPress={onPress}
@@ -44,30 +30,19 @@ const TabItem: React.FC<TabItemProps> = ({
   </TouchableOpacity>
 );
 
-interface BottomTabBarProps {
-  activeTab?: TabKey;
-  onTabPress?: (key: TabKey) => void;
-  onFabPress?: () => void;
-}
-
-const BottomTabBar: React.FC<BottomTabBarProps> = ({
-  activeTab = "home",
-  onTabPress,
-  onFabPress,
-}) => {
-  const leftTabs: { key: TabKey; icon: string; label: string }[] = [
+const BottomTabBar = ({ activeTab = "home", onTabPress, onFabPress }) => {
+  const leftTabs = [
     { key: "home", icon: "⌂", label: "Home" },
     { key: "schedule", icon: "📅", label: "Schedule" },
   ];
 
-  const rightTabs: { key: TabKey; icon: string; label: string }[] = [
+  const rightTabs = [
     { key: "payslip", icon: "💵", label: "Payslip" },
     { key: "profile", icon: "👤", label: "Profile" },
   ];
 
   return (
     <View style={styles.container}>
-      {/* Left tabs */}
       <View style={styles.tabGroup}>
         {leftTabs.map((tab) => (
           <TabItem
@@ -80,7 +55,6 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
         ))}
       </View>
 
-      {/* FAB center */}
       <View style={styles.fabContainer}>
         <TouchableOpacity
           style={styles.fab}
@@ -91,7 +65,6 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Right tabs */}
       <View style={styles.tabGroup}>
         {rightTabs.map((tab) => (
           <TabItem
@@ -109,10 +82,6 @@ const BottomTabBar: React.FC<BottomTabBarProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
     height: 70 + (Platform.OS === "ios" ? 16 : 0),
     backgroundColor: PrismColors.cardBg,
     flexDirection: "row",

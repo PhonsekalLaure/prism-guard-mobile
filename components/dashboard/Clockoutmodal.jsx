@@ -1,32 +1,22 @@
-// components/ClockOutModal.tsx
+// components/dashboard/ClockOutModal.jsx
 import {
-    PrismColors,
-    PrismRadius,
-    PrismShadows,
-    PrismSpacing,
-    PrismTypography,
+  PrismColors,
+  PrismRadius,
+  PrismShadows,
+  PrismSpacing,
+  PrismTypography,
 } from "@/constants/prismTheme";
 import React, { useEffect, useRef } from "react";
 import {
-    Animated,
-    Modal,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Animated,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
-interface ClockOutModalProps {
-  visible?: boolean;
-  onCancel?: () => void;
-  onConfirm?: () => void;
-}
-
-const ClockOutModal: React.FC<ClockOutModalProps> = ({
-  visible = false,
-  onCancel,
-  onConfirm,
-}) => {
+const ClockOutModal = ({ visible = false, onCancel, onConfirm }) => {
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 

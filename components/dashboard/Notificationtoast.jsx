@@ -1,25 +1,15 @@
-// components/NotificationToast.tsx
+// components/dashboard/NotificationToast.jsx
 import {
-    PrismColors,
-    PrismRadius,
-    PrismShadows,
-    PrismSpacing,
-    PrismTypography,
+  PrismColors,
+  PrismRadius,
+  PrismShadows,
+  PrismSpacing,
+  PrismTypography,
 } from "@/constants/prismTheme";
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
-type ToastType = "success" | "warning" | "error";
-
-interface NotificationToastProps {
-  visible?: boolean;
-  icon?: string;
-  title?: string;
-  message?: string;
-  type?: ToastType;
-}
-
-const NotificationToast: React.FC<NotificationToastProps> = ({
+const NotificationToast = ({
   visible = false,
   icon = "📍",
   title = "Notification",

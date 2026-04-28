@@ -1,4 +1,4 @@
-// components/DashboardHeader.tsx
+// components/dashboard/DashboardHeader.jsx
 import {
   PrismColors,
   PrismShadows,
@@ -13,14 +13,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-interface DashboardHeaderProps {
-  officerName?: string;
-  dateString?: string;
-  hasNotification?: boolean;
-  onBellPress?: () => void;
-}
 
-const DashboardHeader: React.FC<DashboardHeaderProps> = ({
+const DashboardHeader = ({
   officerName = "Officer",
   dateString = "",
   hasNotification = true,
@@ -30,7 +24,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={PrismColors.navy} />
 
-      {/* Top Row: Logo + Bell */}
       <View style={styles.topRow}>
         <View style={styles.logoArea}>
           <View style={styles.shieldIcon}>
@@ -49,7 +42,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Officer Name + Date */}
       <View style={styles.welcomeArea}>
         <Text style={styles.officerName}>{officerName}</Text>
         <View style={styles.dateRow}>
