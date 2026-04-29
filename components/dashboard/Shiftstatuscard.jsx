@@ -1,80 +1,46 @@
-// components/dashboard/BottomTabBar.jsx
+// components/dashboard/ShiftStatusCard.jsx
 import {
   PrismColors,
+  PrismRadius,
   PrismShadows,
   PrismSpacing,
   PrismTypography,
 } from "@/constants/prismTheme";
 import React from "react";
-import {
-  Platform,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
-const TabItem = ({ icon, label, isActive, onPress }) => (
-  <TouchableOpacity
-    style={styles.tabItem}
-    onPress={onPress}
-    activeOpacity={0.75}
-  >
-    {isActive && <View style={styles.activeIndicator} />}
-    <Text style={[styles.tabIcon, isActive && styles.tabIconActive]}>
-      {icon}
-    </Text>
-    <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
-      {label}
-    </Text>
-  </TouchableOpacity>
-);
-
-const BottomTabBar = ({ activeTab = "home", onTabPress, onFabPress }) => {
-  const leftTabs = [
-    { key: "home", icon: "⌂", label: "Home" },
-    { key: "schedule", icon: "📅", label: "Schedule" },
-  ];
-
-  const rightTabs = [
-    { key: "payslip", icon: "💵", label: "Payslip" },
-    { key: "profile", icon: "👤", label: "Profile" },
-  ];
-
+const ShiftStatusCard = ({ shiftStart, shiftEnd, location, isOnDuty }) => {
   return (
     <View style={styles.container}>
-      <View style={styles.tabGroup}>
-        {leftTabs.map((tab) => (
-          <TabItem
-            key={tab.key}
-            icon={tab.icon}
-            label={tab.label}
-            isActive={activeTab === tab.key}
-            onPress={() => onTabPress?.(tab.key)}
-          />
-        ))}
-      </View>
-
-      <View style={styles.fabContainer}>
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={onFabPress}
-          activeOpacity={0.85}
+      <View style={styles.statusRow}>
+        <View
+          style={[
+            styles.badge,
+            isOnDuty ? styles.badgeActive : styles.badgeInactive,
+          ]}
         >
-          <Text style={styles.fabIcon}>🎙</Text>
-        </TouchableOpacity>
+          <Text style={styles.badgeText}>
+            {isOnDuty ? "ON DUTY" : "OFF DUTY"}
+          </Text>
+        </View>
       </View>
-
-      <View style={styles.tabGroup}>
-        {rightTabs.map((tab) => (
-          <TabItem
-            key={tab.key}
-            icon={tab.icon}
-            label={tab.label}
-            isActive={activeTab === tab.key}
-            onPress={() => onTabPress?.(tab.key)}
-          />
-        ))}
+      <View style={styles.infoRow}>
+        <View style={styles.infoItem}>
+          <Text style={styles.infoLabel}>Shift Start</Text>
+          <Text style={styles.infoValue}>{shiftStart}</Text>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.infoItem}>
+          <Text style={styles.infoLabel}>Shift End</Text>
+          <Text style={styles.infoValue}>{shiftEnd}</Text>
+        </View>
+        <View style={styles.divider} />
+        <View style={styles.infoItem}>
+          <Text style={styles.infoLabel}>Location</Text>
+          <Text style={styles.infoValue} numberOfLines={1}>
+            {location}
+          </Text>
+        </View>
       </View>
     </View>
   );
@@ -82,75 +48,63 @@ const BottomTabBar = ({ activeTab = "home", onTabPress, onFabPress }) => {
 
 const styles = StyleSheet.create({
   container: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 70 + (Platform.OS === "ios" ? 16 : 0),
     backgroundColor: PrismColors.cardBg,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingBottom: Platform.OS === "ios" ? 16 : 0,
-    paddingHorizontal: PrismSpacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: PrismColors.border,
+    borderRadius: PrismRadius.lg,
+    marginHorizontal: PrismSpacing.base,
+    marginTop: PrismSpacing.base,
+    marginBottom: PrismSpacing.md,
+    padding: PrismSpacing.md,
     ...PrismShadows.card,
   },
-  tabGroup: {
-    flex: 1,
-    flexDirection: "row",
+  statusRow: {
+    alignItems: "center",
+    marginBottom: PrismSpacing.md,
   },
-  tabItem: {
+  badge: {
+    paddingHorizontal: PrismSpacing.md,
+    paddingVertical: PrismSpacing.xs,
+    borderRadius: PrismRadius.full,
+  },
+  badgeActive: {
+    backgroundColor: PrismColors.success + "22",
+    borderWidth: 1,
+    borderColor: PrismColors.success,
+  },
+  badgeInactive: {
+    backgroundColor: PrismColors.border,
+    borderWidth: 1,
+    borderColor: PrismColors.textSecondary,
+  },
+  badgeText: {
+    fontSize: PrismTypography.xs,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.textPrimary,
+    letterSpacing: 1,
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  infoItem: {
     flex: 1,
     alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: PrismSpacing.sm,
-    position: "relative",
   },
-  activeIndicator: {
-    position: "absolute",
-    top: 4,
-    width: 4,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: PrismColors.gold,
-  },
-  tabIcon: {
-    fontSize: 20,
-    marginBottom: 2,
-    opacity: 0.45,
-  },
-  tabIconActive: {
-    opacity: 1,
-  },
-  tabLabel: {
+  infoLabel: {
     fontSize: PrismTypography.xs,
     color: PrismColors.textSecondary,
-    fontWeight: PrismTypography.medium,
+    marginBottom: 2,
   },
-  tabLabelActive: {
-    color: PrismColors.navy,
+  infoValue: {
+    fontSize: PrismTypography.sm,
     fontWeight: PrismTypography.bold,
+    color: PrismColors.textPrimary,
   },
-  fabContainer: {
-    width: 70,
-    alignItems: "center",
-    marginTop: -30,
-  },
-  fab: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: PrismColors.navy,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 4,
-    borderColor: PrismColors.cardBg,
-    ...PrismShadows.button,
-  },
-  fabIcon: {
-    fontSize: 22,
+  divider: {
+    width: 1,
+    height: 30,
+    backgroundColor: PrismColors.border,
   },
 });
 
-export default BottomTabBar;
+export default ShiftStatusCard;

@@ -9,24 +9,15 @@ export default function ScreenWrapper({ children, activeTabKey = "home" }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState(activeTabKey);
 
-  const handleTabPress = (tab) => {
-    setActiveTab(tab);
-    if (tab === "home") router.replace("/(tabs)");
-    if (tab === "schedule") router.replace("/(tabs)/schedule");
-    if (tab === "payslip") router.replace("/(tabs)/payslip");
-    if (tab === "profile") router.replace("/(tabs)/profile");
+  const handleTabPress = (key) => {
+    setActiveTab(key);
+    router.replace(`/(tabs)/${key === "home" ? "" : key}`);
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.screen}>
-        {children}
-        <BottomTabBar
-          activeTab={activeTab}
-          onTabPress={handleTabPress}
-          onFabPress={() => console.log("FAB pressed")}
-        />
-      </View>
+      <View style={styles.screen}>{children}</View>
+      <BottomTabBar activeTab={activeTab} onTabPress={handleTabPress} />
     </SafeAreaView>
   );
 }
