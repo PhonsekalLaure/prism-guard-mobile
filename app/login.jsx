@@ -1,4 +1,3 @@
-// app/login.tsx
 import {
   PrismColors,
   PrismRadius,
@@ -6,6 +5,7 @@ import {
   PrismSpacing,
   PrismTypography,
 } from "@/constants/prismTheme";
+import authService from "@/services/authService";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -21,7 +21,6 @@ import {
   View,
 } from "react-native";
 
-// ── Forgot Password Modal ─────────────────────────────────────────────────────
 const ForgotPasswordModal = ({ visible, onClose }) => {
   const [email, setEmail] = useState("");
 
@@ -42,14 +41,12 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
             <Text style={styles.closeBtnText}>✕</Text>
           </TouchableOpacity>
-
           <Text style={styles.modalIcon}>🔓</Text>
           <Text style={styles.modalTitle}>Reset Password</Text>
           <Text style={styles.modalText}>
             Enter your Employee ID or Registered Email. We will send you a reset
             link.
           </Text>
-
           <View style={styles.inputGroup}>
             <Text style={styles.inputIcon}>✉</Text>
             <TextInput
@@ -62,7 +59,6 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
               autoCapitalize="none"
             />
           </View>
-
           <TouchableOpacity style={styles.primaryBtn} onPress={handleSend}>
             <Text style={styles.primaryBtnText}>SEND LINK</Text>
           </TouchableOpacity>
@@ -72,19 +68,35 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
   );
 };
 
-// ── Login Screen ──────────────────────────────────────────────────────────────
 export default function LoginScreen() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleLogin = () => {
-    // TODO: connect to your API
-    console.log("Login:", email, password);
-
-    router.replace("/(tabs)");
+  const handleLogin = async () => {
+    if (!email || !password) {
+      setError("Please enter your email and password.");
+      return;
+    }
+    try {
+      setError("");
+      setLoading(true);
+      const data = await authService.login(email, password);
+      setShowSuccess(true);
+      setTimeout(() => {
+        setShowSuccess(false);
+        router.replace("/(tabs)");
+      }, 2000);
+    } catch (err) {
+      setError(err?.message || "Login failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -97,7 +109,6 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Brand Section */}
         <View style={styles.brandSection}>
           <View style={styles.logoWrapper}>
             <Image
@@ -109,14 +120,12 @@ export default function LoginScreen() {
           <Text style={styles.appTitle}>PRISM-Guard</Text>
         </View>
 
-        {/* Login Card */}
         <View style={styles.card}>
-          {/* Email */}
           <Text style={styles.inputLabel}>Email</Text>
           <View style={styles.inputGroup}>
             <TextInput
               style={styles.input}
-              placeholder="Value"
+              placeholder="Enter your email"
               placeholderTextColor={PrismColors.textSecondary}
               value={email}
               onChangeText={setEmail}
@@ -125,12 +134,11 @@ export default function LoginScreen() {
             />
           </View>
 
-          {/* Password */}
           <Text style={styles.inputLabel}>Password</Text>
           <View style={styles.inputGroup}>
             <TextInput
               style={[styles.input, styles.passwordInput]}
-              placeholder="Value"
+              placeholder="Enter your password"
               placeholderTextColor={PrismColors.textSecondary}
               value={password}
               onChangeText={setPassword}
@@ -144,12 +152,18 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Sign In Button */}
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleLogin}>
-            <Text style={styles.primaryBtnText}>Sign In</Text>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <TouchableOpacity
+            style={[styles.primaryBtn, loading && { opacity: 0.7 }]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            <Text style={styles.primaryBtnText}>
+              {loading ? "Signing in..." : "Sign In"}
+            </Text>
           </TouchableOpacity>
 
-          {/* Forgot Password */}
           <TouchableOpacity
             style={styles.forgotBtn}
             onPress={() => setShowForgot(true)}
@@ -158,11 +172,19 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Footer */}
         <Text style={styles.footer}>© 2026 PRISM-GUARD System</Text>
       </ScrollView>
 
-      {/* Forgot Password Modal */}
+      <Modal transparent visible={showSuccess} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalIcon}>✅</Text>
+            <Text style={styles.modalTitle}>Login Successful</Text>
+            <Text style={styles.modalText}>Welcome back! Redirecting...</Text>
+          </View>
+        </View>
+      </Modal>
+
       <ForgotPasswordModal
         visible={showForgot}
         onClose={() => setShowForgot(false)}
@@ -171,12 +193,8 @@ export default function LoginScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: PrismColors.navy,
-  },
+  screen: { flex: 1, backgroundColor: PrismColors.navy },
   scroll: {
     flexGrow: 1,
     alignItems: "center",
@@ -184,12 +202,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: PrismSpacing.xl,
     paddingVertical: PrismSpacing.xxl,
   },
-
-  // Brand
-  brandSection: {
-    alignItems: "center",
-    marginBottom: PrismSpacing.xxl,
-  },
+  brandSection: { alignItems: "center", marginBottom: PrismSpacing.xxl },
   logoWrapper: {
     width: 100,
     height: 100,
@@ -198,10 +211,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: PrismSpacing.md,
   },
-  logo: {
-    width: 100,
-    height: 100,
-  },
+  logo: { width: 100, height: 100 },
   appTitle: {
     fontSize: PrismTypography.xl,
     fontWeight: PrismTypography.extraBold,
@@ -209,8 +219,6 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     marginTop: PrismSpacing.sm,
   },
-
-  // Card
   card: {
     backgroundColor: PrismColors.white,
     borderRadius: PrismRadius.xl,
@@ -246,17 +254,15 @@ const styles = StyleSheet.create({
     fontSize: PrismTypography.base,
     color: PrismColors.textPrimary,
   },
-  passwordInput: {
-    paddingRight: PrismSpacing.xl,
+  passwordInput: { paddingRight: PrismSpacing.xl },
+  eyeBtn: { padding: PrismSpacing.xs },
+  eyeIcon: { fontSize: 16 },
+  errorText: {
+    color: "red",
+    fontSize: PrismTypography.xs,
+    marginBottom: PrismSpacing.sm,
+    textAlign: "center",
   },
-  eyeBtn: {
-    padding: PrismSpacing.xs,
-  },
-  eyeIcon: {
-    fontSize: 16,
-  },
-
-  // Buttons
   primaryBtn: {
     backgroundColor: PrismColors.gold,
     borderRadius: PrismRadius.md,
@@ -271,26 +277,19 @@ const styles = StyleSheet.create({
     color: PrismColors.white,
     letterSpacing: 0.5,
   },
-  forgotBtn: {
-    alignItems: "center",
-    marginTop: PrismSpacing.md,
-  },
+  forgotBtn: { alignItems: "center", marginTop: PrismSpacing.md },
   forgotText: {
     fontSize: PrismTypography.sm,
     color: PrismColors.navy,
     fontWeight: PrismTypography.medium,
     textDecorationLine: "underline",
   },
-
-  // Footer
   footer: {
     marginTop: PrismSpacing.xl,
     fontSize: PrismTypography.xs,
     color: PrismColors.textLight,
     textAlign: "center",
   },
-
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: PrismColors.overlayDark,
@@ -312,10 +311,7 @@ const styles = StyleSheet.create({
     right: PrismSpacing.md,
     padding: PrismSpacing.xs,
   },
-  closeBtnText: {
-    fontSize: 18,
-    color: PrismColors.textSecondary,
-  },
+  closeBtnText: { fontSize: 18, color: PrismColors.textSecondary },
   modalIcon: {
     fontSize: 36,
     marginBottom: PrismSpacing.md,
