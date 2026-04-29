@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet } from "react-native";
 
 import AnnouncementList from "@/components/dashboard/AnnouncementList";
 import ClockOutModal from "@/components/dashboard/Clockoutmodal";
@@ -11,15 +11,40 @@ import TimeInButton from "@/components/dashboard/TimeinButton";
 import { PrismSpacing } from "@/constants/prismTheme";
 
 const ANNOUNCEMENTS = [
-  { id: "1", title: "New Uniform Policy", preview: "All officers must wear the new insignia starting Monday." },
-  { id: "2", title: "SOSIA MEMORANDUM ADVISORY 064-2025", preview: "This pertains to the Memorandum issued of PNP-SOSIA..." },
-  { id: "3", title: "Gate 3 Maintenance", preview: "Electric gate repair scheduled for 14:00 today." },
+  {
+    id: "1",
+    title: "New Uniform Policy",
+    preview: "All officers must wear the new insignia starting Monday.",
+  },
+  {
+    id: "2",
+    title: "SOSIA MEMORANDUM ADVISORY 064-2025",
+    preview: "This pertains to the Memorandum issued of PNP-SOSIA...",
+  },
+  {
+    id: "3",
+    title: "Gate 3 Maintenance",
+    preview: "Electric gate repair scheduled for 14:00 today.",
+  },
 ];
 
 const formatDate = () => {
   const now = new Date();
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const monthNames = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
   const day = dayNames[now.getDay()];
   const month = monthNames[now.getMonth()];
   const date = now.getDate();
@@ -35,7 +60,11 @@ export default function DashboardScreen() {
   const [showModal, setShowModal] = useState(false);
   const [dateString, setDateString] = useState(formatDate());
   const [toast, setToast] = useState({
-    visible: false, icon: "📍", title: "", message: "", type: "success",
+    visible: false,
+    icon: "📍",
+    title: "",
+    message: "",
+    type: "success",
   });
   const toastTimeout = useRef(null);
 
@@ -55,7 +84,12 @@ export default function DashboardScreen() {
   const handleMainAction = () => {
     if (!isOnDuty) {
       setIsOnDuty(true);
-      showToast({ icon: "📍", title: "GPS Verified", message: "Location confirmed. You are clocked in.", type: "success" });
+      showToast({
+        icon: "📍",
+        title: "GPS Verified",
+        message: "Location confirmed. You are clocked in.",
+        type: "success",
+      });
     } else {
       setShowModal(true);
     }
@@ -69,11 +103,22 @@ export default function DashboardScreen() {
         hasNotification
       />
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        <ShiftStatusCard shiftStart="07:00" shiftEnd="19:00" location="SM Mall of Asia" isOnDuty={isOnDuty} />
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <ShiftStatusCard
+          shiftStart="07:00"
+          shiftEnd="19:00"
+          location="SM Mall of Asia"
+          isOnDuty={isOnDuty}
+        />
         <TimeInButton isOnDuty={isOnDuty} onPress={handleMainAction} />
-        <AnnouncementList announcements={ANNOUNCEMENTS} onSeeAll={() => {}} onItemPress={() => {}} />
-        <View style={{ height: 90 }} />
+        <AnnouncementList
+          announcements={ANNOUNCEMENTS}
+          onSeeAll={() => {}}
+          onItemPress={() => {}}
+        />
       </ScrollView>
 
       <NotificationToast {...toast} />
@@ -81,7 +126,10 @@ export default function DashboardScreen() {
       <ClockOutModal
         visible={showModal}
         onCancel={() => setShowModal(false)}
-        onConfirm={() => { setShowModal(false); setIsOnDuty(false); }}
+        onConfirm={() => {
+          setShowModal(false);
+          setIsOnDuty(false);
+        }}
       />
     </ScreenWrapper>
   );

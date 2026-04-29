@@ -1,6 +1,14 @@
-import { Stack } from "expo-router";
-import React from "react";
+import { Tabs } from "expo-router";
 
 export default function TabLayout() {
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return (
+    <Tabs
+      tabBar={() => null}
+      screenOptions={{
+        headerShown: false,
+        tabBarShowLabel: false,
+        tabBarStyle: { display: "none", height: 0 },
+      }}
+    />
+  );
 }
