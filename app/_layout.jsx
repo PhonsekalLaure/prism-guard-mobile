@@ -15,7 +15,9 @@ export default function Layout() {
 
   return (
     <Stack screenOptions={{ headerShown: false, animation: "none" }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="index" />
+      <Stack.Screen name="login" />
+      <Stack.Screen name="(tabs)" />
     </Stack>
   );
 }
