@@ -21,6 +21,7 @@ const authService = {
     await AsyncStorage.setItem("access_token", data.session.access_token);
     await AsyncStorage.setItem("refresh_token", data.session.refresh_token);
     await AsyncStorage.setItem("profile", JSON.stringify(data.profile));
+    await AsyncStorage.setItem("user_email", data.user.email); // ← add this
 
     return data;
   },

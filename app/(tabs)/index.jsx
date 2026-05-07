@@ -9,6 +9,7 @@ import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import ShiftStatusCard from "@/components/dashboard/Shiftstatuscard";
 import TimeInButton from "@/components/dashboard/TimeinButton";
 import { PrismSpacing } from "@/constants/prismTheme";
+import { useProfile } from "@/hooks/useProfile";
 
 const ANNOUNCEMENTS = [
   {
@@ -67,6 +68,7 @@ export default function DashboardScreen() {
     type: "success",
   });
   const toastTimeout = useRef(null);
+  const { fullName } = useProfile();
 
   useEffect(() => {
     const interval = setInterval(() => setDateString(formatDate()), 60000);
@@ -98,7 +100,7 @@ export default function DashboardScreen() {
   return (
     <ScreenWrapper activeTabKey="home">
       <DashboardHeader
-        officerName="Officer Juan Cruz"
+        officerName={`Officer ${fullName}`}
         dateString={dateString}
         hasNotification
       />
