@@ -9,7 +9,10 @@ export function useProfile() {
 
   useEffect(() => {
     authService.getProfile().then((p) => {
-      if (p) setProfile(p);
+      if (p) {
+        setProfile(p);
+        console.log("PROFILE DATA:", JSON.stringify(p, null, 2)); // 👈 add this
+      }
     });
     AsyncStorage.getItem("user_email").then((e) => {
       if (e) setEmail(e);
