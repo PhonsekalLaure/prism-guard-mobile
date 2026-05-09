@@ -9,7 +9,10 @@ import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import ShiftStatusCard from "@/components/dashboard/Shiftstatuscard";
 import TimeInButton from "@/components/dashboard/TimeinButton";
 import { PrismSpacing } from "@/constants/prismTheme";
+import { useDeployment } from "@/hooks/useDeployment"; // 👈
 import { useProfile } from "@/hooks/useProfile";
+import { validateGuardLocation } from "@/utils/geofence"; // 👈
+import { useRouter } from "expo-router"; // 👈
 
 const ANNOUNCEMENTS = [
   {
@@ -59,6 +62,7 @@ const formatDate = () => {
 export default function DashboardScreen() {
   const [isOnDuty, setIsOnDuty] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [dateString, setDateString] = useState(formatDate());
   const [toast, setToast] = useState({
     visible: false,
@@ -67,8 +71,11 @@ export default function DashboardScreen() {
     message: "",
     type: "success",
   });
+
   const toastTimeout = useRef(null);
-  const { fullName } = useProfile();
+  const { fullName, profile } = useProfile(); // 👈 added profile
+  const { deployment } = useDeployment(profile?.id); // 👈 fetch active deployment
+  const router = useRouter(); // 👈
 
   useEffect(() => {
     const interval = setInterval(() => setDateString(formatDate()), 60000);
@@ -83,15 +90,57 @@ export default function DashboardScreen() {
     }, 3000);
   };
 
-  const handleMainAction = () => {
+  const handleMainAction = async () => {
     if (!isOnDuty) {
-      setIsOnDuty(true);
-      showToast({
-        icon: "📍",
-        title: "GPS Verified",
-        message: "Location confirmed. You are clocked in.",
-        type: "success",
-      });
+      try {
+        setLoading(true);
+
+        if (!deployment?.client_sites) {
+          showToast({
+            icon: "⚠️",
+            title: "No Active Deployment",
+            message: "You have no active site assignment.",
+            type: "error",
+          });
+          return;
+        }
+
+        // Pass the site directly — no extra fetch needed
+        const result = await validateGuardLocation(deployment.client_sites);
+
+        if (!result.isInside) {
+          showToast({
+            icon: "❌",
+            title: "Outside Geofence",
+            message: `You are ${result.distance}m away. Must be within ${result.post.geofence_radius_meters}m.`,
+            type: "error",
+          });
+          return;
+        }
+
+        setIsOnDuty(true);
+
+        router.push({
+          pathname: "/check-in-confirmation",
+          params: {
+            post: JSON.stringify(result.post),
+            guardCoords: JSON.stringify(result.coords),
+            distance: result.distance,
+            checkType: "shift_start",
+            timestamp: new Date().toISOString(),
+          },
+        });
+      } catch (err) {
+        showToast({
+          icon: "⚠️",
+          title: "Error",
+          message: "Something went wrong. Please try again.",
+          type: "error",
+        });
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     } else {
       setShowModal(true);
     }
@@ -112,10 +161,14 @@ export default function DashboardScreen() {
         <ShiftStatusCard
           shiftStart="07:00"
           shiftEnd="19:00"
-          location="SM Mall of Asia"
+          location={deployment?.client_sites?.site_name || "No Site Assigned"} // 👈
           isOnDuty={isOnDuty}
         />
-        <TimeInButton isOnDuty={isOnDuty} onPress={handleMainAction} />
+        <TimeInButton
+          isOnDuty={isOnDuty}
+          onPress={handleMainAction}
+          disabled={loading}
+        />
         <AnnouncementList
           announcements={ANNOUNCEMENTS}
           onSeeAll={() => {}}
