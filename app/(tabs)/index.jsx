@@ -9,10 +9,15 @@ import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import ShiftStatusCard from "@/components/dashboard/Shiftstatuscard";
 import TimeInButton from "@/components/dashboard/TimeinButton";
 import { PrismSpacing } from "@/constants/prismTheme";
-import { useDeployment } from "@/hooks/useDeployment"; // 👈
+import { useDeployment } from "@/hooks/useDeployment";
 import { useProfile } from "@/hooks/useProfile";
-import { validateGuardLocation } from "@/utils/geofence"; // 👈
-import { useRouter } from "expo-router"; // 👈
+import {
+  clockIn,
+  clockOut,
+  fetchActiveAttendance,
+} from "@/services/attendanceService";
+import { validateGuardLocation } from "@/utils/geofence";
+import { useRouter } from "expo-router";
 
 const ANNOUNCEMENTS = [
   {
@@ -36,18 +41,8 @@ const formatDate = () => {
   const now = new Date();
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
   ];
   const day = dayNames[now.getDay()];
   const month = monthNames[now.getMonth()];
@@ -61,6 +56,7 @@ const formatDate = () => {
 
 export default function DashboardScreen() {
   const [isOnDuty, setIsOnDuty] = useState(false);
+  const [activeAttendanceLog, setActiveAttendanceLog] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
   const [dateString, setDateString] = useState(formatDate());
@@ -73,14 +69,30 @@ export default function DashboardScreen() {
   });
 
   const toastTimeout = useRef(null);
-  const { fullName, profile } = useProfile(); // 👈 added profile
-  const { deployment } = useDeployment(profile?.id); // 👈 fetch active deployment
-  const router = useRouter(); // 👈
+  const { fullName, profile } = useProfile();
+  const { deployment } = useDeployment(profile?.id);
+  const router = useRouter();
 
   useEffect(() => {
     const interval = setInterval(() => setDateString(formatDate()), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const loadActiveAttendance = async () => {
+      try {
+        const attendanceLog = await fetchActiveAttendance();
+        setActiveAttendanceLog(attendanceLog);
+        setIsOnDuty(Boolean(attendanceLog));
+      } catch (err) {
+        console.warn("Could not load active attendance:", err.message);
+      }
+    };
+
+    loadActiveAttendance();
+  }, [profile?.id]);
 
   const showToast = (data) => {
     if (toastTimeout.current) clearTimeout(toastTimeout.current);
@@ -105,31 +117,40 @@ export default function DashboardScreen() {
           return;
         }
 
-        // Pass the site directly — no extra fetch needed
         const result = await validateGuardLocation(deployment.client_sites);
 
-        if (!result.isInside) {
+        // Only clock in if inside geofence.
+        if (result.isInside) {
+          const { attendanceLog } = await clockIn({
+            siteId: deployment.site_id || deployment.client_sites.id,
+            latitude: result.coords.latitude,
+            longitude: result.coords.longitude,
+          });
+
+          setActiveAttendanceLog(attendanceLog);
+          setIsOnDuty(true);
+        } else {
           showToast({
-            icon: "❌",
+            icon: "!",
             title: "Outside Geofence",
-            message: `You are ${result.distance}m away. Must be within ${result.post.geofence_radius_meters}m.`,
+            message: "You must be inside your assigned site to clock in.",
             type: "error",
           });
-          return;
         }
 
-        setIsOnDuty(true);
-
+        // Always show map — inside or outside
         router.push({
           pathname: "/check-in-confirmation",
           params: {
-            post: JSON.stringify(result.post),
+            post:        JSON.stringify(result.post),
             guardCoords: JSON.stringify(result.coords),
-            distance: result.distance,
-            checkType: "shift_start",
-            timestamp: new Date().toISOString(),
+            distance:    result.distance,
+            checkType:   "shift_start",
+            timestamp:   new Date().toISOString(),
+            isInside:    String(result.isInside),
           },
         });
+
       } catch (err) {
         showToast({
           icon: "⚠️",
@@ -143,6 +164,48 @@ export default function DashboardScreen() {
       }
     } else {
       setShowModal(true);
+    }
+  };
+
+  const handleClockOut = async () => {
+    setShowModal(false);
+
+    try {
+      setLoading(true);
+
+      if (deployment?.client_sites) {
+        const position = await validateGuardLocation(deployment.client_sites);
+
+        if (!activeAttendanceLog?.id) {
+          throw new Error("No active attendance log found.");
+        }
+
+        await clockOut({
+          attendanceLogId: activeAttendanceLog.id,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+
+        setActiveAttendanceLog(null);
+        setIsOnDuty(false);
+
+        router.push({
+          pathname: "/check-in-confirmation",
+          params: {
+            post:        JSON.stringify(position.post),
+            guardCoords: JSON.stringify(position.coords),
+            distance:    position.distance,
+            checkType:   "logout",
+            timestamp:   new Date().toISOString(),
+            isInside:    String(position.isInside),
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Clock-out failed:", err);
+      setIsOnDuty(false);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -161,7 +224,7 @@ export default function DashboardScreen() {
         <ShiftStatusCard
           shiftStart="07:00"
           shiftEnd="19:00"
-          location={deployment?.client_sites?.site_name || "No Site Assigned"} // 👈
+          location={deployment?.client_sites?.site_name || "No Site Assigned"}
           isOnDuty={isOnDuty}
         />
         <TimeInButton
@@ -181,10 +244,7 @@ export default function DashboardScreen() {
       <ClockOutModal
         visible={showModal}
         onCancel={() => setShowModal(false)}
-        onConfirm={() => {
-          setShowModal(false);
-          setIsOnDuty(false);
-        }}
+        onConfirm={handleClockOut}
       />
     </ScreenWrapper>
   );

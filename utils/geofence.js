@@ -2,18 +2,31 @@
 import * as Location from "expo-location";
 
 function getDistanceMeters(coord1, coord2) {
-  const R = 6371000;
-  const φ1 = (coord1.latitude * Math.PI) / 180;
-  const φ2 = (coord2.latitude * Math.PI) / 180;
-  const Δφ = ((coord2.latitude - coord1.latitude) * Math.PI) / 180;
-  const Δλ = ((coord2.longitude - coord1.longitude) * Math.PI) / 180;
+  const earthRadiusMeters = 6371000;
+  const lat1 = (coord1.latitude * Math.PI) / 180;
+  const lat2 = (coord2.latitude * Math.PI) / 180;
+  const deltaLat = ((coord2.latitude - coord1.latitude) * Math.PI) / 180;
+  const deltaLng = ((coord2.longitude - coord1.longitude) * Math.PI) / 180;
   const a =
-    Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
+
+  return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Now accepts site directly instead of fetching it
 export async function validateGuardLocation(site) {
+  const siteLatitude = Number(site?.latitude);
+  const siteLongitude = Number(site?.longitude);
+  const radiusMeters = Number(site?.geofence_radius_meters);
+
+  if (
+    !Number.isFinite(siteLatitude) ||
+    !Number.isFinite(siteLongitude) ||
+    !Number.isFinite(radiusMeters)
+  ) {
+    throw new Error("Assigned site geofence is incomplete");
+  }
+
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== "granted") throw new Error("Location permission denied");
 
@@ -25,13 +38,18 @@ export async function validateGuardLocation(site) {
 
   const distance = getDistanceMeters(
     { latitude, longitude },
-    { latitude: site.latitude, longitude: site.longitude },
+    { latitude: siteLatitude, longitude: siteLongitude },
   );
 
   return {
-    isInside: distance <= site.geofence_radius_meters,
+    isInside: distance <= radiusMeters,
     distance: Math.round(distance),
-    post: site,
+    post: {
+      ...site,
+      latitude: siteLatitude,
+      longitude: siteLongitude,
+      geofence_radius_meters: radiusMeters,
+    },
     coords: { latitude, longitude, accuracy },
     timestamp: position.timestamp,
   };
