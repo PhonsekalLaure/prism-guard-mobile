@@ -5,10 +5,12 @@ import KpiGrid from "@/components/schedule/KpiGrid";
 import MonthSelector from "@/components/schedule/MonthSelector";
 import RequestLeaveButton from "@/components/schedule/Requestleavebutton";
 import ScheduleHeader from "@/components/schedule/Scheduleheader";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ScrollView } from "react-native";
 
 export default function ScheduleScreen() {
+  const router = useRouter();
   const [month, setMonth] = useState(1); // Feb = 1w
   const [year, setYear] = useState(2026);
   const [selectedDay, setSelectedDay] = useState(9);
@@ -45,7 +47,7 @@ export default function ScheduleScreen() {
         />
         <DeploymentCard />
         <KpiGrid />
-        <RequestLeaveButton onPress={() => {}} />
+        <RequestLeaveButton onPress={() => router.push("/(tabs)/leave")} />
       </ScrollView>
     </ScreenWrapper>
   );
