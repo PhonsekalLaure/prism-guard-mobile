@@ -18,6 +18,7 @@ const ReviewModal = ({
   location,
   time,
   narrative,
+  submitting = false,
   onEdit,
   onConfirm,
 }) => (
@@ -52,14 +53,18 @@ const ReviewModal = ({
           <TouchableOpacity
             style={[styles.btn, styles.btnEdit]}
             onPress={onEdit}
+            disabled={submitting}
           >
             <Text style={styles.btnEditText}>EDIT</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.btn, styles.btnSubmit]}
+            style={[styles.btn, styles.btnSubmit, submitting && styles.btnDisabled]}
             onPress={onConfirm}
+            disabled={submitting}
           >
-            <Text style={styles.btnSubmitText}>SUBMIT</Text>
+            <Text style={styles.btnSubmitText}>
+              {submitting ? "SUBMITTING..." : "SUBMIT"}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -140,6 +145,9 @@ const styles = StyleSheet.create({
   btnSubmit: {
     backgroundColor: PrismColors.gold,
     ...PrismShadows.button,
+  },
+  btnDisabled: {
+    opacity: 0.7,
   },
   btnSubmitText: {
     fontSize: 14,

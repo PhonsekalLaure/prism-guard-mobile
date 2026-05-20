@@ -24,6 +24,9 @@ import {
     PrismSpacing,
     PrismTypography,
 } from "@/constants/prismTheme";
+import { useDeployment } from "@/hooks/useDeployment";
+import { useProfile } from "@/hooks/useProfile";
+import incidentService from "@/services/incidentService";
 
 // Helpers
 const formatDateTime = (date) => {
@@ -52,15 +55,19 @@ const formatDateTime = (date) => {
   return `${day}, ${month} ${dateNum} • ${hours}:${minutes} ${ampm}`;
 };
 
-const MOCK_LOCATION = "SM Mall of Asia";
-
 export default function ReportScreen() {
   const router = useRouter();
+  const { profile } = useProfile();
+  const { deployment } = useDeployment(profile?.id);
   const [narrative, setNarrative] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const incidentTime = formatDateTime(new Date());
+  const locationLabel = deployment?.client_sites?.site_name || "Current assigned site";
 
   const handleSubmitPress = () => {
+    if (submitting) return;
+
     if (narrative.trim().length < 5) {
       Alert.alert(
         "Incomplete Report",
@@ -71,16 +78,26 @@ export default function ReportScreen() {
     setModalVisible(true);
   };
 
-  const handleConfirm = () => {
-    setModalVisible(false);
-    // TODO: call your actual API here
-    setTimeout(() => {
+  const handleConfirm = async () => {
+    if (submitting) return;
+
+    try {
+      setSubmitting(true);
+      const incident = await incidentService.submitIncidentReport(narrative.trim());
+      setModalVisible(false);
       Alert.alert(
         "Report Submitted",
-        "Report ID #9923 submitted successfully.\nAdmin has been notified.",
+        `Report ${incident?.id ? `#${incident.id.slice(0, 8)}` : ""} submitted for operations review.`,
         [{ text: "OK", onPress: () => setNarrative("") }],
       );
-    }, 300);
+    } catch (err) {
+      Alert.alert(
+        "Submission Failed",
+        err.message || "Unable to submit the incident report. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -114,16 +131,19 @@ export default function ReportScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <LocationCard location={MOCK_LOCATION} />
+        <LocationCard location={locationLabel} />
         <TimeCard />
         <NarrativeInput value={narrative} onChangeText={setNarrative} />
 
         <TouchableOpacity
-          style={styles.submitBtn}
+          style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
           onPress={handleSubmitPress}
           activeOpacity={0.85}
+          disabled={submitting}
         >
-          <Text style={styles.submitText}>Submit Report</Text>
+          <Text style={styles.submitText}>
+            {submitting ? "Submitting Report..." : "Submit Report"}
+          </Text>
           <Ionicons name="send" size={18} color={PrismColors.navy} />
         </TouchableOpacity>
       </ScrollView>
@@ -131,10 +151,11 @@ export default function ReportScreen() {
       {/* Review Modal */}
       <ReviewModal
         visible={modalVisible}
-        location={MOCK_LOCATION}
+        location={locationLabel}
         time={incidentTime}
         narrative={narrative}
-        onEdit={() => setModalVisible(false)}
+        submitting={submitting}
+        onEdit={() => !submitting && setModalVisible(false)}
         onConfirm={handleConfirm}
       />
     </ScreenWrapper>
@@ -182,6 +203,9 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
+  },
+  submitBtnDisabled: {
+    opacity: 0.7,
   },
   submitText: {
     fontSize: 15,
