@@ -24,10 +24,42 @@ import {
 
 const ForgotPasswordModal = ({ visible, onClose }) => {
   const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
 
-  const handleSend = () => {
-    onClose();
+  const resetState = () => {
     setEmail("");
+    setStatus("");
+    setError("");
+    setSending(false);
+  };
+
+  const handleClose = () => {
+    resetState();
+    onClose();
+  };
+
+  const handleSend = async () => {
+    if (!email.trim()) {
+      setError("Please enter your registered email or employee ID.");
+      return;
+    }
+
+    try {
+      setSending(true);
+      setError("");
+      setStatus("");
+      const result = await authService.forgotPassword(email.trim());
+      setStatus(
+        result.message ||
+          "If an account exists, a password reset link has been sent.",
+      );
+    } catch (err) {
+      setError(err?.message || "Unable to send reset link. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -35,11 +67,11 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
       transparent
       visible={visible}
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+          <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
             <Text style={styles.closeBtnText}>✕</Text>
           </TouchableOpacity>
           <Text style={styles.modalIcon}>🔓</Text>
@@ -60,8 +92,16 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
               autoCapitalize="none"
             />
           </View>
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleSend}>
-            <Text style={styles.primaryBtnText}>SEND LINK</Text>
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {status ? <Text style={styles.successText}>{status}</Text> : null}
+          <TouchableOpacity
+            style={[styles.primaryBtn, sending && { opacity: 0.7 }]}
+            onPress={handleSend}
+            disabled={sending}
+          >
+            <Text style={styles.primaryBtnText}>
+              {sending ? "Sending..." : "SEND LINK"}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -269,6 +309,13 @@ const styles = StyleSheet.create({
     fontSize: PrismTypography.xs,
     marginBottom: PrismSpacing.sm,
     textAlign: "center",
+  },
+  successText: {
+    color: "#0f8a3a",
+    fontSize: PrismTypography.xs,
+    marginBottom: PrismSpacing.sm,
+    textAlign: "center",
+    lineHeight: 18,
   },
   primaryBtn: {
     backgroundColor: PrismColors.gold,
