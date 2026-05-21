@@ -18,6 +18,7 @@ export default function Layout() {
     <Stack screenOptions={{ headerShown: false, animation: "none" }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="login" />
+      <Stack.Screen name="reset-password" />
       <Stack.Screen name="(tabs)" />
       {/* Add this 👇 */}
       <Stack.Screen
