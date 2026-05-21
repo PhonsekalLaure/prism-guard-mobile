@@ -4,9 +4,9 @@
     "slug": "prism-guard-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "updates": {          
-      "enabled": false    
-    },    
+    "updates": {
+      "enabled": false
+    },
     "icon": "./assets/images/icon.png",
     "scheme": "prismguardmobile",
     "userInterfaceStyle": "automatic",
@@ -52,11 +52,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "d7ae4ded-1239-4b0e-a42c-70b8a13cd95c"
-      }
-    },
-    "owner": "papilooz"
+      "router": {}
+    }
   }
 }
