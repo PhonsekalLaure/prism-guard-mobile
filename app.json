@@ -4,6 +4,9 @@
     "slug": "prism-guard-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
+    "updates": {          
+      "enabled": false    
+    },    
     "icon": "./assets/images/icon.png",
     "scheme": "prismguardmobile",
     "userInterfaceStyle": "automatic",
