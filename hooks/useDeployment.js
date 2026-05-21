@@ -15,16 +15,9 @@ export function useDeployment(employeeId) {
 
     async function fetchDeployment() {
       try {
-        const token = await authService.getToken();
-
-        const response = await fetch(
+        const response = await authService.authenticatedFetch(
           `${BASE_URL}/api/mobile/deployments/${employeeId}/active`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          {},
         );
 
         if (!response.ok) throw new Error("No active deployment");

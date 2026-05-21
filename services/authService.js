@@ -78,6 +78,48 @@ const authService = {
     return await AsyncStorage.getItem("access_token");
   },
 
+  async refreshSession() {
+    const refreshToken = await AsyncStorage.getItem("refresh_token");
+    if (!refreshToken) throw new Error("No refresh token found");
+
+    const response = await fetch(`${BASE_URL}/api/mobile/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      await this.logout();
+      throw new Error(data.error || "Session expired");
+    }
+
+    await AsyncStorage.setItem("access_token", data.session.access_token);
+    await AsyncStorage.setItem("refresh_token", data.session.refresh_token);
+    return data.session.access_token;
+  },
+
+  async authenticatedFetch(url, options = {}) {
+    const token = await this.getToken();
+    if (!token) throw new Error("No session found");
+
+    const buildOptions = (accessToken) => ({
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    let response = await fetch(url, buildOptions(token));
+    if (response.status !== 401) return response;
+
+    const refreshedToken = await this.refreshSession();
+    response = await fetch(url, buildOptions(refreshedToken));
+    return response;
+  },
+
   async getProfile() {
     const profile = await AsyncStorage.getItem("profile");
     return profile ? JSON.parse(profile) : null;
