@@ -26,6 +26,23 @@ const authService = {
     return data;
   },
 
+  async forgotPassword(identifier) {
+    const response = await fetch(`${BASE_URL}/api/mobile/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const err = new Error(data.error || "Failed to send reset link");
+      throw err;
+    }
+
+    return data;
+  },
+
   async getMe() {
     const token = await AsyncStorage.getItem("access_token");
 

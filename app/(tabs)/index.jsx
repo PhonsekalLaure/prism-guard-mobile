@@ -16,26 +16,9 @@ import {
   clockOut,
   fetchActiveAttendance,
 } from "@/services/attendanceService";
+import { fetchAnnouncements } from "@/services/announcementsService";
 import { validateGuardLocation } from "@/utils/geofence";
 import { useRouter } from "expo-router";
-
-const ANNOUNCEMENTS = [
-  {
-    id: "1",
-    title: "New Uniform Policy",
-    preview: "All officers must wear the new insignia starting Monday.",
-  },
-  {
-    id: "2",
-    title: "SOSIA MEMORANDUM ADVISORY 064-2025",
-    preview: "This pertains to the Memorandum issued of PNP-SOSIA...",
-  },
-  {
-    id: "3",
-    title: "Gate 3 Maintenance",
-    preview: "Electric gate repair scheduled for 14:00 today.",
-  },
-];
 
 const formatDate = () => {
   const now = new Date();
@@ -59,6 +42,9 @@ export default function DashboardScreen() {
   const [activeAttendanceLog, setActiveAttendanceLog] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(true);
+  const [announcementsError, setAnnouncementsError] = useState(null);
   const [dateString, setDateString] = useState(formatDate());
   const [toast, setToast] = useState({
     visible: false,
@@ -77,6 +63,26 @@ export default function DashboardScreen() {
     const interval = setInterval(() => setDateString(formatDate()), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const loadAnnouncements = async () => {
+      try {
+        setAnnouncementsLoading(true);
+        setAnnouncementsError(null);
+        const data = await fetchAnnouncements();
+        setAnnouncements(data);
+      } catch (err) {
+        setAnnouncementsError(err.message);
+        console.warn("Could not load announcements:", err.message);
+      } finally {
+        setAnnouncementsLoading(false);
+      }
+    };
+
+    loadAnnouncements();
+  }, [profile?.id]);
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -233,7 +239,9 @@ export default function DashboardScreen() {
           disabled={loading}
         />
         <AnnouncementList
-          announcements={ANNOUNCEMENTS}
+          announcements={announcements}
+          loading={announcementsLoading}
+          error={announcementsError}
           onSeeAll={() => {}}
           onItemPress={() => {}}
         />
