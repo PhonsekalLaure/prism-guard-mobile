@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -78,25 +78,33 @@ export default function ReportScreen() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(null);
 
-  const incidentTime = formatDateTime(occurredAt);
   const locationLabel = deployment?.client_sites?.site_name || "Current assigned site";
 
-  const loadIncidentHistory = async () => {
+  const loadIncidentHistory = useCallback(async ({
+    quiet = false,
+    isActive = () => true,
+  } = {}) => {
     try {
-      setHistoryLoading(true);
+      if (!quiet) setHistoryLoading(true);
       setHistoryError(null);
       const incidents = await incidentService.fetchIncidentReports(5);
+      if (!isActive()) return;
       setIncidentHistory(incidents);
     } catch (err) {
+      if (!isActive()) return;
       setHistoryError(err.message || "Unable to load recent reports.");
     } finally {
-      setHistoryLoading(false);
+      if (isActive()) setHistoryLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
-    loadIncidentHistory();
-  }, []);
+    let active = true;
+    loadIncidentHistory({ isActive: () => active });
+    return () => {
+      active = false;
+    };
+  }, [loadIncidentHistory]);
 
   const handleSubmitPress = () => {
     if (submitting) return;
@@ -109,7 +117,8 @@ export default function ReportScreen() {
       return;
     }
 
-    setOccurredAt(new Date());
+    const now = new Date();
+    setOccurredAt(now);
     setModalVisible(true);
   };
 
@@ -128,7 +137,7 @@ export default function ReportScreen() {
         `Report ${incident?.id ? `#${incident.id.slice(0, 8)}` : ""} submitted for operations review.`,
         [{ text: "OK", onPress: () => setNarrative("") }],
       );
-      await loadIncidentHistory();
+      await loadIncidentHistory({ quiet: true });
     } catch (err) {
       Alert.alert(
         "Submission Failed",
@@ -224,7 +233,7 @@ export default function ReportScreen() {
       <ReviewModal
         visible={modalVisible}
         location={locationLabel}
-        time={incidentTime}
+        time={formatDateTime(occurredAt)}
         narrative={narrative}
         submitting={submitting}
         onEdit={() => !submitting && setModalVisible(false)}
