@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
   },
   narrativeText: {
     fontSize: 13,
-    color: PrismColors.textDark,
+    color: PrismColors.textPrimary,
     lineHeight: 20,
   },
   actions: {

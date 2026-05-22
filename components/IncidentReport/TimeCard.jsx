@@ -1,8 +1,8 @@
 import {
-    PrismColors,
-    PrismShadows,
-    PrismSpacing,
-    PrismTypography,
+  PrismColors,
+  PrismShadows,
+  PrismSpacing,
+  PrismTypography,
 } from "@/constants/prismTheme";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
@@ -31,7 +31,7 @@ const formatDateTime = (date) => {
   const minutes = String(date.getMinutes()).padStart(2, "0");
   const ampm = hours >= 12 ? "PM" : "AM";
   hours = hours % 12 || 12;
-  return `${day}, ${month} ${dateNum} • ${hours}:${minutes} ${ampm}`;
+  return `${day}, ${month} ${dateNum} | ${hours}:${minutes} ${ampm}`;
 };
 
 const TimeCard = () => {
