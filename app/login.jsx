@@ -24,15 +24,27 @@ import {
 
 const ForgotPasswordModal = ({ visible, onClose }) => {
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const [step, setStep] = useState("request");
 
   const resetState = () => {
     setEmail("");
+    setCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
     setStatus("");
     setError("");
     setSending(false);
+    setStep("request");
   };
 
   const handleClose = () => {
@@ -51,12 +63,47 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
       setError("");
       setStatus("");
       const result = await authService.forgotPassword(email.trim());
+      setStep("verify");
       setStatus(
         result.message ||
-          "If an account exists, a password reset link has been sent.",
+          "If an account exists, a password reset code has been sent.",
       );
     } catch (err) {
-      setError(err?.message || "Unable to send reset link. Please try again.");
+      setError(err?.message || "Unable to send reset code. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!email.trim() || !code.trim() || !newPassword || !confirmPassword) {
+      setError("Please enter your code and new password.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    try {
+      setSending(true);
+      setError("");
+      setStatus("");
+      const result = await authService.resetPasswordWithCode(
+        email.trim(),
+        code.trim(),
+        newPassword,
+      );
+      setStatus(result.message || "Password updated successfully.");
+      setTimeout(handleClose, 1800);
+    } catch (err) {
+      setError(err?.message || "Unable to reset password. Please try again.");
     } finally {
       setSending(false);
     }
@@ -78,7 +125,7 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
           <Text style={styles.modalTitle}>Reset Password</Text>
           <Text style={styles.modalText}>
             Enter your Employee ID or Registered Email. We will send you a reset
-            link.
+            code.
           </Text>
           <View style={styles.inputGroup}>
             <Text style={styles.inputIcon}>✉</Text>
@@ -90,19 +137,104 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              editable={step === "request"}
             />
           </View>
+          {step === "verify" ? (
+            <>
+              <View style={styles.inputGroup}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Reset code"
+                  placeholderTextColor={PrismColors.textSecondary}
+                  value={code}
+                  onChangeText={setCode}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder="New password"
+                  placeholderTextColor={PrismColors.textSecondary}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry={!showNewPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowNewPassword(!showNewPassword)}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showNewPassword ? "Hide new password" : "Show new password"
+                  }
+                >
+                  <Ionicons
+                    name={showNewPassword ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color={PrismColors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.inputGroup}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder="Confirm password"
+                  placeholderTextColor={PrismColors.textSecondary}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showConfirmPassword
+                      ? "Hide confirm password"
+                      : "Show confirm password"
+                  }
+                >
+                  <Ionicons
+                    name={
+                      showConfirmPassword ? "eye-outline" : "eye-off-outline"
+                    }
+                    size={20}
+                    color={PrismColors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : null}
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {status ? <Text style={styles.successText}>{status}</Text> : null}
           <TouchableOpacity
             style={[styles.primaryBtn, sending && { opacity: 0.7 }]}
-            onPress={handleSend}
+            onPress={step === "request" ? handleSend : handleReset}
             disabled={sending}
           >
             <Text style={styles.primaryBtnText}>
-              {sending ? "Sending..." : "SEND LINK"}
+              {sending
+                ? step === "request"
+                  ? "Sending..."
+                  : "Updating..."
+                : step === "request"
+                  ? "SEND CODE"
+                  : "RESET PASSWORD"}
             </Text>
           </TouchableOpacity>
+          {step === "verify" ? (
+            <TouchableOpacity
+              style={styles.forgotBtn}
+              onPress={handleSend}
+              disabled={sending}
+            >
+              <Text style={styles.forgotText}>Resend code</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     </Modal>
