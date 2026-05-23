@@ -1,31 +1,34 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-    Alert,
-    ScrollView,
-    StatusBar,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import {
-    LocationCard,
-    NarrativeInput,
-    ReviewModal,
-    TimeCard,
+  LocationCard,
+  NarrativeInput,
+  ReviewModal,
+  TimeCard,
 } from "@/components/IncidentReport";
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import {
-    PrismColors,
-    PrismShadows,
-    PrismSpacing,
-    PrismTypography,
+  PrismColors,
+  PrismShadows,
+  PrismSpacing,
+  PrismTypography,
 } from "@/constants/prismTheme";
+import { useDeployment } from "@/hooks/useDeployment";
+import { useProfile } from "@/hooks/useProfile";
+import incidentService from "@/services/incidentService";
 
-// Helpers
 const formatDateTime = (date) => {
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const months = [
@@ -49,45 +52,106 @@ const formatDateTime = (date) => {
   const minutes = String(date.getMinutes()).padStart(2, "0");
   const ampm = hours >= 12 ? "PM" : "AM";
   hours = hours % 12 || 12;
-  return `${day}, ${month} ${dateNum} • ${hours}:${minutes} ${ampm}`;
+  return `${day}, ${month} ${dateNum} | ${hours}:${minutes} ${ampm}`;
 };
 
-const MOCK_LOCATION = "SM Mall of Asia";
+const formatIncidentDate = (value) => {
+  if (!value) return "Not recorded";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Not recorded" : formatDateTime(date);
+};
+
+const titleCase = (value) =>
+  String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 
 export default function ReportScreen() {
   const router = useRouter();
+  const { profile } = useProfile();
+  const { deployment } = useDeployment(profile?.id);
   const [narrative, setNarrative] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
-  const incidentTime = formatDateTime(new Date());
+  const [submitting, setSubmitting] = useState(false);
+  const [occurredAt, setOccurredAt] = useState(() => new Date());
+  const [incidentHistory, setIncidentHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(null);
+
+  const locationLabel = deployment?.client_sites?.site_name || "Current assigned site";
+
+  const loadIncidentHistory = useCallback(async ({
+    quiet = false,
+    isActive = () => true,
+  } = {}) => {
+    try {
+      if (!quiet) setHistoryLoading(true);
+      setHistoryError(null);
+      const incidents = await incidentService.fetchIncidentReports(5);
+      if (!isActive()) return;
+      setIncidentHistory(incidents);
+    } catch (err) {
+      if (!isActive()) return;
+      setHistoryError(err.message || "Unable to load recent reports.");
+    } finally {
+      if (isActive()) setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    loadIncidentHistory({ isActive: () => active });
+    return () => {
+      active = false;
+    };
+  }, [loadIncidentHistory]);
 
   const handleSubmitPress = () => {
-    if (narrative.trim().length < 5) {
+    if (submitting) return;
+
+    if (narrative.trim().length < 10) {
       Alert.alert(
         "Incomplete Report",
-        "Please enter incident details before submitting.",
+        "Please enter at least 10 characters before submitting.",
       );
       return;
     }
+
+    const now = new Date();
+    setOccurredAt(now);
     setModalVisible(true);
   };
 
-  const handleConfirm = () => {
-    setModalVisible(false);
-    // TODO: call your actual API here
-    setTimeout(() => {
+  const handleConfirm = async () => {
+    if (submitting) return;
+
+    try {
+      setSubmitting(true);
+      const incident = await incidentService.submitIncidentReport({
+        narrative: narrative.trim(),
+        occurredAt: occurredAt.toISOString(),
+      });
+      setModalVisible(false);
       Alert.alert(
         "Report Submitted",
-        "Report ID #9923 submitted successfully.\nAdmin has been notified.",
+        `Report ${incident?.id ? `#${incident.id.slice(0, 8)}` : ""} submitted for operations review.`,
         [{ text: "OK", onPress: () => setNarrative("") }],
       );
-    }, 300);
+      await loadIncidentHistory({ quiet: true });
+    } catch (err) {
+      Alert.alert(
+        "Submission Failed",
+        err.message || "Unable to submit the incident report. Please try again.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <ScreenWrapper activeTabKey="report">
       <StatusBar barStyle="light-content" />
 
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -96,45 +160,83 @@ export default function ReportScreen() {
           <Ionicons name="chevron-back" size={22} color={PrismColors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Incident Report</Text>
-        <TouchableOpacity
-          onPress={() => router.push("/(tabs)/notifications")}
-          style={styles.headerBtn}
-        >
-          <Ionicons
-            name="notifications-outline"
-          size={22}
-          color={PrismColors.gold}
-          />
-        </TouchableOpacity>
+        <View style={styles.headerBtn} />
       </View>
 
-      {/* Body */}
       <ScrollView
         contentContainerStyle={styles.body}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <LocationCard location={MOCK_LOCATION} />
+        <LocationCard location={locationLabel} />
         <TimeCard />
         <NarrativeInput value={narrative} onChangeText={setNarrative} />
 
         <TouchableOpacity
-          style={styles.submitBtn}
+          style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
           onPress={handleSubmitPress}
           activeOpacity={0.85}
+          disabled={submitting}
         >
-          <Text style={styles.submitText}>Submit Report</Text>
+          <Text style={styles.submitText}>
+            {submitting ? "Submitting Report..." : "Submit Report"}
+          </Text>
           <Ionicons name="send" size={18} color={PrismColors.navy} />
         </TouchableOpacity>
+
+        <View style={styles.historyCard}>
+          <View style={styles.historyHeader}>
+            <Text style={styles.historyTitle}>Recent Reports</Text>
+            <TouchableOpacity onPress={loadIncidentHistory} disabled={historyLoading}>
+              <Ionicons
+                name="refresh"
+                size={18}
+                color={historyLoading ? PrismColors.textSecondary : PrismColors.navy}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {historyLoading && incidentHistory.length === 0 ? (
+            <View style={styles.historyState}>
+              <ActivityIndicator color={PrismColors.navy} />
+            </View>
+          ) : historyError ? (
+            <Text style={styles.historyError}>{historyError}</Text>
+          ) : incidentHistory.length === 0 ? (
+            <Text style={styles.historyEmpty}>No submitted incident reports yet.</Text>
+          ) : (
+            incidentHistory.map((incident) => (
+              <View key={incident.id} style={styles.historyItem}>
+                <View style={styles.historyItemTop}>
+                  <Text style={styles.historyItemTitle} numberOfLines={1}>
+                    {incident.title || "Incident report"}
+                  </Text>
+                  <Text style={styles.historyBadge}>
+                    {titleCase(incident.reviewStatus || incident.status)}
+                  </Text>
+                </View>
+                <Text style={styles.historyMeta} numberOfLines={1}>
+                  {incident.reportId} | {incident.siteName || "Unknown site"}
+                </Text>
+                <Text style={styles.historySummary} numberOfLines={2}>
+                  {incident.summary || incident.rawText || "Report submitted for review."}
+                </Text>
+                <Text style={styles.historyDate}>
+                  Submitted {formatIncidentDate(incident.submittedAt)}
+                </Text>
+              </View>
+            ))
+          )}
+        </View>
       </ScrollView>
 
-      {/* Review Modal */}
       <ReviewModal
         visible={modalVisible}
-        location={MOCK_LOCATION}
-        time={incidentTime}
+        location={locationLabel}
+        time={formatDateTime(occurredAt)}
         narrative={narrative}
-        onEdit={() => setModalVisible(false)}
+        submitting={submitting}
+        onEdit={() => !submitting && setModalVisible(false)}
         onConfirm={handleConfirm}
       />
     </ScreenWrapper>
@@ -183,10 +285,85 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 6,
   },
+  submitBtnDisabled: {
+    opacity: 0.7,
+  },
   submitText: {
     fontSize: 15,
     fontWeight: PrismTypography.bold,
     color: PrismColors.navy,
     letterSpacing: 0.3,
+  },
+  historyCard: {
+    backgroundColor: PrismColors.cardBg,
+    borderRadius: 15,
+    padding: PrismSpacing.md,
+    marginTop: PrismSpacing.md,
+    ...PrismShadows.card,
+  },
+  historyHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: PrismSpacing.sm,
+  },
+  historyTitle: {
+    fontSize: 15,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.navy,
+  },
+  historyState: {
+    paddingVertical: PrismSpacing.lg,
+  },
+  historyEmpty: {
+    fontSize: PrismTypography.sm,
+    color: PrismColors.textSecondary,
+  },
+  historyError: {
+    fontSize: PrismTypography.sm,
+    color: PrismColors.danger,
+  },
+  historyItem: {
+    borderTopWidth: 1,
+    borderTopColor: PrismColors.border,
+    paddingTop: PrismSpacing.sm,
+    marginTop: PrismSpacing.sm,
+  },
+  historyItemTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: PrismSpacing.sm,
+  },
+  historyItemTitle: {
+    flex: 1,
+    fontSize: PrismTypography.base,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.navy,
+  },
+  historyBadge: {
+    backgroundColor: PrismColors.goldDim,
+    color: PrismColors.navy,
+    fontSize: PrismTypography.xs,
+    fontWeight: PrismTypography.bold,
+    paddingHorizontal: PrismSpacing.sm,
+    paddingVertical: 3,
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+  historyMeta: {
+    marginTop: 3,
+    fontSize: PrismTypography.sm,
+    color: PrismColors.textSecondary,
+  },
+  historySummary: {
+    marginTop: PrismSpacing.xs,
+    fontSize: PrismTypography.sm,
+    color: PrismColors.textPrimary,
+    lineHeight: 18,
+  },
+  historyDate: {
+    marginTop: PrismSpacing.xs,
+    fontSize: PrismTypography.xs,
+    color: PrismColors.textSecondary,
   },
 });

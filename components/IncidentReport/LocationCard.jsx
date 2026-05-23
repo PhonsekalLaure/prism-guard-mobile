@@ -7,13 +7,13 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, View } from "react-native";
 
-const LocationCard = ({ location = "Locating..." }) => (
+const LocationCard = ({ location = "Assigned site" }) => (
   <View style={styles.card}>
     <View style={styles.iconWrapper}>
       <Ionicons name="location" size={22} color={PrismColors.navy} />
     </View>
     <View>
-      <Text style={styles.label}>CURRENT LOCATION (GPS LOCKED)</Text>
+      <Text style={styles.label}>ASSIGNED SITE</Text>
       <Text style={styles.value}>{location}</Text>
     </View>
   </View>
