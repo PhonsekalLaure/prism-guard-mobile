@@ -1,5 +1,4 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
 const authService = {
@@ -35,6 +34,23 @@ const authService = {
 
     if (!response.ok) {
       throw new Error(data.error || "Failed to send reset link");
+    }
+
+    return data;
+  },
+
+  async resetPasswordWithCode(identifier, code, password) {
+    const response = await fetch(`${BASE_URL}/api/mobile/auth/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ identifier, code, password }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      const err = new Error(data.error || "Failed to reset password");
+      throw err;
     }
 
     return data;
