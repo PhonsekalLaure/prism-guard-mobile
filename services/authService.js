@@ -33,7 +33,7 @@ const authService = {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      throw new Error(data.error || "Failed to send reset link");
+      throw new Error(data.error || "Failed to send reset code");
     }
 
     return data;
@@ -46,7 +46,7 @@ const authService = {
       body: JSON.stringify({ identifier, code, password }),
     });
 
-    const data = await response.json();
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
       const err = new Error(data.error || "Failed to reset password");
