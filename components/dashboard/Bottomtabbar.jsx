@@ -1,4 +1,5 @@
 // components/dashboard/BottomTabBar.jsx
+import { Feather } from "@expo/vector-icons";
 import {
   PrismColors,
   PrismShadows,
@@ -21,24 +22,32 @@ const TabItem = ({ icon, label, isActive, onPress }) => (
     activeOpacity={0.75}
   >
     {isActive && <View style={styles.activeIndicator} />}
-    <Text style={[styles.tabIcon, isActive && styles.tabIconActive]}>
-      {icon}
-    </Text>
+    <Feather
+      name={icon}
+      size={20}
+      color={isActive ? PrismColors.navy : PrismColors.textSecondary}
+      style={[styles.tabIcon, !isActive && styles.tabIconInactive]}
+    />
     <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
       {label}
     </Text>
   </TouchableOpacity>
 );
 
-const BottomTabBar = ({ activeTab = "home", onTabPress, onFabPress }) => {
+const BottomTabBar = ({
+  activeTab = "home",
+  isFabActive = false,
+  onTabPress,
+  onFabPress,
+}) => {
   const leftTabs = [
-    { key: "home", icon: "⌂", label: "Home" },
-    { key: "schedule", icon: "📅", label: "Schedule" },
+    { key: "home", icon: "home", label: "Home" },
+    { key: "schedule", icon: "calendar", label: "Schedule" },
   ];
 
   const rightTabs = [
-    { key: "payslip", icon: "💵", label: "Payslip" },
-    { key: "profile", icon: "👤", label: "Profile" },
+    { key: "payslip", icon: "credit-card", label: "Payslip" },
+    { key: "profile", icon: "user", label: "Profile" },
   ];
 
   return (
@@ -57,11 +66,18 @@ const BottomTabBar = ({ activeTab = "home", onTabPress, onFabPress }) => {
 
       <View style={styles.fabContainer}>
         <TouchableOpacity
-          style={styles.fab}
+          style={[styles.fab, isFabActive && styles.fabActive]}
           onPress={onFabPress}
           activeOpacity={0.85}
         >
-          <Text style={styles.fabIcon}>🎙</Text>
+          <Feather
+            name="file-text"
+            size={19}
+            color={isFabActive ? PrismColors.navy : "#FFFFFF"}
+          />
+          <Text style={[styles.fabLabel, isFabActive && styles.fabLabelActive]}>
+            Report
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -112,12 +128,10 @@ const styles = StyleSheet.create({
     backgroundColor: PrismColors.gold,
   },
   tabIcon: {
-    fontSize: 20,
     marginBottom: 2,
-    opacity: 0.45,
   },
-  tabIconActive: {
-    opacity: 1,
+  tabIconInactive: {
+    opacity: 0.45,
   },
   tabLabel: {
     fontSize: PrismTypography.xs,
@@ -129,23 +143,32 @@ const styles = StyleSheet.create({
     fontWeight: PrismTypography.bold,
   },
   fabContainer: {
-    width: 70,
+    width: 80,
     alignItems: "center",
-    marginTop: -30,
+    marginTop: -24,
   },
   fab: {
-    width: 58,
+    width: 72,
     height: 58,
-    borderRadius: 29,
+    borderRadius: 18,
     backgroundColor: PrismColors.navy,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 4,
     borderColor: PrismColors.cardBg,
+    gap: 2,
     ...PrismShadows.button,
   },
-  fabIcon: {
-    fontSize: 22,
+  fabActive: {
+    backgroundColor: PrismColors.gold,
+  },
+  fabLabel: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: PrismTypography.bold,
+  },
+  fabLabelActive: {
+    color: PrismColors.navy,
   },
 });
 

@@ -26,7 +26,13 @@ export const AnnouncementItem = ({ title, preview, onPress }) => (
   </TouchableOpacity>
 );
 
-const AnnouncementList = ({ announcements = [], onSeeAll, onItemPress }) => {
+const AnnouncementList = ({
+  announcements = [],
+  loading = false,
+  error = null,
+  onSeeAll,
+  onItemPress,
+}) => {
   return (
     <View style={styles.container}>
       <View style={styles.sectionHeader}>
@@ -37,7 +43,16 @@ const AnnouncementList = ({ announcements = [], onSeeAll, onItemPress }) => {
       </View>
 
       <View style={styles.list}>
-        {announcements.map((item) => (
+        {loading && (
+          <Text style={styles.statusText}>Loading announcements...</Text>
+        )}
+        {!loading && error && (
+          <Text style={styles.statusText}>Announcements unavailable.</Text>
+        )}
+        {!loading && !error && announcements.length === 0 && (
+          <Text style={styles.statusText}>No announcements yet.</Text>
+        )}
+        {!loading && !error && announcements.map((item) => (
           <AnnouncementItem
             key={item.id}
             title={item.title}
@@ -73,6 +88,11 @@ const styles = StyleSheet.create({
   },
   list: {
     gap: PrismSpacing.sm,
+  },
+  statusText: {
+    fontSize: PrismTypography.sm,
+    color: PrismColors.textSecondary,
+    paddingVertical: PrismSpacing.sm,
   },
   item: {
     backgroundColor: PrismColors.cardBg,

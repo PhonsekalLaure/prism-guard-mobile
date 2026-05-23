@@ -13,11 +13,9 @@ import {
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import LogoutModal from "@/components/profile/LogoutModal";
 import MyDocuments from "@/components/profile/MyDocuments";
-import PasswordModal from "@/components/profile/PasswordModal";
 import PersonalDetails from "@/components/profile/PersonalDetails";
 import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileToast from "@/components/profile/ProfileToast";
-import SecurityAccount from "@/components/profile/SecurityAccount";
 import { useProfile } from "@/hooks/useProfile";
 import authService from "@/services/authService";
 
@@ -36,7 +34,6 @@ export default function ProfileScreen() {
     emergencyNum,
   } = useProfile();
 
-  const [showPassModal, setShowPassModal] = useState(false);
   const [showLogout, setShowLogout] = useState(false);
   const [toast, setToast] = useState({
     visible: false,
@@ -99,8 +96,6 @@ export default function ProfileScreen() {
         />
 
         {/* ── Security & Account ── */}
-        <SecurityAccount onChangePassword={() => setShowPassModal(true)} />
-
         {/* ── Logout ── */}
         <TouchableOpacity
           style={styles.btnLogout}
@@ -114,17 +109,6 @@ export default function ProfileScreen() {
       </ScrollView>
 
       {/* ── Modals ── */}
-      <PasswordModal
-        visible={showPassModal}
-        onClose={() => setShowPassModal(false)}
-        onSave={() =>
-          showToast(
-            "checkmark-circle",
-            "Success",
-            "Password updated successfully.",
-          )
-        }
-      />
       <LogoutModal
         visible={showLogout}
         onCancel={() => setShowLogout(false)}

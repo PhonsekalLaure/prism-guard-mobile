@@ -1,23 +1,37 @@
 import BottomTabBar from "@/components/dashboard/Bottomtabbar";
 import { PrismColors } from "@/constants/prismTheme";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useRouter, useSegments } from "expo-router";
 import { StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+const NAV_TAB_KEYS = ["home", "schedule", "payslip", "profile", "report"];
+
 export default function ScreenWrapper({ children, activeTabKey = "home" }) {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState(activeTabKey);
+  const segments = useSegments();
+  const currentTab = segments[1] || "home";
+  const normalizedTab = currentTab === "index" ? "home" : currentTab;
+  const activeTab = NAV_TAB_KEYS.includes(normalizedTab)
+    ? normalizedTab
+    : activeTabKey;
 
   const handleTabPress = (key) => {
-    setActiveTab(key);
     router.replace(`/(tabs)/${key === "home" ? "" : key}`);
+  };
+
+  const handleFabPress = () => {
+    router.push("/(tabs)/report");
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.screen}>{children}</View>
-      <BottomTabBar activeTab={activeTab} onTabPress={handleTabPress} />
+      <BottomTabBar
+        activeTab={activeTab}
+        isFabActive={activeTab === "report"}
+        onTabPress={handleTabPress}
+        onFabPress={handleFabPress}
+      />
     </SafeAreaView>
   );
 }

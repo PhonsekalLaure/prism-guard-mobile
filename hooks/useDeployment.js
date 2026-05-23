@@ -11,37 +11,44 @@ export function useDeployment(employeeId) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!employeeId) return;
+    if (!employeeId) {
+      setDeployment(null);
+      setLoading(false);
+      return;
+    }
+
+    let active = true;
 
     async function fetchDeployment() {
       try {
-        const token = await authService.getToken();
-
-        const response = await fetch(
+        setLoading(true);
+        setError(null);
+        const response = await authService.authenticatedFetch(
           `${BASE_URL}/api/mobile/deployments/${employeeId}/active`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-          },
+          {},
         );
 
         if (!response.ok) throw new Error("No active deployment");
 
         const data = await response.json();
+        if (!active) return;
         setDeployment(data);
 
-        // Cache deployment for notification handler
         await AsyncStorage.setItem("active_deployment", JSON.stringify(data));
       } catch (err) {
-        setError(err.message);
+        if (active) {
+          setDeployment(null);
+          setError(err.message);
+        }
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
 
     fetchDeployment();
+    return () => {
+      active = false;
+    };
   }, [employeeId]);
 
   return { deployment, loading, error };
