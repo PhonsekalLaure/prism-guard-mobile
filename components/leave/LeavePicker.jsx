@@ -40,8 +40,11 @@ const LeavePicker = ({
       {LEAVE_OPTIONS.map((opt) => {
         const active = selected === opt.value;
         const credit = leaveCreditsByType[opt.value];
-        const remaining = credit?.remainingRequests;
-        const disabled = remaining === 0;
+        const remaining = credit?.remainingDays ?? credit?.remainingRequests;
+        const remainingUnit = credit?.remainingDays !== null && credit?.remainingDays !== undefined
+          ? "days"
+          : "left";
+        const disabled = remaining === 0 || credit?.remainingRequests === 0;
         return (
           <TouchableOpacity
             key={opt.value}
@@ -69,7 +72,7 @@ const LeavePicker = ({
               {opt.label}
             </Text>
             {typeof remaining === "number" && (
-              <Text style={styles.remainingText}>{remaining} left</Text>
+              <Text style={styles.remainingText}>{remaining} {remainingUnit}</Text>
             )}
             {active && (
               <Feather name="check-circle" size={16} color="#093269" />

@@ -1,3 +1,4 @@
+import { Feather } from "@expo/vector-icons";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LEAVE_TYPE_LABELS } from "@/constants/leaveTypes";
 
@@ -18,7 +19,18 @@ function formatDate(value) {
   }).format(new Date(`${value}T00:00:00.000Z`));
 }
 
-function LeaveRequestHistory({ requests = [], loading = false, onCancel }) {
+function getReviewNoteLabel(status) {
+  if (status === "approved") return "Notes";
+  if (status === "cancelled") return "Cancellation notes";
+  return "Reason";
+}
+
+function LeaveRequestHistory({
+  requests = [],
+  loading = false,
+  onCancel,
+  onOpenDocument,
+}) {
   return (
     <View style={styles.card}>
       <View style={styles.header}>
@@ -53,8 +65,22 @@ function LeaveRequestHistory({ requests = [], loading = false, onCancel }) {
                 </Text>
               ) : null}
 
-              {request.status === "rejected" && request.reviewNotes ? (
-                <Text style={styles.meta}>Reason: {request.reviewNotes}</Text>
+              {["approved", "rejected", "cancelled"].includes(request.status) && request.reviewNotes ? (
+                <Text style={styles.meta}>
+                  {getReviewNoteLabel(request.status)}: {request.reviewNotes}
+                </Text>
+              ) : null}
+
+              {request.hasSupportingDocument || request.supportingDocumentOriginalName ? (
+                <TouchableOpacity
+                  style={styles.documentButton}
+                  onPress={() => onOpenDocument?.(request)}
+                >
+                  <Feather name="paperclip" size={14} color="#0f3b73" />
+                  <Text style={styles.documentText} numberOfLines={1}>
+                    {request.supportingDocumentOriginalName || "Open supporting document"}
+                  </Text>
+                </TouchableOpacity>
               ) : null}
 
               {request.status === "pending" ? (
@@ -134,6 +160,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#475569",
     lineHeight: 18,
+  },
+  documentButton: {
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    backgroundColor: "#eff6ff",
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  documentText: {
+    flex: 1,
+    color: "#0f3b73",
+    fontSize: 12,
+    fontWeight: "700",
   },
   cancelButton: {
     borderWidth: 1,

@@ -10,6 +10,9 @@ import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 const LeaveBalanceCard = ({ credits = 0, loading = false }) => {
   const availableRequests =
     typeof credits === "number" ? credits : credits?.availableCredits ?? 0;
+  const usesDayBalances = Array.isArray(credits?.byType)
+    && credits.byType.some((item) => item.remainingDays !== null && item.remainingDays !== undefined);
+  const unitLabel = usesDayBalances ? " Days" : " Requests";
 
   return (
     <View style={styles.card}>
@@ -24,7 +27,7 @@ const LeaveBalanceCard = ({ credits = 0, loading = false }) => {
         ) : (
           <View style={styles.creditsRow}>
             <Text style={styles.creditsNumber}>{availableRequests}</Text>
-            <Text style={styles.creditsUnit}> Requests</Text>
+            <Text style={styles.creditsUnit}>{unitLabel}</Text>
           </View>
         )}
       </View>

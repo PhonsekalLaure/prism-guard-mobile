@@ -63,6 +63,10 @@ export const submitLeaveRequest = async ({
   });
 };
 
+export const fetchSupportingDocument = async (id) => {
+  return request(`/requests/${id}/document`);
+};
+
 export const cancelLeaveRequest = async (id) => {
   return request(`/requests/${id}/cancel`, {
     method: "PATCH",

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
     Alert,
     KeyboardAvoidingView,
+    Linking,
     Platform,
     ScrollView,
     StyleSheet
@@ -13,6 +14,7 @@ import {
     cancelLeaveRequest,
     fetchLeaveCredits,
     fetchLeaveRequests,
+    fetchSupportingDocument,
     submitLeaveRequest,
 } from "@/services/leaveService";
 import LeaveBalanceCard from "../../components/leave/LeaveBalanceCard";
@@ -79,6 +81,30 @@ export default function LeaveScreen() {
     const selectedCredit = credits.byType.find(
       (item) => item.leaveType === leaveType,
     );
+    const daysRequested = startDate && endDate
+      ? Math.floor(
+        (new Date(`${endDate}T00:00:00.000Z`).getTime()
+          - new Date(`${startDate}T00:00:00.000Z`).getTime()) / 86400000,
+      ) + 1
+      : 0;
+
+    if (daysRequested <= 0) {
+      Alert.alert("Invalid Dates", "End date cannot be before start date.");
+      return;
+    }
+
+    if (
+      selectedCredit?.remainingDays !== null
+      && selectedCredit?.remainingDays !== undefined
+      && daysRequested > selectedCredit.remainingDays
+    ) {
+      Alert.alert(
+        "Insufficient Leave Balance",
+        `This request needs ${daysRequested} day${daysRequested === 1 ? "" : "s"}, but only ${selectedCredit.remainingDays} remain.`,
+      );
+      return;
+    }
+
     if (selectedCredit?.remainingRequests === 0) {
       Alert.alert(
         "Leave Limit Reached",
@@ -136,6 +162,25 @@ export default function LeaveScreen() {
     );
   };
 
+  const handleOpenDocument = async (request) => {
+    try {
+      const document = await fetchSupportingDocument(request.id);
+      if (!document?.url) {
+        throw new Error("Document link is unavailable");
+      }
+      const canOpen = await Linking.canOpenURL(document.url);
+      if (!canOpen) {
+        throw new Error("This document link cannot be opened on this device");
+      }
+      await Linking.openURL(document.url);
+    } catch (error) {
+      Alert.alert(
+        "Document Unavailable",
+        error.message || "Could not open the supporting document.",
+      );
+    }
+  };
+
   return (
     <ScreenWrapper activeTabKey="schedule">
       <LeaveHeader onBack={() => router.back()} />
@@ -161,6 +206,7 @@ export default function LeaveScreen() {
             requests={requests}
             loading={requestsLoading}
             onCancel={handleCancelRequest}
+            onOpenDocument={handleOpenDocument}
           />
         </ScrollView>
       </KeyboardAvoidingView>
