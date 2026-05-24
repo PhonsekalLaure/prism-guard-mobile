@@ -26,11 +26,16 @@ export default function LeaveScreen() {
     startDate: "",
     endDate: "",
     reason: "",
+    supportingDocument: null,
   });
 
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [credits, setCredits] = useState(0);
+  const [credits, setCredits] = useState({
+    availableCredits: 0,
+    maxRequestsPerLeaveType: 2,
+    byType: [],
+  });
   const [creditsLoading, setCreditsLoading] = useState(true);
 
   // Fetch leave credits from DB on mount
@@ -53,11 +58,23 @@ export default function LeaveScreen() {
   };
 
   const handleOpenReview = () => {
-    const { leaveType, startDate, endDate, reason } = formData;
-    if (!leaveType || !startDate || !endDate || !reason) {
+    const { leaveType, startDate, endDate, reason, supportingDocument } = formData;
+    if (!leaveType || !startDate || !endDate || !reason || !supportingDocument) {
       Alert.alert("Incomplete Form", "Please fill in all required fields.");
       return;
     }
+
+    const selectedCredit = credits.byType.find(
+      (item) => item.leaveType === leaveType,
+    );
+    if (selectedCredit?.remainingRequests === 0) {
+      Alert.alert(
+        "Leave Limit Reached",
+        `You have already used the maximum ${selectedCredit.leaveTypeLabel} requests.`,
+      );
+      return;
+    }
+
     setModalVisible(true);
   };
 
@@ -98,6 +115,7 @@ export default function LeaveScreen() {
           <LeaveBalanceCard credits={credits} loading={creditsLoading} />
           <LeaveForm
             formData={formData}
+            leaveCredits={credits}
             onChange={handleFormChange}
             onSubmit={handleOpenReview}
           />
