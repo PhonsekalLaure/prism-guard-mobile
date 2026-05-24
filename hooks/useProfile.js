@@ -5,6 +5,7 @@ import { saveLocationPing } from "@/utils/locationPing";
 import { validateGuardLocation } from "@/utils/geofence";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
+import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 
 export function useProfile() {
@@ -27,8 +28,13 @@ export function useProfile() {
     // Listen for notification taps
     responseListener.current =
       Notifications.addNotificationResponseReceivedListener(async (response) => {
-        const { checkType, attendanceLogId } =
+        const { checkType, attendanceLogId, route, screen } =
           response.notification.request.content.data;
+
+        if (route === "/(tabs)/leave" || screen === "leave") {
+          router.push("/(tabs)/leave");
+          return;
+        }
 
         if (!checkType) return;
 

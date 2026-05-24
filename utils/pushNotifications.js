@@ -30,16 +30,13 @@ export async function registerPushToken(employeeId) {
       return null;
     }
 
-    // 2. Get Expo push token
-const tokenData = await Notifications.getExpoPushTokenAsync({
-  projectId: "d7ae4ded-1239-4b0e-a42c-70b8a13cd95c",
-});    const token = tokenData.data;
+    const tokenData = await Notifications.getExpoPushTokenAsync({
+      projectId: "d7ae4ded-1239-4b0e-a42c-70b8a13cd95c",
+    });
+    const token = tokenData.data;
 
-    console.log("Push token:", token);
-
-    // 3. Save token to backend
     const accessToken = await AsyncStorage.getItem("access_token");
-    await fetch(`${BASE_URL}/api/mobile/device-tokens`, {
+    const response = await fetch(`${BASE_URL}/api/mobile/device-tokens`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -51,6 +48,11 @@ const tokenData = await Notifications.getExpoPushTokenAsync({
         platform: Platform.OS,
       }),
     });
+
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || "Failed to save push token");
+    }
 
     return token;
   } catch (err) {
