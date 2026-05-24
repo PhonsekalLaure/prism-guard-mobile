@@ -22,6 +22,7 @@ import LeaveForm from "../../components/leave/LeaveForm";
 import LeaveHeader from "../../components/leave/LeaveHeader";
 import LeaveRequestHistory from "../../components/leave/LeaveRequestHistory";
 import ReviewLeaveModal from "../../components/leave/ReviewLeaveModal";
+import { countInclusiveDays } from "../../utils/leaveDates";
 
 export default function LeaveScreen() {
   const router = useRouter();
@@ -81,12 +82,7 @@ export default function LeaveScreen() {
     const selectedCredit = credits.byType.find(
       (item) => item.leaveType === leaveType,
     );
-    const daysRequested = startDate && endDate
-      ? Math.floor(
-        (new Date(`${endDate}T00:00:00.000Z`).getTime()
-          - new Date(`${startDate}T00:00:00.000Z`).getTime()) / 86400000,
-      ) + 1
-      : 0;
+    const daysRequested = countInclusiveDays(startDate, endDate);
 
     if (daysRequested <= 0) {
       Alert.alert("Invalid Dates", "End date cannot be before start date.");

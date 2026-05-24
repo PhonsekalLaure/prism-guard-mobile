@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { LEAVE_TYPE_LABELS } from "@/constants/leaveTypes";
+import { formatLeaveDate } from "@/utils/leaveDates";
 
 const STATUS_STYLES = {
   pending: { label: "Pending", color: "#92400e", backgroundColor: "#fef3c7" },
@@ -8,16 +9,6 @@ const STATUS_STYLES = {
   rejected: { label: "Rejected", color: "#991b1b", backgroundColor: "#fee2e2" },
   cancelled: { label: "Cancelled", color: "#475569", backgroundColor: "#e2e8f0" },
 };
-
-function formatDate(value) {
-  if (!value) return "-";
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${value}T00:00:00.000Z`));
-}
 
 function getReviewNoteLabel(status) {
   if (status === "approved") return "Notes";
@@ -51,7 +42,7 @@ function LeaveRequestHistory({
                     {LEAVE_TYPE_LABELS[request.leaveType] || request.leaveTypeLabel}
                   </Text>
                   <Text style={styles.dateRange}>
-                    {formatDate(request.startDate)} - {formatDate(request.endDate)}
+                    {formatLeaveDate(request.startDate)} - {formatLeaveDate(request.endDate)}
                   </Text>
                 </View>
                 <View style={[styles.badge, { backgroundColor: status.backgroundColor }]}>

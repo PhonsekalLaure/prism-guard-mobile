@@ -1,12 +1,6 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
-/**
- * LeaveBalanceCard
- * Props:
- *   credits  {object|number}  - available leave request slots from DB
- *   loading  {boolean} - show skeleton while fetching
- */
 const LeaveBalanceCard = ({ credits = 0, loading = false }) => {
   const availableRequests =
     typeof credits === "number" ? credits : credits?.availableCredits ?? 0;

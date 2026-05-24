@@ -13,26 +13,9 @@ import {
     View,
 } from "react-native";
 import { LEAVE_TYPE_LABELS } from "@/constants/leaveTypes";
+import { formatLeaveDate } from "@/utils/leaveDates";
 import LeavePicker from "./LeavePicker";
 
-const formatDisplay = (dateStr) => {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-};
-
-/**
- * LeaveForm
- * Props:
- *   formData  { leaveType, startDate, endDate, reason, supportingDocument }
- *   leaveCredits  { availableCredits, byType }
- *   onChange  (field: string, value: string) => void
- *   onSubmit  () => void
- */
 const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
   const [showLeavePicker, setShowLeavePicker] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
@@ -80,7 +63,6 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
 
   return (
     <View style={styles.card}>
-      {/* ── Leave Type ── */}
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Leave Type</Text>
         <TouchableOpacity
@@ -108,7 +90,6 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
         </TouchableOpacity>
       </View>
 
-      {/* ── Start Date ── */}
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Start Date</Text>
         <TouchableOpacity
@@ -128,7 +109,7 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
               !formData.startDate && styles.placeholder,
             ]}
           >
-            {formatDisplay(formData.startDate) ?? "mm / dd / yyyy"}
+            {formatLeaveDate(formData.startDate, "mm / dd / yyyy")}
           </Text>
         </TouchableOpacity>
         {showStartPicker && (
@@ -144,7 +125,6 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
         )}
       </View>
 
-      {/* ── End Date ── */}
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>End Date</Text>
         <TouchableOpacity
@@ -161,7 +141,7 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
           <Text
             style={[styles.inputText, !formData.endDate && styles.placeholder]}
           >
-            {formatDisplay(formData.endDate) ?? "mm / dd / yyyy"}
+            {formatLeaveDate(formData.endDate, "mm / dd / yyyy")}
           </Text>
         </TouchableOpacity>
         {showEndPicker && (
@@ -177,7 +157,6 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
         )}
       </View>
 
-      {/* ── Reason ── */}
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Reason</Text>
         <View style={[styles.inputRow, styles.textAreaRow]}>
@@ -200,7 +179,6 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
         </View>
       </View>
 
-      {/* ── Supporting Document ── */}
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Supporting Document</Text>
         <TouchableOpacity
@@ -247,7 +225,6 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
         <Text style={styles.submitText}>Submit Request</Text>
       </TouchableOpacity>
 
-      {/* ── Leave Type Picker ── */}
       <LeavePicker
         visible={showLeavePicker}
         selected={formData.leaveType}

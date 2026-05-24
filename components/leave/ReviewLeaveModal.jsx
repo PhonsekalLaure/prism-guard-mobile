@@ -8,16 +8,7 @@ import {
   View,
 } from "react-native";
 import { LEAVE_TYPE_LABELS } from "@/constants/leaveTypes";
-
-const formatDisplay = (dateStr) => {
-  if (!dateStr) return "-";
-
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-};
+import { formatLeaveDate } from "@/utils/leaveDates";
 
 const DetailRow = ({ label, value }) => (
   <View style={styles.detailRow}>
@@ -53,8 +44,8 @@ const ReviewLeaveModal = ({
           label="Leave Type"
           value={LEAVE_TYPE_LABELS[formData.leaveType] ?? "-"}
         />
-        <DetailRow label="Start Date" value={formatDisplay(formData.startDate)} />
-        <DetailRow label="End Date" value={formatDisplay(formData.endDate)} />
+        <DetailRow label="Start Date" value={formatLeaveDate(formData.startDate)} />
+        <DetailRow label="End Date" value={formatLeaveDate(formData.endDate)} />
         <DetailRow label="Reason" value={formData.reason || "-"} />
         <DetailRow
           label="Supporting Document"
