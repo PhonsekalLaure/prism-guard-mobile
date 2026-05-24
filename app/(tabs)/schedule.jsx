@@ -5,8 +5,9 @@ import KpiGrid from "@/components/schedule/KpiGrid";
 import MonthSelector from "@/components/schedule/MonthSelector";
 import RequestLeaveButton from "@/components/schedule/Requestleavebutton";
 import ScheduleHeader from "@/components/schedule/Scheduleheader";
-import { useRouter } from "expo-router";
-import { useState } from "react";
+import { fetchNotificationStats } from "@/services/notificationService";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useState } from "react";
 import { ScrollView } from "react-native";
 
 export default function ScheduleScreen() {
@@ -14,6 +15,24 @@ export default function ScheduleScreen() {
   const [month, setMonth] = useState(1); // Feb = 1w
   const [year, setYear] = useState(2026);
   const [selectedDay, setSelectedDay] = useState(9);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isMounted = true;
+      fetchNotificationStats()
+        .then((stats) => {
+          if (isMounted) setUnreadNotifications(stats.unread || 0);
+        })
+        .catch((err) => {
+          console.warn("Could not load notifications:", err.message);
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }, []),
+  );
 
   const handlePrev = () => {
     if (month === 0) {
@@ -31,7 +50,7 @@ export default function ScheduleScreen() {
 
   return (
     <ScreenWrapper activeTabKey="schedule">
-      <ScheduleHeader hasNotification />
+      <ScheduleHeader hasNotification={unreadNotifications > 0} />
       <ScrollView showsVerticalScrollIndicator={false}>
         <MonthSelector
           month={month}

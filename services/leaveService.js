@@ -34,6 +34,11 @@ export const fetchLeaveCredits = async () => {
   return request("/credits");
 };
 
+export const fetchLeaveRequests = async () => {
+  const result = await request("/requests");
+  return result.data || [];
+};
+
 export const submitLeaveRequest = async ({
   leaveType,
   startDate,
@@ -55,5 +60,11 @@ export const submitLeaveRequest = async ({
   return request("/requests", {
     method: "POST",
     body: formData,
+  });
+};
+
+export const cancelLeaveRequest = async (id) => {
+  return request(`/requests/${id}/cancel`, {
+    method: "PATCH",
   });
 };

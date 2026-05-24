@@ -10,12 +10,15 @@ import {
 
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import {
+    cancelLeaveRequest,
     fetchLeaveCredits,
+    fetchLeaveRequests,
     submitLeaveRequest,
 } from "@/services/leaveService";
 import LeaveBalanceCard from "../../components/leave/LeaveBalanceCard";
 import LeaveForm from "../../components/leave/LeaveForm";
 import LeaveHeader from "../../components/leave/LeaveHeader";
+import LeaveRequestHistory from "../../components/leave/LeaveRequestHistory";
 import ReviewLeaveModal from "../../components/leave/ReviewLeaveModal";
 
 export default function LeaveScreen() {
@@ -37,20 +40,29 @@ export default function LeaveScreen() {
     byType: [],
   });
   const [creditsLoading, setCreditsLoading] = useState(true);
+  const [requests, setRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
 
-  // Fetch leave credits from DB on mount
+  const loadLeaveData = async () => {
+    setCreditsLoading(true);
+    setRequestsLoading(true);
+    try {
+      const [creditResult, requestResult] = await Promise.all([
+        fetchLeaveCredits(),
+        fetchLeaveRequests(),
+      ]);
+      setCredits(creditResult);
+      setRequests(requestResult);
+    } catch (e) {
+      console.warn("Could not load leave data:", e.message);
+    } finally {
+      setCreditsLoading(false);
+      setRequestsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadCredits = async () => {
-      try {
-        const result = await fetchLeaveCredits();
-        setCredits(result);
-      } catch (e) {
-        console.warn("Could not load leave credits:", e.message);
-      } finally {
-        setCreditsLoading(false);
-      }
-    };
-    loadCredits();
+    loadLeaveData();
   }, []);
 
   const handleFormChange = (field, value) => {
@@ -82,6 +94,7 @@ export default function LeaveScreen() {
     setLoading(true);
     try {
       await submitLeaveRequest(formData);
+      await loadLeaveData();
       setModalVisible(false);
       Alert.alert(
         "Request Submitted",
@@ -96,6 +109,31 @@ export default function LeaveScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCancelRequest = (request) => {
+    Alert.alert(
+      "Cancel Leave Request",
+      "This will withdraw your pending leave request.",
+      [
+        { text: "Keep Request", style: "cancel" },
+        {
+          text: "Cancel Request",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await cancelLeaveRequest(request.id);
+              await loadLeaveData();
+            } catch (error) {
+              Alert.alert(
+                "Cancellation Failed",
+                error.message || "Something went wrong. Please try again.",
+              );
+            }
+          },
+        },
+      ],
+    );
   };
 
   return (
@@ -118,6 +156,11 @@ export default function LeaveScreen() {
             leaveCredits={credits}
             onChange={handleFormChange}
             onSubmit={handleOpenReview}
+          />
+          <LeaveRequestHistory
+            requests={requests}
+            loading={requestsLoading}
+            onCancel={handleCancelRequest}
           />
         </ScrollView>
       </KeyboardAvoidingView>

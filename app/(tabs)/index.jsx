@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet } from "react-native";
 
 import AnnouncementList from "@/components/dashboard/AnnouncementList";
@@ -17,8 +17,9 @@ import {
   fetchActiveAttendance,
 } from "@/services/attendanceService";
 import { fetchAnnouncements } from "@/services/announcementsService";
+import { fetchNotificationStats } from "@/services/notificationService";
 import { validateGuardLocation } from "@/utils/geofence";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 
 const formatDate = () => {
   const now = new Date();
@@ -46,6 +47,7 @@ export default function DashboardScreen() {
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [announcementsError, setAnnouncementsError] = useState(null);
   const [dateString, setDateString] = useState(formatDate());
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [toast, setToast] = useState({
     visible: false,
     icon: "📍",
@@ -83,6 +85,25 @@ export default function DashboardScreen() {
 
     loadAnnouncements();
   }, [profile?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile?.id) return undefined;
+
+      let isMounted = true;
+      fetchNotificationStats()
+        .then((stats) => {
+          if (isMounted) setUnreadNotifications(stats.unread || 0);
+        })
+        .catch((err) => {
+          console.warn("Could not load notifications:", err.message);
+        });
+
+      return () => {
+        isMounted = false;
+      };
+    }, [profile?.id]),
+  );
 
   useEffect(() => {
     if (!profile?.id) return;
@@ -220,7 +241,8 @@ export default function DashboardScreen() {
       <DashboardHeader
         officerName={`Officer ${fullName}`}
         dateString={dateString}
-        hasNotification
+        hasNotification={unreadNotifications > 0}
+        onBellPress={() => router.push("/notifications")}
       />
 
       <ScrollView
