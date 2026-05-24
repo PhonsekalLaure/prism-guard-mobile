@@ -1,6 +1,10 @@
 // app/_layout.jsx
 import { Stack } from "expo-router";
 import { useEffect } from "react";
+import {
+  addNotificationResponseListener,
+  registerStoredProfilePushToken,
+} from "@/utils/pushNotifications";
 
 export default function Layout() {
   useEffect(() => {
@@ -12,6 +16,15 @@ export default function Layout() {
       document.documentElement.style.height = "100%";
       document.documentElement.style.overflow = "hidden";
     }
+  }, []);
+
+  useEffect(() => {
+    registerStoredProfilePushToken();
+    const responseSubscription = addNotificationResponseListener();
+
+    return () => {
+      responseSubscription?.remove?.();
+    };
   }, []);
 
   return (
