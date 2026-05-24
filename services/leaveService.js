@@ -6,13 +6,20 @@ async function request(path, options = {}) {
   const token = await authService.getToken();
   if (!token) throw new Error("No session found");
 
+  const isFormData =
+    typeof FormData !== "undefined" && options.body instanceof FormData;
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    ...options.headers,
+  };
+
+  if (!isFormData) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const response = await fetch(`${BASE_URL}/api/mobile/leave${path}`, {
     ...options,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-      ...options.headers,
-    },
+    headers,
   });
 
   const data = await response.json();
@@ -24,8 +31,7 @@ async function request(path, options = {}) {
 }
 
 export const fetchLeaveCredits = async () => {
-  const data = await request("/credits");
-  return data.availableCredits ?? 0;
+  return request("/credits");
 };
 
 export const submitLeaveRequest = async ({
@@ -33,13 +39,21 @@ export const submitLeaveRequest = async ({
   startDate,
   endDate,
   reason,
-}) =>
-  request("/requests", {
+  supportingDocument,
+}) => {
+  if (!supportingDocument) {
+    throw new Error("Supporting document is required");
+  }
+
+  const formData = new FormData();
+  formData.append("leaveType", leaveType);
+  formData.append("startDate", startDate);
+  formData.append("endDate", endDate);
+  formData.append("reason", reason);
+  formData.append("supportingDocument", supportingDocument);
+
+  return request("/requests", {
     method: "POST",
-    body: JSON.stringify({
-      leaveType,
-      startDate,
-      endDate,
-      reason,
-    }),
+    body: formData,
   });
+};
