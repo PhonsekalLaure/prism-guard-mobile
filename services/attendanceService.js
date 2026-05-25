@@ -15,9 +15,27 @@ async function request(path, options = {}) {
     },
   });
 
-  const data = await response.json();
+  const contentType = response.headers.get('content-type') || '';
+  let data = null;
+
+  if (contentType.includes('application/json')) {
+    try {
+      data = await response.json();
+    } catch (e) {
+      data = null;
+    }
+  } else {
+    try {
+      const text = await response.text();
+      data = text ? { message: text } : null;
+    } catch (e) {
+      data = null;
+    }
+  }
+
   if (!response.ok) {
-    throw new Error(data.error || "Attendance request failed");
+    const message = (data && (data.error || data.message)) || response.statusText || 'Attendance request failed';
+    throw new Error(message);
   }
 
   return data;
