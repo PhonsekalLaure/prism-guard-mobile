@@ -3,14 +3,8 @@ import authService from "@/services/authService";
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
 async function request(path) {
-  const token = await authService.getToken();
-  if (!token) throw new Error("No session found");
-
-  const response = await fetch(`${BASE_URL}/api/mobile/schedule${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+  const response = await authService.authenticatedFetch(`${BASE_URL}/api/mobile/schedule${path}`, {
+    method: "GET",
   });
 
   const data = await response.json();
