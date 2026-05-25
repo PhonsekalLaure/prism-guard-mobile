@@ -7,13 +7,16 @@ const authService = {
     const response = await fetch(`${BASE_URL}/api/mobile/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: email.trim(), password }),
     });
 
-    const data = await response.json();
+    const contentType = response.headers.get("content-type") || "";
+    const data = contentType.includes("application/json")
+      ? await response.json()
+      : null;
 
     if (!response.ok) {
-      const err = new Error(data.error || "Login failed");
+      const err = new Error(data?.error || `Login failed (${response.status})`);
       throw err;
     }
 
