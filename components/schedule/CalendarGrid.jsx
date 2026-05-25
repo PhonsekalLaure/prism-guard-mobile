@@ -63,6 +63,7 @@ export default function CalendarGrid({
                     styles.dayText,
                     !cell.current && styles.dimText,
                     isToday && styles.todayText,
+                    isSelected && styles.selectedText,
                   ]}
                 >
                   {cell.day}
@@ -123,6 +124,7 @@ const styles = StyleSheet.create({
   dayText: { fontSize: 13, color: PrismColors.navy, fontWeight: "500" },
   dimText: { color: "#ccc" },
   todayText: { color: "#fff", fontWeight: "700" },
+  selectedText: { color: PrismColors.white, fontWeight: "700" },
   dot: {
     width: 5,
     height: 5,

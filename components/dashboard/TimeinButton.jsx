@@ -7,6 +7,7 @@ import {
 } from "@/constants/prismTheme";
 import React, { useEffect, useRef } from "react";
 import {
+  ActivityIndicator,
   Animated,
   StyleSheet,
   Text,
@@ -14,12 +15,13 @@ import {
   View,
 } from "react-native";
 
-const TimeInButton = ({ isOnDuty = false, onPress }) => {
+const TimeInButton = ({ isOnDuty = false, onPress, disabled = false }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseOpacity = useRef(new Animated.Value(0.6)).current;
+  const pressScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (!isOnDuty) {
+    if (!isOnDuty && !disabled) {
       const pulse = Animated.loop(
         Animated.parallel([
           Animated.sequence([
@@ -50,37 +52,63 @@ const TimeInButton = ({ isOnDuty = false, onPress }) => {
       );
       pulse.start();
       return () => pulse.stop();
-    } else {
-      pulseAnim.setValue(1);
-      pulseOpacity.setValue(0);
     }
-  }, [isOnDuty]);
+
+    pulseAnim.setValue(1);
+    pulseOpacity.setValue(disabled ? 0.25 : 0);
+  }, [disabled, isOnDuty, pulseAnim, pulseOpacity]);
+
+  const animatePress = (toValue) => {
+    Animated.spring(pressScale, {
+      toValue,
+      friction: 5,
+      tension: 120,
+      useNativeDriver: true,
+    }).start();
+  };
 
   return (
     <View style={styles.container}>
       <Animated.View
         style={[
           styles.pulseRing,
+          disabled && styles.pulseRingChecking,
           {
             transform: [{ scale: pulseAnim }],
             opacity: pulseOpacity,
           },
         ]}
       />
-      <TouchableOpacity
-        style={[styles.button, isOnDuty && styles.buttonActive]}
-        onPress={onPress}
-        activeOpacity={0.85}
-      >
-        <Text style={[styles.buttonIcon, isOnDuty && styles.buttonIconActive]}>
-          {isOnDuty ? "⏻" : "◎"}
-        </Text>
-        <Text
-          style={[styles.buttonLabel, isOnDuty && styles.buttonLabelActive]}
+
+      <Animated.View style={{ transform: [{ scale: pressScale }] }}>
+        <TouchableOpacity
+          style={[
+            styles.button,
+            isOnDuty && styles.buttonActive,
+            disabled && styles.buttonDisabled,
+          ]}
+          onPress={onPress}
+          onPressIn={() => animatePress(0.92)}
+          onPressOut={() => animatePress(1)}
+          activeOpacity={0.85}
+          disabled={disabled}
         >
-          {isOnDuty ? "TIME OUT" : "TIME IN"}
-        </Text>
-      </TouchableOpacity>
+          {disabled ? (
+            <ActivityIndicator
+              size="small"
+              color={isOnDuty ? PrismColors.navy : PrismColors.gold}
+            />
+          ) : (
+            <Text style={[styles.buttonIcon, isOnDuty && styles.buttonIconActive]}>
+              {isOnDuty ? "STOP" : "GO"}
+            </Text>
+          )}
+
+          <Text style={[styles.buttonLabel, isOnDuty && styles.buttonLabelActive]}>
+            {disabled ? "CHECKING" : isOnDuty ? "TIME OUT" : "TIME IN"}
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
     </View>
   );
 };
@@ -100,6 +128,9 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: PrismColors.gold,
   },
+  pulseRingChecking: {
+    borderWidth: 4,
+  },
   button: {
     width: 110,
     height: 110,
@@ -117,8 +148,13 @@ const styles = StyleSheet.create({
     borderColor: PrismColors.goldLight,
     shadowColor: PrismColors.gold,
   },
+  buttonDisabled: {
+    opacity: 0.82,
+    borderWidth: 5,
+  },
   buttonIcon: {
-    fontSize: 28,
+    fontSize: 20,
+    fontWeight: PrismTypography.extraBold,
     color: PrismColors.gold,
   },
   buttonIconActive: {

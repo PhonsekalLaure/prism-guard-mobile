@@ -15,13 +15,9 @@ async function request(path, options = {}) {
     },
   });
 
-  const contentType = response.headers.get("content-type") || "";
-  const data = contentType.includes("application/json")
-    ? await response.json()
-    : null;
-
+  const data = await response.json();
   if (!response.ok) {
-    throw new Error(data?.error || `Attendance request failed (${response.status})`);
+    throw new Error(data.error || "Attendance request failed");
   }
 
   return data;

@@ -6,6 +6,7 @@ import {
   PrismTypography,
 } from "@/constants/prismTheme";
 import authService from "@/services/authService";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -23,10 +24,89 @@ import {
 
 const ForgotPasswordModal = ({ visible, onClose }) => {
   const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [sending, setSending] = useState(false);
+  const [step, setStep] = useState("request");
 
-  const handleSend = () => {
-    onClose();
+  const resetState = () => {
     setEmail("");
+    setCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setStatus("");
+    setError("");
+    setSending(false);
+    setStep("request");
+  };
+
+  const handleClose = () => {
+    resetState();
+    onClose();
+  };
+
+  const handleSend = async () => {
+    if (!email.trim()) {
+      setError("Please enter your registered email or employee ID.");
+      return;
+    }
+
+    try {
+      setSending(true);
+      setError("");
+      setStatus("");
+      const result = await authService.forgotPassword(email.trim());
+      setStep("verify");
+      setStatus(
+        result.message ||
+          "If an account exists, a password reset code has been sent.",
+      );
+    } catch (err) {
+      setError(err?.message || "Unable to send reset code. Please try again.");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!email.trim() || !code.trim() || !newPassword || !confirmPassword) {
+      setError("Please enter your code and new password.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    try {
+      setSending(true);
+      setError("");
+      setStatus("");
+      const result = await authService.resetPasswordWithCode(
+        email.trim(),
+        code.trim(),
+        newPassword,
+      );
+      setStatus(result.message || "Password updated successfully.");
+      setTimeout(handleClose, 1800);
+    } catch (err) {
+      setError(err?.message || "Unable to reset password. Please try again.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -34,18 +114,18 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
       transparent
       visible={visible}
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <View style={styles.modalOverlay}>
         <View style={styles.modalCard}>
-          <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
+          <TouchableOpacity style={styles.closeBtn} onPress={handleClose}>
             <Text style={styles.closeBtnText}>✕</Text>
           </TouchableOpacity>
           <Text style={styles.modalIcon}>🔓</Text>
           <Text style={styles.modalTitle}>Reset Password</Text>
           <Text style={styles.modalText}>
             Enter your Employee ID or Registered Email. We will send you a reset
-            link.
+            code.
           </Text>
           <View style={styles.inputGroup}>
             <Text style={styles.inputIcon}>✉</Text>
@@ -57,11 +137,104 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              editable={step === "request"}
             />
           </View>
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleSend}>
-            <Text style={styles.primaryBtnText}>SEND LINK</Text>
+          {step === "verify" ? (
+            <>
+              <View style={styles.inputGroup}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Reset code"
+                  placeholderTextColor={PrismColors.textSecondary}
+                  value={code}
+                  onChangeText={setCode}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+              </View>
+              <View style={styles.inputGroup}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder="New password"
+                  placeholderTextColor={PrismColors.textSecondary}
+                  value={newPassword}
+                  onChangeText={setNewPassword}
+                  secureTextEntry={!showNewPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowNewPassword(!showNewPassword)}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showNewPassword ? "Hide new password" : "Show new password"
+                  }
+                >
+                  <Ionicons
+                    name={showNewPassword ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color={PrismColors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+              <View style={styles.inputGroup}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder="Confirm password"
+                  placeholderTextColor={PrismColors.textSecondary}
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  secureTextEntry={!showConfirmPassword}
+                  autoCapitalize="none"
+                />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    showConfirmPassword
+                      ? "Hide confirm password"
+                      : "Show confirm password"
+                  }
+                >
+                  <Ionicons
+                    name={
+                      showConfirmPassword ? "eye-outline" : "eye-off-outline"
+                    }
+                    size={20}
+                    color={PrismColors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : null}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {status ? <Text style={styles.successText}>{status}</Text> : null}
+          <TouchableOpacity
+            style={[styles.primaryBtn, sending && { opacity: 0.7 }]}
+            onPress={step === "request" ? handleSend : handleReset}
+            disabled={sending}
+          >
+            <Text style={styles.primaryBtnText}>
+              {sending
+                ? step === "request"
+                  ? "Sending..."
+                  : "Updating..."
+                : step === "request"
+                  ? "SEND CODE"
+                  : "RESET PASSWORD"}
+            </Text>
           </TouchableOpacity>
+          {step === "verify" ? (
+            <TouchableOpacity
+              style={styles.forgotBtn}
+              onPress={handleSend}
+              disabled={sending}
+            >
+              <Text style={styles.forgotText}>Resend code</Text>
+            </TouchableOpacity>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -86,7 +259,7 @@ export default function LoginScreen() {
     try {
       setError("");
       setLoading(true);
-      const data = await authService.login(email, password);
+      await authService.login(email, password);
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
@@ -110,13 +283,11 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.brandSection}>
-          <View style={styles.logoWrapper}>
-            <Image
-              source={require("@/assets/images/Logo.png")}
-              style={styles.logo}
-              resizeMode="contain"
-            />
-          </View>
+          <Image
+            source={require("@/assets/images/Logo.png")}
+            style={styles.logo}
+            resizeMode="contain"
+          />
           <Text style={styles.appTitle}>PRISM-Guard</Text>
         </View>
 
@@ -148,6 +319,11 @@ export default function LoginScreen() {
               style={styles.eyeBtn}
               onPress={() => setShowPassword(!showPassword)}
             >
+              <Ionicons
+                name={showPassword ? "eye-outline" : "eye-off-outline"}
+                size={20}
+                color={PrismColors.textSecondary}
+              />
               <Text style={styles.eyeIcon}>{showPassword ? "👁" : "🙈"}</Text>
             </TouchableOpacity>
           </View>
@@ -198,26 +374,24 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     paddingHorizontal: PrismSpacing.xl,
-    paddingVertical: PrismSpacing.xxl,
+    paddingTop: 56,
+    paddingBottom: PrismSpacing.xxl,
   },
-  brandSection: { alignItems: "center", marginBottom: PrismSpacing.xxl },
-  logoWrapper: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: PrismSpacing.md,
+  brandSection: { alignItems: "center", marginBottom: PrismSpacing.md },
+  logo: {
+    width: 250,
+    height: 250,
+    marginBottom: 0,
+    transform: [{ scale: 1.16 }],
   },
-  logo: { width: 100, height: 100 },
   appTitle: {
     fontSize: PrismTypography.xl,
     fontWeight: PrismTypography.extraBold,
     color: PrismColors.white,
     letterSpacing: 2,
-    marginTop: PrismSpacing.sm,
+    marginTop: -PrismSpacing.xxl,
   },
   card: {
     backgroundColor: PrismColors.white,
@@ -254,14 +428,26 @@ const styles = StyleSheet.create({
     fontSize: PrismTypography.base,
     color: PrismColors.textPrimary,
   },
-  passwordInput: { paddingRight: PrismSpacing.xl },
-  eyeBtn: { padding: PrismSpacing.xs },
-  eyeIcon: { fontSize: 16 },
+  passwordInput: { paddingRight: PrismSpacing.md },
+  eyeBtn: {
+    width: 38,
+    height: 38,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  eyeIcon: { display: "none" },
   errorText: {
     color: "red",
     fontSize: PrismTypography.xs,
     marginBottom: PrismSpacing.sm,
     textAlign: "center",
+  },
+  successText: {
+    color: "#0f8a3a",
+    fontSize: PrismTypography.xs,
+    marginBottom: PrismSpacing.sm,
+    textAlign: "center",
+    lineHeight: 18,
   },
   primaryBtn: {
     backgroundColor: PrismColors.gold,
