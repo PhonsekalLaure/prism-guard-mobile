@@ -1,3 +1,4 @@
+// app/_layout.jsx
 import { Stack } from "expo-router";
 import { useEffect } from "react";
 
@@ -18,6 +19,11 @@ export default function Layout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="login" />
       <Stack.Screen name="(tabs)" />
+      {/* Add this 👇 */}
+      <Stack.Screen
+        name="check-in-confirmation"
+        options={{ animation: "slide_from_bottom" }}
+      />
     </Stack>
   );
 }

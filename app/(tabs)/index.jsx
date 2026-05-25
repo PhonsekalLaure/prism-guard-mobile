@@ -9,41 +9,23 @@ import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import ShiftStatusCard from "@/components/dashboard/Shiftstatuscard";
 import TimeInButton from "@/components/dashboard/TimeinButton";
 import { PrismSpacing } from "@/constants/prismTheme";
-
-const ANNOUNCEMENTS = [
-  {
-    id: "1",
-    title: "New Uniform Policy",
-    preview: "All officers must wear the new insignia starting Monday.",
-  },
-  {
-    id: "2",
-    title: "SOSIA MEMORANDUM ADVISORY 064-2025",
-    preview: "This pertains to the Memorandum issued of PNP-SOSIA...",
-  },
-  {
-    id: "3",
-    title: "Gate 3 Maintenance",
-    preview: "Electric gate repair scheduled for 14:00 today.",
-  },
-];
+import { useDeployment } from "@/hooks/useDeployment";
+import { useProfile } from "@/hooks/useProfile";
+import {
+  clockIn,
+  clockOut,
+  fetchActiveAttendance,
+} from "@/services/attendanceService";
+import { fetchAnnouncements } from "@/services/announcementsService";
+import { validateGuardLocation } from "@/utils/geofence";
+import { useRouter } from "expo-router";
 
 const formatDate = () => {
   const now = new Date();
   const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const monthNames = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
   ];
   const day = dayNames[now.getDay()];
   const month = monthNames[now.getMonth()];
@@ -57,7 +39,12 @@ const formatDate = () => {
 
 export default function DashboardScreen() {
   const [isOnDuty, setIsOnDuty] = useState(false);
+  const [activeAttendanceLog, setActiveAttendanceLog] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
+  const [announcementsLoading, setAnnouncementsLoading] = useState(true);
+  const [announcementsError, setAnnouncementsError] = useState(null);
   const [dateString, setDateString] = useState(formatDate());
   const [toast, setToast] = useState({
     visible: false,
@@ -66,12 +53,52 @@ export default function DashboardScreen() {
     message: "",
     type: "success",
   });
+
   const toastTimeout = useRef(null);
+  const { fullName, profile } = useProfile();
+  const { deployment } = useDeployment(profile?.id);
+  const router = useRouter();
 
   useEffect(() => {
     const interval = setInterval(() => setDateString(formatDate()), 60000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const loadAnnouncements = async () => {
+      try {
+        setAnnouncementsLoading(true);
+        setAnnouncementsError(null);
+        const data = await fetchAnnouncements();
+        setAnnouncements(data);
+      } catch (err) {
+        setAnnouncementsError(err.message);
+        console.warn("Could not load announcements:", err.message);
+      } finally {
+        setAnnouncementsLoading(false);
+      }
+    };
+
+    loadAnnouncements();
+  }, [profile?.id]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    const loadActiveAttendance = async () => {
+      try {
+        const attendanceLog = await fetchActiveAttendance();
+        setActiveAttendanceLog(attendanceLog);
+        setIsOnDuty(Boolean(attendanceLog));
+      } catch (err) {
+        console.warn("Could not load active attendance:", err.message);
+      }
+    };
+
+    loadActiveAttendance();
+  }, [profile?.id]);
 
   const showToast = (data) => {
     if (toastTimeout.current) clearTimeout(toastTimeout.current);
@@ -81,24 +108,117 @@ export default function DashboardScreen() {
     }, 3000);
   };
 
-  const handleMainAction = () => {
+  const handleMainAction = async () => {
     if (!isOnDuty) {
-      setIsOnDuty(true);
-      showToast({
-        icon: "📍",
-        title: "GPS Verified",
-        message: "Location confirmed. You are clocked in.",
-        type: "success",
-      });
+      try {
+        setLoading(true);
+
+        if (!deployment?.client_sites) {
+          showToast({
+            icon: "⚠️",
+            title: "No Active Deployment",
+            message: "You have no active site assignment.",
+            type: "error",
+          });
+          return;
+        }
+
+        const result = await validateGuardLocation(deployment.client_sites);
+
+        // Only clock in if inside geofence.
+        if (result.isInside) {
+          const { attendanceLog } = await clockIn({
+            siteId: deployment.site_id || deployment.client_sites.id,
+            latitude: result.coords.latitude,
+            longitude: result.coords.longitude,
+          });
+
+          setActiveAttendanceLog(attendanceLog);
+          setIsOnDuty(true);
+        } else {
+          showToast({
+            icon: "!",
+            title: "Outside Geofence",
+            message: "You must be inside your assigned site to clock in.",
+            type: "error",
+          });
+        }
+
+        // Always show map — inside or outside
+        router.push({
+          pathname: "/check-in-confirmation",
+          params: {
+            post:        JSON.stringify(result.post),
+            guardCoords: JSON.stringify(result.coords),
+            distance:    result.distance,
+            checkType:   "shift_start",
+            timestamp:   new Date().toISOString(),
+            isInside:    String(result.isInside),
+          },
+        });
+
+      } catch (err) {
+        showToast({
+          icon: "⚠️",
+          title: "Error",
+          message: "Something went wrong. Please try again.",
+          type: "error",
+        });
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
     } else {
       setShowModal(true);
+    }
+  };
+
+  const handleClockOut = async () => {
+    setShowModal(false);
+
+    try {
+      setLoading(true);
+
+      if (deployment?.client_sites) {
+        const position = await validateGuardLocation(deployment.client_sites);
+
+        if (!activeAttendanceLog?.id) {
+          throw new Error("No active attendance log found.");
+        }
+
+        await clockOut({
+          attendanceLogId: activeAttendanceLog.id,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        });
+
+        setActiveAttendanceLog(null);
+        setIsOnDuty(false);
+
+        router.push({
+          pathname: "/check-in-confirmation",
+          params: {
+            post:        JSON.stringify(position.post),
+            guardCoords: JSON.stringify(position.coords),
+            distance:    position.distance,
+            checkType:   "logout",
+            timestamp:   new Date().toISOString(),
+            isInside:    String(position.isInside),
+          },
+        });
+      }
+    } catch (err) {
+      console.error("Clock-out failed:", err);
+      setIsOnDuty(false);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <ScreenWrapper activeTabKey="home">
       <DashboardHeader
-        officerName="Officer Juan Cruz"
+        officerName={`Officer ${fullName}`}
         dateString={dateString}
         hasNotification
       />
@@ -110,12 +230,18 @@ export default function DashboardScreen() {
         <ShiftStatusCard
           shiftStart="07:00"
           shiftEnd="19:00"
-          location="SM Mall of Asia"
+          location={deployment?.client_sites?.site_name || "No Site Assigned"}
           isOnDuty={isOnDuty}
         />
-        <TimeInButton isOnDuty={isOnDuty} onPress={handleMainAction} />
+        <TimeInButton
+          isOnDuty={isOnDuty}
+          onPress={handleMainAction}
+          disabled={loading}
+        />
         <AnnouncementList
-          announcements={ANNOUNCEMENTS}
+          announcements={announcements}
+          loading={announcementsLoading}
+          error={announcementsError}
           onSeeAll={() => {}}
           onItemPress={() => {}}
         />
@@ -126,10 +252,7 @@ export default function DashboardScreen() {
       <ClockOutModal
         visible={showModal}
         onCancel={() => setShowModal(false)}
-        onConfirm={() => {
-          setShowModal(false);
-          setIsOnDuty(false);
-        }}
+        onConfirm={handleClockOut}
       />
     </ScreenWrapper>
   );
