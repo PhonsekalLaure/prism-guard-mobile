@@ -2,16 +2,19 @@ import { PrismColors } from "@/constants/prismTheme";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-const SCHEDULED = [
-  1, 2, 3, 4, 5, 7, 8, 9, 10, 11, 14, 15, 16, 17, 18, 21, 22, 23, 24, 25,
-];
+
+function getDateKey(year, month, day) {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
 
 export default function CalendarGrid({
   month = 1,
   year = 2026,
   selectedDay,
+  scheduledDates = [],
   onDayPress,
 }) {
+  const scheduledSet = new Set(scheduledDates);
   const today = new Date();
   const isCurrentMonth =
     today.getMonth() === month && today.getFullYear() === year;
@@ -44,12 +47,13 @@ export default function CalendarGrid({
         {cells.map((cell, i) => {
           const isToday = cell.current && cell.day === todayDate;
           const isSelected = cell.current && cell.day === selectedDay;
-          const isScheduled = cell.current && SCHEDULED.includes(cell.day);
+          const dateKey = cell.current ? getDateKey(year, month, cell.day) : null;
+          const isScheduled = cell.current && scheduledSet.has(dateKey);
           return (
             <TouchableOpacity
               key={i}
               style={styles.cell}
-              onPress={() => cell.current && onDayPress?.(cell.day)}
+              onPress={() => cell.current && onDayPress?.(cell.day, dateKey)}
             >
               <View
                 style={[
