@@ -5,8 +5,9 @@ import KpiGrid from "@/components/schedule/KpiGrid";
 import MonthSelector from "@/components/schedule/MonthSelector";
 import RequestLeaveButton from "@/components/schedule/Requestleavebutton";
 import ScheduleHeader from "@/components/schedule/Scheduleheader";
+import { fetchNotificationStats } from "@/services/notificationService";
 import { fetchMonthlySchedule } from "@/services/scheduleService";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -33,6 +34,7 @@ export default function ScheduleScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const selectedDate = getDateKey(year, month, selectedDay);
 
@@ -62,17 +64,6 @@ export default function ScheduleScreen() {
   useEffect(() => {
     loadSchedule();
   }, [loadSchedule]);
-import { fetchNotificationStats } from "@/services/notificationService";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
-import { ScrollView } from "react-native";
-
-export default function ScheduleScreen() {
-  const router = useRouter();
-  const [month, setMonth] = useState(1); // Feb = 1w
-  const [year, setYear] = useState(2026);
-  const [selectedDay, setSelectedDay] = useState(9);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -116,15 +107,13 @@ export default function ScheduleScreen() {
 
   return (
     <ScreenWrapper activeTabKey="schedule">
-      <ScheduleHeader hasNotification />
+      <ScheduleHeader hasNotification={unreadNotifications > 0} />
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={() => loadSchedule({ refresh: true })} />
         }
       >
-      <ScheduleHeader hasNotification={unreadNotifications > 0} />
-      <ScrollView showsVerticalScrollIndicator={false}>
         <MonthSelector
           month={month}
           year={year}
