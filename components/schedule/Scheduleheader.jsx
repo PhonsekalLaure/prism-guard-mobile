@@ -10,7 +10,10 @@ export default function ScheduleHeader({ hasNotification = true }) {
         <Text style={styles.backIcon}>←</Text>
       </TouchableOpacity>
       <Text style={styles.title}>My Schedule</Text>
-      <TouchableOpacity style={styles.bellBtn}>
+      <TouchableOpacity
+        style={styles.bellBtn}
+        onPress={() => router.push("/notifications")}
+      >
         <Text style={styles.bellIcon}>🔔</Text>
         {hasNotification && <View style={styles.dot} />}
       </TouchableOpacity>

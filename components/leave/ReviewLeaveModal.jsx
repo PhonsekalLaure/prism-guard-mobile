@@ -7,23 +7,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-
-const LEAVE_TYPE_LABELS = {
-  sick: "Sick Leave",
-  vacation: "Vacation Leave",
-  emergency: "Emergency Leave",
-  paternity: "Paternity / Maternity Leave",
-};
-
-const formatDisplay = (dateStr) => {
-  if (!dateStr) return "-";
-
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-};
+import { LEAVE_TYPE_LABELS } from "@/constants/leaveTypes";
+import { formatLeaveDate } from "@/utils/leaveDates";
 
 const DetailRow = ({ label, value }) => (
   <View style={styles.detailRow}>
@@ -59,9 +44,13 @@ const ReviewLeaveModal = ({
           label="Leave Type"
           value={LEAVE_TYPE_LABELS[formData.leaveType] ?? "-"}
         />
-        <DetailRow label="Start Date" value={formatDisplay(formData.startDate)} />
-        <DetailRow label="End Date" value={formatDisplay(formData.endDate)} />
+        <DetailRow label="Start Date" value={formatLeaveDate(formData.startDate)} />
+        <DetailRow label="End Date" value={formatLeaveDate(formData.endDate)} />
         <DetailRow label="Reason" value={formData.reason || "-"} />
+        <DetailRow
+          label="Supporting Document"
+          value={formData.supportingDocument?.name || "-"}
+        />
       </View>
 
       <View style={styles.actions}>

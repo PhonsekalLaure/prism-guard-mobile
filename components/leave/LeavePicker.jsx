@@ -7,13 +7,7 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
-
-const LEAVE_OPTIONS = [
-  { value: "sick", label: "Sick Leave", icon: "thermometer" },
-  { value: "vacation", label: "Vacation Leave", icon: "sun" },
-  { value: "emergency", label: "Emergency Leave", icon: "alert-circle" },
-  { value: "paternity", label: "Paternity / Maternity Leave", icon: "heart" },
-];
+import { LEAVE_OPTIONS } from "@/constants/leaveTypes";
 
 /**
  * LeavePicker
@@ -23,7 +17,13 @@ const LEAVE_OPTIONS = [
  *   onSelect  (value: string) => void
  *   onClose   () => void
  */
-const LeavePicker = ({ visible, selected, onSelect, onClose }) => (
+const LeavePicker = ({
+  visible,
+  selected,
+  onSelect,
+  onClose,
+  leaveCreditsByType = {},
+}) => (
   <Modal
     visible={visible}
     transparent
@@ -39,12 +39,23 @@ const LeavePicker = ({ visible, selected, onSelect, onClose }) => (
 
       {LEAVE_OPTIONS.map((opt) => {
         const active = selected === opt.value;
+        const credit = leaveCreditsByType[opt.value];
+        const remaining = credit?.remainingDays ?? credit?.remainingRequests;
+        const remainingUnit = credit?.remainingDays !== null && credit?.remainingDays !== undefined
+          ? "days"
+          : "left";
+        const disabled = remaining === 0 || credit?.remainingRequests === 0;
         return (
           <TouchableOpacity
             key={opt.value}
-            style={[styles.optionRow, active && styles.optionRowActive]}
+            style={[
+              styles.optionRow,
+              active && styles.optionRowActive,
+              disabled && styles.optionRowDisabled,
+            ]}
             onPress={() => onSelect(opt.value)}
             activeOpacity={0.7}
+            disabled={disabled}
           >
             <View
               style={[styles.optionIcon, active && styles.optionIconActive]}
@@ -60,6 +71,9 @@ const LeavePicker = ({ visible, selected, onSelect, onClose }) => (
             >
               {opt.label}
             </Text>
+            {typeof remaining === "number" && (
+              <Text style={styles.remainingText}>{remaining} {remainingUnit}</Text>
+            )}
             {active && (
               <Feather name="check-circle" size={16} color="#093269" />
             )}
@@ -122,6 +136,9 @@ const styles = StyleSheet.create({
     borderColor: "#093269",
     backgroundColor: "#EEF2FA",
   },
+  optionRowDisabled: {
+    opacity: 0.55,
+  },
   optionIcon: {
     width: 34,
     height: 34,
@@ -142,6 +159,11 @@ const styles = StyleSheet.create({
   optionLabelActive: {
     color: "#093269",
     fontWeight: "700",
+  },
+  remainingText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#8A94A6",
   },
   cancelBtn: {
     marginTop: 4,

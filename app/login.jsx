@@ -6,6 +6,10 @@ import {
   PrismTypography,
 } from "@/constants/prismTheme";
 import authService from "@/services/authService";
+import {
+  PASSWORD_POLICY_MESSAGE,
+  isStrongPassword,
+} from "@/utils/passwordPolicy";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -23,7 +27,7 @@ import {
 } from "react-native";
 
 const ForgotPasswordModal = ({ visible, onClose }) => {
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [code, setCode] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -35,7 +39,7 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
   const [step, setStep] = useState("request");
 
   const resetState = () => {
-    setEmail("");
+    setIdentifier("");
     setCode("");
     setNewPassword("");
     setConfirmPassword("");
@@ -53,7 +57,7 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
   };
 
   const handleSend = async () => {
-    if (!email.trim()) {
+    if (!identifier.trim()) {
       setError("Please enter your registered email or employee ID.");
       return;
     }
@@ -62,7 +66,7 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
       setSending(true);
       setError("");
       setStatus("");
-      const result = await authService.forgotPassword(email.trim());
+      const result = await authService.forgotPassword(identifier.trim());
       setStep("verify");
       setStatus(
         result.message ||
@@ -76,7 +80,7 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
   };
 
   const handleReset = async () => {
-    if (!email.trim() || !code.trim() || !newPassword || !confirmPassword) {
+    if (!identifier.trim() || !code.trim() || !newPassword || !confirmPassword) {
       setError("Please enter your code and new password.");
       return;
     }
@@ -86,8 +90,8 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
       return;
     }
 
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters.");
+    if (!isStrongPassword(newPassword)) {
+      setError(PASSWORD_POLICY_MESSAGE);
       return;
     }
 
@@ -96,7 +100,7 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
       setError("");
       setStatus("");
       const result = await authService.resetPasswordWithCode(
-        email.trim(),
+        identifier.trim(),
         code.trim(),
         newPassword,
       );
@@ -133,8 +137,8 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
               style={styles.input}
               placeholder="Email / ID"
               placeholderTextColor={PrismColors.textSecondary}
-              value={email}
-              onChangeText={setEmail}
+              value={identifier}
+              onChangeText={setIdentifier}
               keyboardType="email-address"
               autoCapitalize="none"
               editable={step === "request"}

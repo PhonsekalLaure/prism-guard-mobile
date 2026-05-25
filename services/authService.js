@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { registerPushToken } from "@/utils/pushNotifications";
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
 async function parseJsonResponse(response) {
@@ -31,6 +32,9 @@ const authService = {
     await AsyncStorage.setItem("refresh_token", data.session.refresh_token);
     await AsyncStorage.setItem("profile", JSON.stringify(data.profile));
     await AsyncStorage.setItem("user_email", data.user.email);
+    if (data.profile?.id) {
+      registerPushToken(data.profile.id);
+    }
 
     return data;
   },
@@ -45,7 +49,7 @@ const authService = {
     const data = await parseJsonResponse(response);
 
     if (!response.ok) {
-      throw new Error(data.error || "Failed to send reset link");
+      throw new Error(data.error || "Failed to send reset code");
     }
 
     return data;
@@ -59,6 +63,7 @@ const authService = {
     });
 
     const data = await parseJsonResponse(response);
+    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
       throw new Error(data.error || "Failed to reset password");

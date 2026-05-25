@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import {
     Alert,
     KeyboardAvoidingView,
+    Linking,
     Platform,
     ScrollView,
     StyleSheet
@@ -10,13 +11,18 @@ import {
 
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import {
+    cancelLeaveRequest,
     fetchLeaveCredits,
+    fetchLeaveRequests,
+    fetchSupportingDocument,
     submitLeaveRequest,
 } from "@/services/leaveService";
 import LeaveBalanceCard from "../../components/leave/LeaveBalanceCard";
 import LeaveForm from "../../components/leave/LeaveForm";
 import LeaveHeader from "../../components/leave/LeaveHeader";
+import LeaveRequestHistory from "../../components/leave/LeaveRequestHistory";
 import ReviewLeaveModal from "../../components/leave/ReviewLeaveModal";
+import { countInclusiveDays } from "../../utils/leaveDates";
 
 export default function LeaveScreen() {
   const router = useRouter();
@@ -26,26 +32,40 @@ export default function LeaveScreen() {
     startDate: "",
     endDate: "",
     reason: "",
+    supportingDocument: null,
   });
 
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [credits, setCredits] = useState(0);
+  const [credits, setCredits] = useState({
+    availableCredits: 0,
+    maxRequestsPerLeaveType: 2,
+    byType: [],
+  });
   const [creditsLoading, setCreditsLoading] = useState(true);
+  const [requests, setRequests] = useState([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
 
-  // Fetch leave credits from DB on mount
+  const loadLeaveData = async () => {
+    setCreditsLoading(true);
+    setRequestsLoading(true);
+    try {
+      const [creditResult, requestResult] = await Promise.all([
+        fetchLeaveCredits(),
+        fetchLeaveRequests(),
+      ]);
+      setCredits(creditResult);
+      setRequests(requestResult);
+    } catch (e) {
+      console.warn("Could not load leave data:", e.message);
+    } finally {
+      setCreditsLoading(false);
+      setRequestsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadCredits = async () => {
-      try {
-        const result = await fetchLeaveCredits();
-        setCredits(result);
-      } catch (e) {
-        console.warn("Could not load leave credits:", e.message);
-      } finally {
-        setCreditsLoading(false);
-      }
-    };
-    loadCredits();
+    loadLeaveData();
   }, []);
 
   const handleFormChange = (field, value) => {
@@ -53,11 +73,42 @@ export default function LeaveScreen() {
   };
 
   const handleOpenReview = () => {
-    const { leaveType, startDate, endDate, reason } = formData;
-    if (!leaveType || !startDate || !endDate || !reason) {
+    const { leaveType, startDate, endDate, reason, supportingDocument } = formData;
+    if (!leaveType || !startDate || !endDate || !reason || !supportingDocument) {
       Alert.alert("Incomplete Form", "Please fill in all required fields.");
       return;
     }
+
+    const selectedCredit = credits.byType.find(
+      (item) => item.leaveType === leaveType,
+    );
+    const daysRequested = countInclusiveDays(startDate, endDate);
+
+    if (daysRequested <= 0) {
+      Alert.alert("Invalid Dates", "End date cannot be before start date.");
+      return;
+    }
+
+    if (
+      selectedCredit?.remainingDays !== null
+      && selectedCredit?.remainingDays !== undefined
+      && daysRequested > selectedCredit.remainingDays
+    ) {
+      Alert.alert(
+        "Insufficient Leave Balance",
+        `This request needs ${daysRequested} day${daysRequested === 1 ? "" : "s"}, but only ${selectedCredit.remainingDays} remain.`,
+      );
+      return;
+    }
+
+    if (selectedCredit?.remainingRequests === 0) {
+      Alert.alert(
+        "Leave Limit Reached",
+        `You have already used the maximum ${selectedCredit.leaveTypeLabel} requests.`,
+      );
+      return;
+    }
+
     setModalVisible(true);
   };
 
@@ -65,6 +116,7 @@ export default function LeaveScreen() {
     setLoading(true);
     try {
       await submitLeaveRequest(formData);
+      await loadLeaveData();
       setModalVisible(false);
       Alert.alert(
         "Request Submitted",
@@ -78,6 +130,50 @@ export default function LeaveScreen() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCancelRequest = (request) => {
+    Alert.alert(
+      "Cancel Leave Request",
+      "This will withdraw your pending leave request.",
+      [
+        { text: "Keep Request", style: "cancel" },
+        {
+          text: "Cancel Request",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await cancelLeaveRequest(request.id);
+              await loadLeaveData();
+            } catch (error) {
+              Alert.alert(
+                "Cancellation Failed",
+                error.message || "Something went wrong. Please try again.",
+              );
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const handleOpenDocument = async (request) => {
+    try {
+      const document = await fetchSupportingDocument(request.id);
+      if (!document?.url) {
+        throw new Error("Document link is unavailable");
+      }
+      const canOpen = await Linking.canOpenURL(document.url);
+      if (!canOpen) {
+        throw new Error("This document link cannot be opened on this device");
+      }
+      await Linking.openURL(document.url);
+    } catch (error) {
+      Alert.alert(
+        "Document Unavailable",
+        error.message || "Could not open the supporting document.",
+      );
     }
   };
 
@@ -98,8 +194,15 @@ export default function LeaveScreen() {
           <LeaveBalanceCard credits={credits} loading={creditsLoading} />
           <LeaveForm
             formData={formData}
+            leaveCredits={credits}
             onChange={handleFormChange}
             onSubmit={handleOpenReview}
+          />
+          <LeaveRequestHistory
+            requests={requests}
+            loading={requestsLoading}
+            onCancel={handleCancelRequest}
+            onOpenDocument={handleOpenDocument}
           />
         </ScrollView>
       </KeyboardAvoidingView>

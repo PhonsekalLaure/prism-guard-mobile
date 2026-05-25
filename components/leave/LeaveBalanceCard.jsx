@@ -1,17 +1,17 @@
 import { FontAwesome5 } from "@expo/vector-icons";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 
-/**
- * LeaveBalanceCard
- * Props:
- *   credits  {number}  - available leave days from DB
- *   loading  {boolean} - show skeleton while fetching
- */
 const LeaveBalanceCard = ({ credits = 0, loading = false }) => {
+  const availableRequests =
+    typeof credits === "number" ? credits : credits?.availableCredits ?? 0;
+  const usesDayBalances = Array.isArray(credits?.byType)
+    && credits.byType.some((item) => item.remainingDays !== null && item.remainingDays !== undefined);
+  const unitLabel = usesDayBalances ? " Days" : " Requests";
+
   return (
     <View style={styles.card}>
       <View style={styles.textGroup}>
-        <Text style={styles.label}>Available Credits</Text>
+        <Text style={styles.label}>Available Requests</Text>
         {loading ? (
           <ActivityIndicator
             color="#FFFFFF"
@@ -20,8 +20,8 @@ const LeaveBalanceCard = ({ credits = 0, loading = false }) => {
           />
         ) : (
           <View style={styles.creditsRow}>
-            <Text style={styles.creditsNumber}>{credits}</Text>
-            <Text style={styles.creditsUnit}> Days</Text>
+            <Text style={styles.creditsNumber}>{availableRequests}</Text>
+            <Text style={styles.creditsUnit}>{unitLabel}</Text>
           </View>
         )}
       </View>

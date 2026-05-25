@@ -1,44 +1,28 @@
 import { Feather, FontAwesome5 } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import {
+    Alert,
     Platform,
+    Pressable,
     StyleSheet,
     Text,
     TextInput,
     TouchableOpacity,
     View,
 } from "react-native";
+import { LEAVE_TYPE_LABELS } from "@/constants/leaveTypes";
+import { formatLeaveDate } from "@/utils/leaveDates";
 import LeavePicker from "./LeavePicker";
 
-const LEAVE_TYPE_LABELS = {
-  sick: "Sick Leave",
-  vacation: "Vacation Leave",
-  emergency: "Emergency Leave",
-  paternity: "Paternity / Maternity Leave",
-};
-
-const formatDisplay = (dateStr) => {
-  if (!dateStr) return null;
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-};
-
-/**
- * LeaveForm
- * Props:
- *   formData  { leaveType, startDate, endDate, reason }
- *   onChange  (field: string, value: string) => void
- *   onSubmit  () => void
- */
-const LeaveForm = ({ formData, onChange, onSubmit }) => {
+const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
   const [showLeavePicker, setShowLeavePicker] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const leaveCreditsByType = Object.fromEntries(
+    (leaveCredits?.byType || []).map((item) => [item.leaveType, item]),
+  );
 
   const handleStartDate = (event, selected) => {
     setShowStartPicker(Platform.OS === "ios");
@@ -50,9 +34,35 @@ const LeaveForm = ({ formData, onChange, onSubmit }) => {
     if (selected) onChange("endDate", selected.toISOString().split("T")[0]);
   };
 
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*"],
+        multiple: false,
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) return;
+
+      const asset = result.assets?.[0];
+      if (!asset?.uri) return;
+
+      onChange("supportingDocument", {
+        uri: asset.uri,
+        name: asset.name || "supporting-document",
+        type: asset.mimeType || "application/octet-stream",
+        size: asset.size || null,
+      });
+    } catch (error) {
+      Alert.alert(
+        "File Selection Failed",
+        error?.message || "Could not attach the selected document.",
+      );
+    }
+  };
+
   return (
     <View style={styles.card}>
-      {/* ── Leave Type ── */}
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Leave Type</Text>
         <TouchableOpacity
@@ -80,7 +90,6 @@ const LeaveForm = ({ formData, onChange, onSubmit }) => {
         </TouchableOpacity>
       </View>
 
-      {/* ── Start Date ── */}
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Start Date</Text>
         <TouchableOpacity
@@ -100,7 +109,7 @@ const LeaveForm = ({ formData, onChange, onSubmit }) => {
               !formData.startDate && styles.placeholder,
             ]}
           >
-            {formatDisplay(formData.startDate) ?? "mm / dd / yyyy"}
+            {formatLeaveDate(formData.startDate, "mm / dd / yyyy")}
           </Text>
         </TouchableOpacity>
         {showStartPicker && (
@@ -116,7 +125,6 @@ const LeaveForm = ({ formData, onChange, onSubmit }) => {
         )}
       </View>
 
-      {/* ── End Date ── */}
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>End Date</Text>
         <TouchableOpacity
@@ -133,7 +141,7 @@ const LeaveForm = ({ formData, onChange, onSubmit }) => {
           <Text
             style={[styles.inputText, !formData.endDate && styles.placeholder]}
           >
-            {formatDisplay(formData.endDate) ?? "mm / dd / yyyy"}
+            {formatLeaveDate(formData.endDate, "mm / dd / yyyy")}
           </Text>
         </TouchableOpacity>
         {showEndPicker && (
@@ -149,7 +157,6 @@ const LeaveForm = ({ formData, onChange, onSubmit }) => {
         )}
       </View>
 
-      {/* ── Reason ── */}
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Reason</Text>
         <View style={[styles.inputRow, styles.textAreaRow]}>
@@ -172,7 +179,44 @@ const LeaveForm = ({ formData, onChange, onSubmit }) => {
         </View>
       </View>
 
-      {/* ── Submit ── */}
+      <View style={styles.fieldGroup}>
+        <Text style={styles.label}>Supporting Document</Text>
+        <TouchableOpacity
+          style={styles.inputRow}
+          onPress={handlePickDocument}
+          activeOpacity={0.75}
+        >
+          <Feather
+            name="paperclip"
+            size={14}
+            color="#8A94A6"
+            style={styles.icon}
+          />
+          <Text
+            style={[
+              styles.inputText,
+              !formData.supportingDocument && styles.placeholder,
+            ]}
+            numberOfLines={1}
+          >
+            {formData.supportingDocument?.name || "Attach PDF or image"}
+          </Text>
+          {formData.supportingDocument ? (
+            <Pressable
+              style={styles.clearFileButton}
+              onPress={(event) => {
+                event.stopPropagation();
+                onChange("supportingDocument", null);
+              }}
+            >
+              <Feather name="x" size={15} color="#8A94A6" />
+            </Pressable>
+          ) : (
+            <Feather name="upload" size={15} color="#8A94A6" />
+          )}
+        </TouchableOpacity>
+      </View>
+
       <TouchableOpacity
         style={styles.submitBtn}
         onPress={onSubmit}
@@ -181,7 +225,6 @@ const LeaveForm = ({ formData, onChange, onSubmit }) => {
         <Text style={styles.submitText}>Submit Request</Text>
       </TouchableOpacity>
 
-      {/* ── Leave Type Picker ── */}
       <LeavePicker
         visible={showLeavePicker}
         selected={formData.leaveType}
@@ -190,6 +233,7 @@ const LeaveForm = ({ formData, onChange, onSubmit }) => {
           setShowLeavePicker(false);
         }}
         onClose={() => setShowLeavePicker(false)}
+        leaveCreditsByType={leaveCreditsByType}
       />
     </View>
   );
@@ -251,6 +295,15 @@ const styles = StyleSheet.create({
     color: "#1A2340",
     minHeight: 84,
     lineHeight: 21,
+  },
+  clearFileButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#EEF1F6",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
   },
   submitBtn: {
     backgroundColor: "#E6B215",

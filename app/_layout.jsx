@@ -1,6 +1,10 @@
 // app/_layout.jsx
 import { Stack } from "expo-router";
 import { useEffect } from "react";
+import {
+  addNotificationResponseListener,
+  registerStoredProfilePushToken,
+} from "@/utils/pushNotifications";
 
 export default function Layout() {
   useEffect(() => {
@@ -14,11 +18,21 @@ export default function Layout() {
     }
   }, []);
 
+  useEffect(() => {
+    registerStoredProfilePushToken();
+    const responseSubscription = addNotificationResponseListener();
+
+    return () => {
+      responseSubscription?.remove?.();
+    };
+  }, []);
+
   return (
     <Stack screenOptions={{ headerShown: false, animation: "none" }}>
       <Stack.Screen name="index" />
       <Stack.Screen name="login" />
       <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="notifications" />
       {/* Add this 👇 */}
       <Stack.Screen
         name="check-in-confirmation"
