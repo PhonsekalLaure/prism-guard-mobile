@@ -87,15 +87,16 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (!profile?.id) return;
 
-    const loadActiveAttendance = async () => {
-      try {
-        const attendanceLog = await fetchActiveAttendance();
-        setActiveAttendanceLog(attendanceLog);
-        setIsOnDuty(Boolean(attendanceLog));
-      } catch (err) {
-        console.warn("Could not load active attendance:", err.message);
-      }
-    };
+    // With this:
+const loadActiveAttendance = async () => {
+  try {
+    const attendanceLog = await fetchActiveAttendance();
+    setActiveAttendanceLog(attendanceLog);
+    setIsOnDuty(Boolean(attendanceLog));
+  } catch (err) {
+    console.warn("Could not load active attendance:", err.message);
+  }
+};
 
     loadActiveAttendance();
   }, [profile?.id]);
