@@ -15,7 +15,7 @@ async function request(path) {
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.error || "Schedule request failed");
+    throw new Error(data.error || "Something went wrong. Please try again.");
   }
 
   return data;
@@ -24,10 +24,6 @@ async function request(path) {
 export function fetchMonthlySchedule({ year, month, selectedDate } = {}) {
   const monthValue = `${year}-${String(month + 1).padStart(2, "0")}`;
   const params = new URLSearchParams({ month: monthValue });
-
-  if (selectedDate) {
-    params.set("date", selectedDate);
-  }
-
+  if (selectedDate) params.set("date", selectedDate);
   return request(`?${params.toString()}`);
 }
