@@ -2,30 +2,43 @@ import { PrismColors } from "@/constants/prismTheme";
 import { StyleSheet, Text, View } from "react-native";
 
 export default function DeploymentCard({
-  location = "SM Mall of Asia",
-  address = "Pasay City • Main Entrance",
-  timeStart = "07:00",
-  timeEnd = "19:00",
+  location,
+  address,
+  timeStart,
+  timeEnd,
   status = "ACTIVE",
+  title = "SCHEDULED DEPLOYMENT",
+  emptyMessage = "No deployment found for this date.",
 }) {
+  if (!location) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.sectionLabel}>{title}</Text>
+        <Text style={styles.emptyText}>{emptyMessage}</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.sectionLabel}>CURRENT DEPLOYMENT</Text>
+        <Text style={styles.sectionLabel}>{title}</Text>
         <View style={styles.badge}>
           <Text style={styles.badgeText}>{status}</Text>
         </View>
       </View>
       <View style={styles.row}>
         <View style={styles.iconBox}>
-          <Text style={styles.icon}>🏢</Text>
+          <Text style={styles.icon}>HQ</Text>
         </View>
-        <View>
+        <View style={styles.details}>
           <Text style={styles.location}>{location}</Text>
-          <Text style={styles.address}>{address}</Text>
-          <Text style={styles.time}>
-            🕐 {timeStart} - {timeEnd}
-          </Text>
+          {!!address && <Text style={styles.address}>{address}</Text>}
+          {!!timeStart && !!timeEnd && (
+            <Text style={styles.time}>
+              {timeStart} - {timeEnd}
+            </Text>
+          )}
         </View>
       </View>
     </View>
@@ -68,7 +81,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  icon: { fontSize: 22 },
+  icon: { fontSize: 13, fontWeight: "800", color: PrismColors.navy },
+  details: { flex: 1 },
   location: { fontSize: 15, fontWeight: "700", color: PrismColors.navy },
   address: { fontSize: 12, color: "#999", marginTop: 2 },
   time: {
@@ -77,4 +91,5 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: "600",
   },
+  emptyText: { color: "#777", fontSize: 13, marginTop: 10 },
 });
