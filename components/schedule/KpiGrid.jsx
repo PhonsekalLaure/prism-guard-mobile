@@ -10,9 +10,9 @@ const KPI_COLORS = {
 
 export default function KpiGrid({
   absents = 0,
-  lates = 1,
-  leaves = 5,
-  hours = 34,
+  lates = 0,
+  leaves = 0,
+  hours = 0,
 }) {
   const items = [
     { label: "ABSENTS", value: absents, color: KPI_COLORS.absents },
