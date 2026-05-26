@@ -1,15 +1,30 @@
 import { PrismColors } from "@/constants/prismTheme";
-import { StyleSheet, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Image, StyleSheet, Text, View } from "react-native";
+
+function getInitials(value = "") {
+  const words = String(value).trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "HQ";
+  return words.slice(0, 2).map((word) => word[0]?.toUpperCase()).join("");
+}
 
 export default function DeploymentCard({
   location,
   address,
+  avatarUrl,
   timeStart,
   timeEnd,
   status = "ACTIVE",
   title = "SCHEDULED DEPLOYMENT",
   emptyMessage = "No deployment found for this date.",
 }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const shouldShowAvatar = Boolean(avatarUrl) && !imageFailed;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [avatarUrl]);
+
   if (!location) {
     return (
       <View style={styles.container}>
@@ -29,7 +44,15 @@ export default function DeploymentCard({
       </View>
       <View style={styles.row}>
         <View style={styles.iconBox}>
-          <Text style={styles.icon}>HQ</Text>
+          {shouldShowAvatar ? (
+            <Image
+              source={{ uri: avatarUrl }}
+              style={styles.avatar}
+              onError={() => setImageFailed(true)}
+            />
+          ) : (
+            <Text style={styles.icon}>{getInitials(location || address)}</Text>
+          )}
         </View>
         <View style={styles.details}>
           <Text style={styles.location}>{location}</Text>
@@ -80,7 +103,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#f0f4ff",
     alignItems: "center",
     justifyContent: "center",
+    overflow: "hidden",
   },
+  avatar: { width: "100%", height: "100%" },
   icon: { fontSize: 13, fontWeight: "800", color: PrismColors.navy },
   details: { flex: 1 },
   location: { fontSize: 15, fontWeight: "700", color: PrismColors.navy },

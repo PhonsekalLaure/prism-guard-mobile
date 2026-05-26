@@ -46,6 +46,10 @@ export default function LeaveScreen() {
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
 
+  const navigateBackToSchedule = () => {
+    router.replace("/(tabs)/schedule");
+  };
+
   const loadLeaveData = async () => {
     setCreditsLoading(true);
     setRequestsLoading(true);
@@ -121,7 +125,7 @@ export default function LeaveScreen() {
       Alert.alert(
         "Request Submitted",
         "Your leave request has been sent for approval.",
-        [{ text: "OK", onPress: () => router.back() }],
+        [{ text: "OK", onPress: navigateBackToSchedule }],
       );
     } catch (error) {
       Alert.alert(
@@ -179,7 +183,7 @@ export default function LeaveScreen() {
 
   return (
     <ScreenWrapper activeTabKey="schedule">
-      <LeaveHeader onBack={() => router.back()} />
+      <LeaveHeader onBack={navigateBackToSchedule} />
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}

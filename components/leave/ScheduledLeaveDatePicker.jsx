@@ -40,6 +40,28 @@ function compareDateKeys(left, right) {
   return String(left || "").localeCompare(String(right || ""));
 }
 
+function getMonthPartsFromKey(monthKey) {
+  const [year, month] = String(monthKey).split("-").map(Number);
+  return { year, month: month - 1 };
+}
+
+function getMonthKeysBetween(startDate, endDate) {
+  const start = parseDateKey(startDate);
+  const end = parseDateKey(endDate);
+  if (!start || !end || end < start) return [];
+
+  const keys = [];
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const final = new Date(end.getFullYear(), end.getMonth(), 1);
+
+  while (cursor <= final) {
+    keys.push(getMonthKey(cursor.getFullYear(), cursor.getMonth()));
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return keys;
+}
+
 export default function ScheduledLeaveDatePicker({
   visible,
   title,
@@ -56,7 +78,7 @@ export default function ScheduledLeaveDatePicker({
   const [month, setMonth] = useState(initialMonth.month);
   const [year, setYear] = useState(initialMonth.year);
   const [scheduleCache, setScheduleCache] = useState({});
-  const [loadingMonthKey, setLoadingMonthKey] = useState(null);
+  const [loadingMonthKeys, setLoadingMonthKeys] = useState([]);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -67,27 +89,46 @@ export default function ScheduledLeaveDatePicker({
 
   const visibleMonthKey = getMonthKey(year, month);
 
-  const loadMonth = useCallback(async () => {
-    if (!visible || scheduleCache[visibleMonthKey]) return;
+  const loadMonth = useCallback(async (monthKey) => {
+    if (
+      !visible
+      || scheduleCache[monthKey]
+    ) {
+      return;
+    }
 
-    setLoadingMonthKey(visibleMonthKey);
+    const target = getMonthPartsFromKey(monthKey);
+    setLoadingMonthKeys((prev) => [...new Set([...prev, monthKey])]);
     setError("");
     try {
-      const result = await fetchMonthlySchedule({ year, month });
+      const result = await fetchMonthlySchedule(target);
       setScheduleCache((prev) => ({
         ...prev,
-        [visibleMonthKey]: result.scheduledDates || [],
+        [monthKey]: result.scheduledDates || [],
       }));
     } catch (err) {
       setError(err.message || "Could not load scheduled dates.");
     } finally {
-      setLoadingMonthKey(null);
+      setLoadingMonthKeys((prev) => prev.filter((key) => key !== monthKey));
     }
-  }, [month, scheduleCache, visible, visibleMonthKey, year]);
+  }, [scheduleCache, visible]);
 
   useEffect(() => {
-    loadMonth();
-  }, [loadMonth]);
+    loadMonth(visibleMonthKey);
+  }, [loadMonth, visibleMonthKey]);
+
+  useEffect(() => {
+    if (!visible || !rangeStartDate) return;
+
+    const visibleMonthEnd = getDateKey(
+      year,
+      month,
+      new Date(year, month + 1, 0).getDate(),
+    );
+    getMonthKeysBetween(rangeStartDate, visibleMonthEnd)
+      .filter((monthKey) => monthKey !== visibleMonthKey)
+      .forEach(loadMonth);
+  }, [loadMonth, month, rangeStartDate, visible, visibleMonthKey, year]);
 
   const scheduledSet = useMemo(
     () => new Set(scheduleCache[visibleMonthKey] || []),
@@ -101,8 +142,14 @@ export default function ScheduledLeaveDatePicker({
     () => Object.values(scheduleCache).flat(),
     [scheduleCache],
   );
-  const isLoading = loadingMonthKey === visibleMonthKey;
+  const isLoading = loadingMonthKeys.includes(visibleMonthKey);
   const hasNoScheduledDates = hasLoadedVisibleMonth && !isLoading && scheduledSet.size === 0;
+
+  const hasLoadedDateRange = useCallback((startDate, endDate) => (
+    getMonthKeysBetween(startDate, endDate).every((monthKey) => (
+      Object.prototype.hasOwnProperty.call(scheduleCache, monthKey)
+    ))
+  ), [scheduleCache]);
 
   const firstDay = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -149,6 +196,13 @@ export default function ScheduledLeaveDatePicker({
     }
     if (!scheduledSet.has(dateKey)) {
       return "not-scheduled";
+    }
+    if (
+      rangeStartDate
+      && compareDateKeys(dateKey, rangeStartDate) >= 0
+      && !hasLoadedDateRange(rangeStartDate, dateKey)
+    ) {
+      return "loading";
     }
     if (
       rangeStartDate
