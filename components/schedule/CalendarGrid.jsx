@@ -1,20 +1,22 @@
 import { PrismColors } from "@/constants/prismTheme";
+import { getDateKey } from "@/utils/scheduleDates";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
-
-function getDateKey(year, month, day) {
-  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
+const TODAY_COLOR = "#2d9cdb";
 
 export default function CalendarGrid({
   month = 1,
   year = 2026,
   selectedDay,
   scheduledDates = [],
+  lateDates = [],
+  absentDates = [],
   onDayPress,
 }) {
   const scheduledSet = new Set(scheduledDates);
+  const lateSet = new Set(lateDates);
+  const absentSet = new Set(absentDates);
   const today = new Date();
   const isCurrentMonth =
     today.getMonth() === month && today.getFullYear() === year;
@@ -49,6 +51,8 @@ export default function CalendarGrid({
           const isSelected = cell.current && cell.day === selectedDay;
           const dateKey = cell.current ? getDateKey(year, month, cell.day) : null;
           const isScheduled = cell.current && scheduledSet.has(dateKey);
+          const isLate = cell.current && lateSet.has(dateKey);
+          const isAbsent = cell.current && absentSet.has(dateKey);
           return (
             <TouchableOpacity
               key={i}
@@ -58,6 +62,8 @@ export default function CalendarGrid({
               <View
                 style={[
                   styles.dayCircle,
+                  isLate && styles.lateCircle,
+                  isAbsent && styles.absentCircle,
                   isToday && styles.todayCircle,
                   isSelected && styles.selectedCircle,
                 ]}
@@ -73,9 +79,13 @@ export default function CalendarGrid({
                   {cell.day}
                 </Text>
               </View>
-              {isScheduled && (
-                <View style={[styles.dot, isToday && styles.dotToday]} />
-              )}
+              <View style={styles.markerRow}>
+                {isScheduled && (
+                  <View style={[styles.dot, styles.scheduledDot, isToday && styles.dotToday]} />
+                )}
+                {isLate && <View style={[styles.dot, styles.lateDot]} />}
+                {isAbsent && <View style={[styles.dot, styles.absentDot]} />}
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -89,9 +99,17 @@ export default function CalendarGrid({
         </View>
         <View style={styles.legendItem}>
           <View
-            style={[styles.legendDot, { backgroundColor: PrismColors.gold }]}
+            style={[styles.legendDot, { backgroundColor: TODAY_COLOR }]}
           />
           <Text style={styles.legendText}>Today</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, styles.lateDot]} />
+          <Text style={styles.legendText}>Late</Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, styles.absentDot]} />
+          <Text style={styles.legendText}>Absent</Text>
         </View>
       </View>
     </View>
@@ -115,29 +133,51 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   grid: { flexDirection: "row", flexWrap: "wrap" },
-  cell: { width: "14.28%", alignItems: "center", marginBottom: 6 },
+  cell: {
+    width: "14.28%",
+    alignItems: "center",
+    marginBottom: 6,
+    minHeight: 40,
+  },
   dayCircle: {
     width: 30,
     height: 30,
-    borderRadius: 15,
+    borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "transparent",
   },
-  todayCircle: { backgroundColor: PrismColors.gold },
+  lateCircle: { borderColor: "#f39c12" },
+  absentCircle: { borderColor: "#e74c3c" },
+  todayCircle: { backgroundColor: TODAY_COLOR },
   selectedCircle: { backgroundColor: PrismColors.navy },
   dayText: { fontSize: 13, color: PrismColors.navy, fontWeight: "500" },
   dimText: { color: "#ccc" },
   todayText: { color: "#fff", fontWeight: "700" },
   selectedText: { color: PrismColors.white, fontWeight: "700" },
+  markerRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 3,
+    height: 7,
+    marginTop: 1,
+  },
   dot: {
     width: 5,
     height: 5,
     borderRadius: 3,
-    backgroundColor: PrismColors.navy,
-    marginTop: 1,
   },
-  dotToday: { backgroundColor: PrismColors.gold },
-  legend: { flexDirection: "row", gap: 16, marginTop: 8 },
+  scheduledDot: { backgroundColor: PrismColors.navy },
+  lateDot: { backgroundColor: "#f39c12" },
+  absentDot: { backgroundColor: "#e74c3c" },
+  dotToday: { backgroundColor: TODAY_COLOR },
+  legend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 8,
+  },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 11, color: "#666" },
