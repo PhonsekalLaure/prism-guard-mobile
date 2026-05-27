@@ -13,9 +13,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.papilooz.prismguardmobile"
+      "bundleIdentifier": "com.prismguard.mobile"
     },
     "android": {
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -24,7 +25,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.papilooz.prismguardmobile"
+      "package": "com.prismguard.mobile"
     },
     "web": {
       "output": "static",
@@ -53,7 +54,10 @@
       "reactCompiler": true
     },
     "extra": {
-      "router": {}
+      "router": {},
+      "eas": {
+        "projectId": "283ba29e-1522-45fa-9730-c2ef1e3463ff"
+      }
     }
   }
 }
