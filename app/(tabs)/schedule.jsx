@@ -9,19 +9,6 @@ import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
 import { fetchLeaveCredits } from "@/services/leaveService";
 import { fetchNotificationStats } from "@/services/notificationService";
 import { fetchMonthlySchedule } from "@/services/scheduleService";
-import { fetchNotificationStats } from "@/services/notificationService";
-import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-
-function getTodayParts() {
-  const today = new Date();
-  return {
-    month: today.getMonth(),
-    year: today.getFullYear(),
-    day: today.getDate(),
-  };
-}
 import {
   getAdjacentMonth,
   getClampedDay,
@@ -48,7 +35,6 @@ export default function ScheduleScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [leaveCreditsError, setLeaveCreditsError] = useState(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [availableLeaveCredits, setAvailableLeaveCredits] = useState(0);
@@ -68,20 +54,6 @@ export default function ScheduleScreen() {
       setLeaveCreditsError(err.message || "Could not load leave credits.");
     }
   }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      let isMounted = true;
-      fetchNotificationStats()
-        .then((stats) => {
-          if (isMounted) setUnreadNotifications(stats.unread || 0);
-        })
-        .catch((err) => {
-          console.warn("Could not load notifications:", err.message);
-        });
-      return () => { isMounted = false; };
-    }, [])
-  );
 
   const loadSchedule = useCallback(async ({ refresh = false } = {}) => {
     const requestSeq = scheduleRequestSeq.current + 1;
@@ -123,20 +95,6 @@ export default function ScheduleScreen() {
   }, [month, year]);
 
   useEffect(() => {
-    loadSchedule();
-  }, [loadSchedule]);
-
-  const handlePrev = () => {
-    if (month === 0) { setMonth(11); setYear((y) => y - 1); }
-    else setMonth((m) => m - 1);
-  };
-
-  const handleNext = () => {
-    if (month === 11) { setMonth(0); setYear((y) => y + 1); }
-    else setMonth((m) => m + 1);
-  };
-
-  const handleDayPress = (day) => setSelectedDay(day);
     if (accessLoading) {
       setSchedule(null);
       setError(null);
@@ -236,7 +194,6 @@ export default function ScheduleScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
-        <MonthSelector month={month} year={year} onPrev={handlePrev} onNext={handleNext} />
         <MonthSelector
           month={month}
           year={year}
