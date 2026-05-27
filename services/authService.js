@@ -63,7 +63,6 @@ const authService = {
     });
 
     const data = await parseJsonResponse(response);
-    const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
       throw new Error(data.error || "Failed to reset password");
