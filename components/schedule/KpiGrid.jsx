@@ -12,12 +12,13 @@ export default function KpiGrid({
   absents = 0,
   lates = 0,
   leaves = 0,
+  leavesLabel = "LEAVES",
   hours = 0,
 }) {
   const items = [
     { label: "ABSENTS", value: absents, color: KPI_COLORS.absents },
     { label: "LATES", value: lates, color: KPI_COLORS.lates },
-    { label: "LEAVES", value: leaves, color: KPI_COLORS.leaves },
+    { label: leavesLabel, value: leaves, color: KPI_COLORS.leaves },
     { label: "HOURS", value: hours, color: KPI_COLORS.hours },
   ];
   return (

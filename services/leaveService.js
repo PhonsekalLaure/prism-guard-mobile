@@ -2,6 +2,17 @@ import authService from "@/services/authService";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
+async function parseJsonResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Server returned an invalid response");
+  }
+}
+
 async function request(path, options = {}) {
   const token = await authService.getToken();
   if (!token) throw new Error("No session found");
@@ -17,12 +28,21 @@ async function request(path, options = {}) {
     headers["Content-Type"] = "application/json";
   }
 
-  const response = await fetch(`${BASE_URL}/api/mobile/leave${path}`, {
+  const buildOptions = (accessToken) => ({
     ...options,
-    headers,
+    headers: {
+      ...headers,
+      Authorization: `Bearer ${accessToken}`,
+    },
   });
 
-  const data = await response.json();
+  let response = await fetch(`${BASE_URL}/api/mobile/leave${path}`, buildOptions(token));
+  if (response.status === 401) {
+    const refreshedToken = await authService.refreshSession();
+    response = await fetch(`${BASE_URL}/api/mobile/leave${path}`, buildOptions(refreshedToken));
+  }
+
+  const data = await parseJsonResponse(response);
   if (!response.ok) {
     throw new Error(data.error || "Leave request failed");
   }

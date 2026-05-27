@@ -8,6 +8,53 @@ export function countInclusiveDays(startDate, endDate) {
   return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
 }
 
+export function getDateKey(year, month, day) {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+export function getMonthKey(year, month) {
+  return `${year}-${String(month + 1).padStart(2, "0")}`;
+}
+
+export function getTodayDateKey() {
+  const today = new Date();
+  return getDateKey(today.getFullYear(), today.getMonth(), today.getDate());
+}
+
+export function parseDateKey(dateStr) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || ""))) return null;
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year
+    || date.getMonth() !== month - 1
+    || date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+export function getDateRange(startDate, endDate) {
+  const start = parseDateKey(startDate);
+  const end = parseDateKey(endDate);
+  if (!start || !end || end < start) return [];
+
+  const dates = [];
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    dates.push(getDateKey(cursor.getFullYear(), cursor.getMonth(), cursor.getDate()));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return dates;
+}
+
+export function isDateRangeScheduled(startDate, endDate, scheduledDates = []) {
+  const scheduledSet = new Set(scheduledDates);
+  const dates = getDateRange(startDate, endDate);
+  return dates.length > 0 && dates.every((date) => scheduledSet.has(date));
+}
+
 export function formatLeaveDate(dateStr, fallback = "-") {
   if (!dateStr) return fallback;
 

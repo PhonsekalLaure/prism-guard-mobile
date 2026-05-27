@@ -25,8 +25,7 @@ import {
   PrismSpacing,
   PrismTypography,
 } from "@/constants/prismTheme";
-import { useDeployment } from "@/hooks/useDeployment";
-import { useProfile } from "@/hooks/useProfile";
+import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
 import incidentService from "@/services/incidentService";
 
 const formatDateTime = (date) => {
@@ -68,8 +67,7 @@ const titleCase = (value) =>
 
 export default function ReportScreen() {
   const router = useRouter();
-  const { profile } = useProfile();
-  const { deployment } = useDeployment(profile?.id);
+  const { deployment, deploymentLoading, profileLoading } = useActiveDeploymentAccess();
   const [narrative, setNarrative] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -99,12 +97,40 @@ export default function ReportScreen() {
   }, []);
 
   useEffect(() => {
+    if (profileLoading || deploymentLoading) return undefined;
+    if (!deployment) {
+      Alert.alert("No Access", "You have no access to this right now.", [
+        { text: "OK", onPress: () => router.replace("/(tabs)") },
+      ]);
+      return undefined;
+    }
+
     let active = true;
     loadIncidentHistory({ isActive: () => active });
     return () => {
       active = false;
     };
-  }, [loadIncidentHistory]);
+  }, [deployment, deploymentLoading, loadIncidentHistory, profileLoading, router]);
+
+  if (profileLoading || deploymentLoading) {
+    return (
+      <ScreenWrapper activeTabKey="home">
+        <StatusBar barStyle="light-content" />
+        <View style={styles.loadingState}>
+          <ActivityIndicator color={PrismColors.navy} />
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
+  if (!deployment) {
+    return (
+      <ScreenWrapper activeTabKey="home">
+        <StatusBar barStyle="light-content" />
+        <View style={styles.loadingState} />
+      </ScreenWrapper>
+    );
+  }
 
   const handleSubmitPress = () => {
     if (submitting) return;
@@ -365,5 +391,10 @@ const styles = StyleSheet.create({
     marginTop: PrismSpacing.xs,
     fontSize: PrismTypography.xs,
     color: PrismColors.textSecondary,
+  },
+  loadingState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

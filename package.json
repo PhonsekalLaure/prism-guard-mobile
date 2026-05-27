@@ -8,7 +8,9 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "dev:all": "node start-dev.js",
+    "dev:all:windows": "powershell -ExecutionPolicy Bypass -File start-dev.ps1"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
@@ -21,6 +23,7 @@
     "babel-preset-expo": "~55.0.8",
     "expo": "~55.0.26",
     "expo-constants": "~55.0.16",
+    "expo-dev-client": "~6.0.21",
     "expo-document-picker": "~55.0.13",
     "expo-font": "~55.0.8",
     "expo-haptics": "~55.0.14",

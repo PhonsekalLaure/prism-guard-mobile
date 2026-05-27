@@ -7,7 +7,16 @@ async function request(path) {
     method: "GET",
   });
 
-  const data = await response.json();
+  const text = await response.text();
+  let data = {};
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error("Server returned an invalid response");
+    }
+  }
+
   if (!response.ok) {
     throw new Error(data.error || "Schedule request failed");
   }
