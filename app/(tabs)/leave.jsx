@@ -3,11 +3,11 @@ import { useEffect, useState } from "react";
 import {
     Alert,
     KeyboardAvoidingView,
-    Linking,
     Platform,
     ScrollView,
     StyleSheet
 } from "react-native";
+import * as WebBrowser from "expo-web-browser";
 
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import {
@@ -168,11 +168,7 @@ export default function LeaveScreen() {
       if (!document?.url) {
         throw new Error("Document link is unavailable");
       }
-      const canOpen = await Linking.canOpenURL(document.url);
-      if (!canOpen) {
-        throw new Error("This document link cannot be opened on this device");
-      }
-      await Linking.openURL(document.url);
+      await WebBrowser.openBrowserAsync(document.url);
     } catch (error) {
       Alert.alert(
         "Document Unavailable",
