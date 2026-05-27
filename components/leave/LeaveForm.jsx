@@ -1,10 +1,8 @@
 import { Feather, FontAwesome5 } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
 import * as DocumentPicker from "expo-document-picker";
 import { useState } from "react";
 import {
     Alert,
-    Platform,
     Pressable,
     StyleSheet,
     Text,
@@ -13,8 +11,9 @@ import {
     View,
 } from "react-native";
 import { LEAVE_TYPE_LABELS } from "@/constants/leaveTypes";
-import { formatLeaveDate } from "@/utils/leaveDates";
+import { formatLeaveDate, getTodayDateKey } from "@/utils/leaveDates";
 import LeavePicker from "./LeavePicker";
+import ScheduledLeaveDatePicker from "./ScheduledLeaveDatePicker";
 
 const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
   const [showLeavePicker, setShowLeavePicker] = useState(false);
@@ -23,16 +22,6 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
   const leaveCreditsByType = Object.fromEntries(
     (leaveCredits?.byType || []).map((item) => [item.leaveType, item]),
   );
-
-  const handleStartDate = (event, selected) => {
-    setShowStartPicker(Platform.OS === "ios");
-    if (selected) onChange("startDate", selected.toISOString().split("T")[0]);
-  };
-
-  const handleEndDate = (event, selected) => {
-    setShowEndPicker(Platform.OS === "ios");
-    if (selected) onChange("endDate", selected.toISOString().split("T")[0]);
-  };
 
   const handlePickDocument = async () => {
     try {
@@ -113,14 +102,18 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
           </Text>
         </TouchableOpacity>
         {showStartPicker && (
-          <DateTimePicker
-            value={
-              formData.startDate ? new Date(formData.startDate) : new Date()
-            }
-            mode="date"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            minimumDate={new Date()}
-            onChange={handleStartDate}
+          <ScheduledLeaveDatePicker
+            visible={showStartPicker}
+            title="Select Start Date"
+            selectedDate={formData.startDate}
+            minDate={getTodayDateKey()}
+            onSelect={(dateKey) => {
+              onChange("startDate", dateKey);
+              if (formData.endDate && formData.endDate < dateKey) {
+                onChange("endDate", "");
+              }
+            }}
+            onClose={() => setShowStartPicker(false)}
           />
         )}
       </View>
@@ -145,14 +138,14 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
           </Text>
         </TouchableOpacity>
         {showEndPicker && (
-          <DateTimePicker
-            value={formData.endDate ? new Date(formData.endDate) : new Date()}
-            mode="date"
-            display={Platform.OS === "ios" ? "spinner" : "default"}
-            minimumDate={
-              formData.startDate ? new Date(formData.startDate) : new Date()
-            }
-            onChange={handleEndDate}
+          <ScheduledLeaveDatePicker
+            visible={showEndPicker}
+            title="Select End Date"
+            selectedDate={formData.endDate}
+            minDate={formData.startDate || getTodayDateKey()}
+            rangeStartDate={formData.startDate}
+            onSelect={(dateKey) => onChange("endDate", dateKey)}
+            onClose={() => setShowEndPicker(false)}
           />
         )}
       </View>

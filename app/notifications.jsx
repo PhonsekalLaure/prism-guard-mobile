@@ -24,6 +24,7 @@ import {
   PrismSpacing,
   PrismTypography,
 } from "@/constants/prismTheme";
+import { getNotificationRoute } from "@/utils/notificationNavigation";
 
 function formatNotificationTime(value) {
   if (!value) return "";
@@ -84,6 +85,15 @@ export default function NotificationsScreen() {
   };
 
   const handlePress = async (item) => {
+    const route = getNotificationRoute({
+      ...(item.event?.metadata || {}),
+      actionUrl: item.event?.action_url,
+    });
+
+    if (route) {
+      router.push(route);
+    }
+
     if (!item.is_read) {
       await markNotificationRead(item.id);
       setItems((current) => current.map((notification) => (
@@ -91,12 +101,6 @@ export default function NotificationsScreen() {
           ? { ...notification, is_read: true, read_at: new Date().toISOString() }
           : notification
       )));
-    }
-
-    const route = item.event?.metadata?.route;
-    const screen = item.event?.metadata?.screen;
-    if (route === "/(tabs)/leave" || screen === "leave") {
-      router.push("/(tabs)/leave");
     }
   };
 

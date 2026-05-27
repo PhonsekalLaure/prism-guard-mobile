@@ -6,17 +6,31 @@ import { useEffect, useState } from "react";
 export function useProfile() {
   const [profile, setProfile] = useState(null);
   const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    authService.getProfile().then((p) => {
-      if (p) {
-        setProfile(p);
-      }
-    });
+    let active = true;
+
+    authService.getProfile()
+      .then((p) => {
+        if (active && p) {
+          setProfile(p);
+        }
+      })
+      .catch(() => {
+        if (active) setProfile(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
     AsyncStorage.getItem("user_email").then((e) => {
-      if (e) setEmail(e);
+      if (active && e) setEmail(e);
     });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const fullName = profile
@@ -34,5 +48,6 @@ export function useProfile() {
     address: profile?.residential_address || "",
     emergencyName: profile?.emergency_contact_name || "",
     emergencyNum: profile?.emergency_contact_number || "",
+    loading,
   };
 }

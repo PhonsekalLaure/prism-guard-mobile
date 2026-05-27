@@ -9,8 +9,7 @@ import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import ShiftStatusCard from "@/components/dashboard/Shiftstatuscard";
 import TimeInButton from "@/components/dashboard/TimeinButton";
 import { PrismSpacing } from "@/constants/prismTheme";
-import { useDeployment } from "@/hooks/useDeployment";
-import { useProfile } from "@/hooks/useProfile";
+import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
 import {
   clockIn,
   clockOut,
@@ -57,8 +56,7 @@ export default function DashboardScreen() {
   });
 
   const toastTimeout = useRef(null);
-  const { fullName, profile } = useProfile();
-  const { deployment } = useDeployment(profile?.id);
+  const { deployment, fullName, profile } = useActiveDeploymentAccess();
   const router = useRouter();
 
   useEffect(() => {

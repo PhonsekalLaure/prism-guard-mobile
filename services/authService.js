@@ -28,6 +28,7 @@ const authService = {
       throw new Error(data.error || "Login failed");
     }
 
+    await AsyncStorage.removeItem("active_deployment");
     await AsyncStorage.setItem("access_token", data.session.access_token);
     await AsyncStorage.setItem("refresh_token", data.session.refresh_token);
     await AsyncStorage.setItem("profile", JSON.stringify(data.profile));
@@ -90,6 +91,7 @@ const authService = {
     await AsyncStorage.removeItem("refresh_token");
     await AsyncStorage.removeItem("profile");
     await AsyncStorage.removeItem("user_email");
+    await AsyncStorage.removeItem("active_deployment");
   },
 
   async getToken() {
