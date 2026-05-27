@@ -48,6 +48,12 @@ npx eas-cli whoami
 
 If EAS says you do not have access to the project, ask the project owner to add your Expo account to the Prism Guard Expo project.
 
+## Firebase Config Note
+
+Do not commit `google-services.json` or Firebase private key files. The project owner manages Firebase configuration in EAS, and the build receives the Android Firebase config during EAS Build.
+
+For normal teammate setup, you do not need to create a Firebase project or generate Firebase keys.
+
 ## Environment File
 
 Create or update this file:
@@ -245,4 +251,3 @@ npx eas-cli whoami
 ```
 
 Then ask the project owner to add that Expo account to the Prism Guard project.
-
