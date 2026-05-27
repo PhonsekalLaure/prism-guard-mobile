@@ -5,6 +5,7 @@ import {
   addNotificationResponseListener,
   registerStoredProfilePushToken,
 } from "@/utils/pushNotifications";
+import { ActiveDeploymentAccessProvider } from "@/hooks/useActiveDeploymentAccess";
 
 export default function Layout() {
   useEffect(() => {
@@ -28,16 +29,18 @@ export default function Layout() {
   }, []);
 
   return (
-    <Stack screenOptions={{ headerShown: false, animation: "none" }}>
-      <Stack.Screen name="index" />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="notifications" />
-      {/* Add this 👇 */}
-      <Stack.Screen
-        name="check-in-confirmation"
-        options={{ animation: "slide_from_bottom" }}
-      />
-    </Stack>
+    <ActiveDeploymentAccessProvider>
+      <Stack screenOptions={{ headerShown: false, animation: "none" }}>
+        <Stack.Screen name="index" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="notifications" />
+        {/* Add this 👇 */}
+        <Stack.Screen
+          name="check-in-confirmation"
+          options={{ animation: "slide_from_bottom" }}
+        />
+      </Stack>
+    </ActiveDeploymentAccessProvider>
   );
 }

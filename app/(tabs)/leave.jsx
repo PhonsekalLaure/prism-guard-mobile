@@ -1,15 +1,18 @@
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     Alert,
     KeyboardAvoidingView,
     Platform,
     ScrollView,
-    StyleSheet
+    StyleSheet,
+    Text,
+    View
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
+import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
 import {
     cancelLeaveRequest,
     fetchLeaveCredits,
@@ -26,6 +29,7 @@ import { countInclusiveDays } from "../../utils/leaveDates";
 
 export default function LeaveScreen() {
   const router = useRouter();
+  const { deployment, deploymentLoading, profileLoading } = useActiveDeploymentAccess();
 
   const [formData, setFormData] = useState({
     leaveType: "",
@@ -45,14 +49,16 @@ export default function LeaveScreen() {
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
 
-  const navigateBackToSchedule = () => {
+  const navigateBackToSchedule = useCallback(() => {
     router.replace("/(tabs)/schedule");
-  };
+  }, [router]);
 
-  const loadLeaveData = async () => {
+  const loadLeaveData = useCallback(async () => {
     setCreditsLoading(true);
     setRequestsLoading(true);
+    setLoadError(null);
     try {
       const [creditResult, requestResult] = await Promise.all([
         fetchLeaveCredits(),
@@ -61,16 +67,32 @@ export default function LeaveScreen() {
       setCredits(creditResult);
       setRequests(requestResult);
     } catch (e) {
-      console.warn("Could not load leave data:", e.message);
+      setLoadError(e.message || "Could not load leave data.");
     } finally {
       setCreditsLoading(false);
       setRequestsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    if (profileLoading || deploymentLoading) return;
+    if (!deployment) {
+      setCreditsLoading(false);
+      setRequestsLoading(false);
+      Alert.alert("No Access", "You have no access to this right now.", [
+        { text: "OK", onPress: navigateBackToSchedule },
+      ]);
+      return;
+    }
+
     loadLeaveData();
-  }, []);
+  }, [
+    deployment,
+    deploymentLoading,
+    loadLeaveData,
+    navigateBackToSchedule,
+    profileLoading,
+  ]);
 
   const handleFormChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -191,6 +213,12 @@ export default function LeaveScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {loadError ? (
+            <View style={styles.errorCard}>
+              <Text style={styles.errorTitle}>Could not load leave data</Text>
+              <Text style={styles.errorText}>{loadError}</Text>
+            </View>
+          ) : null}
           <LeaveBalanceCard credits={credits} loading={creditsLoading} />
           <LeaveForm
             formData={formData}
@@ -224,5 +252,23 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 48,
     gap: 20,
+  },
+  errorCard: {
+    backgroundColor: "#fef2f2",
+    borderColor: "#fecaca",
+    borderRadius: 14,
+    borderWidth: 1,
+    padding: 14,
+    gap: 4,
+  },
+  errorTitle: {
+    color: "#991b1b",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  errorText: {
+    color: "#b91c1c",
+    fontSize: 12,
+    lineHeight: 17,
   },
 });

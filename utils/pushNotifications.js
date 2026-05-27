@@ -6,6 +6,7 @@ import { Platform } from "react-native";
 import { router } from "expo-router";
 import { saveLocationPing } from "@/utils/locationPing";
 import { validateGuardLocation } from "@/utils/geofence";
+import { getNotificationRoute } from "@/utils/notificationNavigation";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 const EXPO_PROJECT_ID =
@@ -158,11 +159,12 @@ export async function registerStoredProfilePushToken() {
 
 export function addNotificationResponseListener() {
   return Notifications.addNotificationResponseReceivedListener(async (response) => {
-    const { checkType, attendanceLogId, route, screen } =
-      response.notification.request.content.data || {};
+    const data = response.notification.request.content.data || {};
+    const { checkType, attendanceLogId } = data;
 
-    if (route === "/(tabs)/leave" || screen === "leave") {
-      router.push("/(tabs)/leave");
+    const notificationRoute = getNotificationRoute(data);
+    if (notificationRoute) {
+      router.push(notificationRoute);
       return;
     }
 

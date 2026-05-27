@@ -5,6 +5,7 @@ import KpiGrid from "@/components/schedule/KpiGrid";
 import MonthSelector from "@/components/schedule/MonthSelector";
 import RequestLeaveButton from "@/components/schedule/Requestleavebutton";
 import ScheduleHeader from "@/components/schedule/Scheduleheader";
+import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
 import { fetchLeaveCredits } from "@/services/leaveService";
 import { fetchNotificationStats } from "@/services/notificationService";
 import { fetchMonthlySchedule } from "@/services/scheduleService";
@@ -16,7 +17,7 @@ import {
 } from "@/utils/scheduleDates";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
 
 function getAvailableLeaveCredits(credits) {
   return typeof credits === "number" ? credits : credits?.availableCredits ?? 0;
@@ -24,6 +25,8 @@ function getAvailableLeaveCredits(credits) {
 
 export default function ScheduleScreen() {
   const router = useRouter();
+  const { deployment, deploymentLoading, profileLoading } = useActiveDeploymentAccess();
+  const accessLoading = profileLoading || deploymentLoading;
   const today = useMemo(getTodayParts, []);
   const [month, setMonth] = useState(today.month);
   const [year, setYear] = useState(today.year);
@@ -32,20 +35,23 @@ export default function ScheduleScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [leaveCreditsError, setLeaveCreditsError] = useState(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [availableLeaveCredits, setAvailableLeaveCredits] = useState(0);
   const scheduleRequestSeq = useRef(0);
   const selectedDayRef = useRef(today.day);
+  const hasFocusedOnceRef = useRef(false);
 
   const clampedSelectedDay = getClampedDay(year, month, selectedDay);
   const selectedDate = getDateKey(year, month, clampedSelectedDay);
 
   const loadLeaveCredits = useCallback(async () => {
     try {
+      setLeaveCreditsError(null);
       const credits = await fetchLeaveCredits();
       setAvailableLeaveCredits(getAvailableLeaveCredits(credits));
     } catch (err) {
-      console.warn("Could not load leave credits:", err.message);
+      setLeaveCreditsError(err.message || "Could not load leave credits.");
     }
   }, []);
 
@@ -89,8 +95,15 @@ export default function ScheduleScreen() {
   }, [month, year]);
 
   useEffect(() => {
+    if (accessLoading) {
+      setSchedule(null);
+      setError(null);
+      setLoading(true);
+      return;
+    }
+
     loadSchedule();
-  }, [loadSchedule]);
+  }, [accessLoading, loadSchedule]);
 
   useFocusEffect(
     useCallback(() => {
@@ -102,12 +115,23 @@ export default function ScheduleScreen() {
         .catch((err) => {
           console.warn("Could not load notifications:", err.message);
         });
+      if (accessLoading) {
+        return () => {
+          isMounted = false;
+        };
+      }
+
+      if (hasFocusedOnceRef.current) {
+        loadSchedule({ refresh: true });
+      } else {
+        hasFocusedOnceRef.current = true;
+      }
       loadLeaveCredits();
 
       return () => {
         isMounted = false;
       };
-    }, [loadLeaveCredits]),
+    }, [accessLoading, loadLeaveCredits, loadSchedule]),
   );
 
   const handleMonthChange = (offset) => {
@@ -130,6 +154,20 @@ export default function ScheduleScreen() {
   const handleRefresh = () => {
     loadSchedule({ refresh: true });
     loadLeaveCredits();
+  };
+
+  const handleRequestLeave = () => {
+    if (accessLoading) {
+      Alert.alert("Checking Access", "Please try again in a moment.");
+      return;
+    }
+
+    if (!deployment) {
+      Alert.alert("No Access", "You have no access to this right now.");
+      return;
+    }
+
+    router.push("/(tabs)/leave");
   };
 
   const selectedShift = schedule?.scheduleDays?.find((item) => item.date === selectedDate)
@@ -173,6 +211,11 @@ export default function ScheduleScreen() {
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
+        {leaveCreditsError ? (
+          <View style={styles.messageCard}>
+            <Text style={styles.errorText}>{leaveCreditsError}</Text>
+          </View>
+        ) : null}
         <CalendarGrid
           month={month}
           year={year}
@@ -198,7 +241,7 @@ export default function ScheduleScreen() {
           leavesLabel="LEAVES LEFT"
           hours={schedule?.kpis?.hours || 0}
         />
-        <RequestLeaveButton onPress={() => router.push("/(tabs)/leave")} />
+        <RequestLeaveButton onPress={handleRequestLeave} />
       </ScrollView>
     </ScreenWrapper>
   );
