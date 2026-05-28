@@ -41,6 +41,7 @@ export function useProfile() {
 
   return {
     profile,
+    setProfile,
     fullName,
     displayId,
     email: profile?.contact_email || email,

@@ -13,15 +13,14 @@ import {
   Platform,
 } from 'react-native';
 import { router } from 'expo-router';
+import ScreenWrapper from '@/components/dashboard/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
 import {
   fetchCashAdvanceLimit,
   submitCashAdvanceRequest,
 } from '../services/earningsService';
 
-// ─── constants ────────────────────────────────────────────────────
-
-const MIN_AMOUNT = 1000;
+// ─── constants (UI only) ──────────────────────────────────────────
 
 const REASONS = [
   'Emergency Medical',
@@ -56,14 +55,14 @@ const toCurrency = (val) =>
 // ─── screen ───────────────────────────────────────────────────────
 
 export default function CashAdvanceScreen() {
-  const [limitData, setLimitData]     = useState(null);
+  const [limitData, setLimitData]       = useState(null);
   const [limitLoading, setLimitLoading] = useState(true);
-  const [limitError, setLimitError]   = useState(null);
+  const [limitError, setLimitError]     = useState(null);
 
-  const [amount, setAmount]           = useState('');
-  const [reason, setReason]           = useState('');
+  const [amount, setAmount]             = useState('');
+  const [reason, setReason]             = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [submitting, setSubmitting]   = useState(false);
+  const [submitting, setSubmitting]     = useState(false);
 
   const loadLimit = useCallback(async () => {
     try {
@@ -79,22 +78,23 @@ export default function CashAdvanceScreen() {
 
   useEffect(() => { loadLimit(); }, [loadLimit]);
 
-  // ── derived ─────────────────────────────────────────────────────
-  const available   = limitData?.available_limit ?? 0;
-  const parsed      = parseFloat(amount) || 0;
+  // ── derived — inside component so they can access state ──────────
+  const available = limitData?.available_limit ?? 0;
+  const minAmount = limitData?.min_amount ?? 0;
+  const parsed    = parseFloat(amount) || 0;
 
   const amountError = (() => {
-    if (!amount || amount === '') return null;
-    if (parsed < MIN_AMOUNT)  return `Minimum is ${toCurrency(MIN_AMOUNT)}`;
-    if (parsed > available)   return `Exceeds available limit of ${toCurrency(available)}`;
+    if (!amount) return null;
+    if (parsed < minAmount) return `Minimum is ${toCurrency(minAmount)}`;
+    if (parsed > available) return `Exceeds available limit of ${toCurrency(available)}`;
     return null;
   })();
 
-  const canSubmit = parsed >= MIN_AMOUNT && parsed <= available && reason !== '' && !submitting;
+  const canSubmit = parsed >= minAmount && parsed <= available && reason !== '' && !submitting;
 
-  // ── handlers ────────────────────────────────────────────────────
+  // ── handlers ─────────────────────────────────────────────────────
+
   const handleAmountChange = (val) => {
-    // Strip non-numeric except single decimal
     const cleaned = val.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
     setAmount(cleaned);
   };
@@ -106,7 +106,6 @@ export default function CashAdvanceScreen() {
 
   const handleSubmit = () => {
     if (!canSubmit) return;
-
     Alert.alert(
       'Confirm Request',
       `Submit a cash advance request for ${toCurrency(parsed)}?\n\nReason: ${reason}`,
@@ -137,6 +136,7 @@ export default function CashAdvanceScreen() {
   // ── render ───────────────────────────────────────────────────────
 
   return (
+    <ScreenWrapper activeTabKey="earnings">
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
@@ -203,8 +203,8 @@ export default function CashAdvanceScreen() {
           </View>
 
           <View style={styles.hintRow}>
-            <Text style={[styles.hint, parsed > 0 && parsed < MIN_AMOUNT && styles.hintDanger]}>
-              Min: {toCurrency(MIN_AMOUNT)}
+            <Text style={[styles.hint, parsed > 0 && parsed < minAmount && styles.hintDanger]}>
+              Min: {toCurrency(minAmount)}
             </Text>
             <Text style={[styles.hint, parsed > available && styles.hintDanger]}>
               Max: {toCurrency(available)}
@@ -262,6 +262,7 @@ export default function CashAdvanceScreen() {
         </View>
       </ScrollView>
     </View>
+    </ScreenWrapper>
   );
 }
 
@@ -275,7 +276,7 @@ const styles = StyleSheet.create({
     alignItems:        'center',
     justifyContent:    'space-between',
     backgroundColor:   C.primary,
-    paddingTop:        52,
+    paddingTop:        12,
     paddingBottom:     16,
     paddingHorizontal: 20,
   },
@@ -283,7 +284,6 @@ const styles = StyleSheet.create({
 
   scroll: { padding: 16, paddingBottom: 40, gap: 14 },
 
-  // Limit Card
   limitCard: {
     backgroundColor:  C.primary,
     borderRadius:     16,
@@ -305,7 +305,6 @@ const styles = StyleSheet.create({
     justifyContent:   'center',
   },
 
-  // Card
   card: {
     backgroundColor: C.card,
     borderRadius:    14,
@@ -318,7 +317,6 @@ const styles = StyleSheet.create({
   },
   fieldLabel: { fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 8 },
 
-  // Amount row
   amountRow: {
     flexDirection:     'row',
     alignItems:        'center',
@@ -331,18 +329,17 @@ const styles = StyleSheet.create({
   amountRowError: { borderColor: C.danger },
   pesoSign:       { fontSize: 16, color: C.text, marginRight: 4 },
   amountInput: {
-    flex:          1,
-    fontSize:      16,
-    color:         C.text,
+    flex:            1,
+    fontSize:        16,
+    color:           C.text,
     paddingVertical: Platform.OS === 'ios' ? 14 : 10,
   },
-  nudgeCol:  { gap: 2 },
-  hintRow:   { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  hint:      { fontSize: 11, color: C.muted },
-  hintDanger:{ color: C.danger },
-  errorMsg:  { fontSize: 12, color: C.danger, marginTop: 4 },
+  nudgeCol:   { gap: 2 },
+  hintRow:    { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  hint:       { fontSize: 11, color: C.muted },
+  hintDanger: { color: C.danger },
+  errorMsg:   { fontSize: 12, color: C.danger, marginTop: 4 },
 
-  // Reason picker
   reasonPicker: {
     flexDirection:     'row',
     alignItems:        'center',
@@ -376,14 +373,7 @@ const styles = StyleSheet.create({
   dropdownText:       { fontSize: 14, color: C.text },
   dropdownTextActive: { color: C.primary, fontWeight: '700' },
 
-  // Submit
-  submitBtn: {
-    backgroundColor: C.accent,
-    borderRadius:    10,
-    paddingVertical: 14,
-    alignItems:      'center',
-    marginTop:       24,
-  },
+  submitBtn:         { backgroundColor: C.accent, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
   submitBtnDisabled: { opacity: 0.45 },
   submitBtnText:     { fontSize: 15, fontWeight: '700', color: C.primary },
 });

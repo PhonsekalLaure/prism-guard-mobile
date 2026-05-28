@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { registerPushToken } from "@/utils/pushNotifications";
+
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
 async function parseJsonResponse(response) {
@@ -147,6 +148,35 @@ const authService = {
   async getProfile() {
     const profile = await AsyncStorage.getItem("profile");
     return profile ? JSON.parse(profile) : null;
+  },
+
+  async updateAvatar(uri) {
+    const compressed = await manipulateAsync(
+      uri,
+      [{ resize: { width: 600 } }],
+      { compress: 0.7, format: SaveFormat.JPEG }
+    );
+
+    const response = await fetch(compressed.uri);
+    const blob = await response.blob();
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    const apiResponse = await this.authenticatedFetch(
+      `${BASE_URL}/api/mobile/auth/avatar`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ imageBase64: base64, fileExt: 'jpg' }),
+      }
+    );
+
+    const data = await parseJsonResponse(apiResponse);
+    if (!apiResponse.ok) throw new Error(data.error || 'Failed to update avatar');
+    return data;
   },
 };
 
