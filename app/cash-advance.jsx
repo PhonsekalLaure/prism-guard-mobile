@@ -189,7 +189,7 @@ export default function CashAdvanceScreen() {
               value={amount}
               onChangeText={handleAmountChange}
               keyboardType="decimal-pad"
-              placeholder="0.00"
+              placeholder="500"
               placeholderTextColor={C.muted}
             />
             <View style={styles.nudgeCol}>
