@@ -6,7 +6,7 @@ import { useCallback } from "react";
 import { Alert, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const NAV_TAB_KEYS = ["home", "schedule", "payslip", "profile", "report"];
+const NAV_TAB_KEYS = ["home", "schedule", "earnings", "profile", "report"];
 
 export default function ScreenWrapper({ children, activeTabKey = "home" }) {
   const router = useRouter();
@@ -17,7 +17,7 @@ export default function ScreenWrapper({ children, activeTabKey = "home" }) {
     profileLoading,
     refreshAccess,
   } = useActiveDeploymentAccess();
-  const currentTab = segments[1] || "home";
+const currentTab = segments[1] || "";
   const normalizedTab = currentTab === "index" ? "home" : currentTab;
   const activeTab = NAV_TAB_KEYS.includes(normalizedTab)
     ? normalizedTab

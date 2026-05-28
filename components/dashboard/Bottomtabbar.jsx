@@ -46,7 +46,7 @@ const BottomTabBar = ({
   ];
 
   const rightTabs = [
-    { key: "payslip", icon: "credit-card", label: "Payslip" },
+    { key: "earnings", icon: "credit-card", label: "Earnings" },
     { key: "profile", icon: "user", label: "Profile" },
   ];
 

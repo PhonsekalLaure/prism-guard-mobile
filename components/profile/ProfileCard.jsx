@@ -1,6 +1,15 @@
 // components/profile/ProfileCard.jsx
 import { Ionicons } from "@expo/vector-icons";
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { useState } from "react";
+import {
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const NAVY = "#0d2550";
 const GOLD = "#c9a84c";
@@ -12,14 +21,73 @@ export default function ProfileCard({
   avatarUri,
   onEditAvatar,
 }) {
+  const [localAvatar, setLocalAvatar] = useState(null);
+
+  const handleEditAvatar = () => {
+    Alert.alert("Update Profile Photo", "Choose an option", [
+      { text: "Take Photo", onPress: openCamera },
+      { text: "Choose from Gallery", onPress: openGallery },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
+
+  const openCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission needed",
+        "Camera access is required to take a photo."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setLocalAvatar(uri);       // show immediately in UI
+      onEditAvatar?.(uri);       // let parent handle the upload
+    }
+  };
+
+  const openGallery = async () => {
+    const { status } =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert(
+        "Permission needed",
+        "Gallery access is required to pick a photo."
+      );
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setLocalAvatar(uri);       // show immediately in UI
+      onEditAvatar?.(uri);       // let parent handle the upload
+    }
+  };
+
+  const displayAvatar =
+    localAvatar || avatarUri || "https://via.placeholder.com/100";
+
   return (
     <View style={styles.container}>
       <View style={styles.avatarWrap}>
-        <Image
-          source={{ uri: avatarUri || "https://via.placeholder.com/100" }}
-          style={styles.avatar}
-        />
-        <TouchableOpacity style={styles.cameraBtn} onPress={onEditAvatar}>
+        <Image source={{ uri: displayAvatar }} style={styles.avatar} />
+        <TouchableOpacity style={styles.cameraBtn} onPress={handleEditAvatar}>
           <Ionicons name="camera" size={14} color="#fff" />
         </TouchableOpacity>
       </View>

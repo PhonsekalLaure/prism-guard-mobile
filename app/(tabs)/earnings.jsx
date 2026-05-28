@@ -12,6 +12,7 @@ import {
   Alert,
 } from 'react-native';
 import { router } from 'expo-router';
+import ScreenWrapper from '@/components/dashboard/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchCurrentPayroll } from '../../services/earningsService';
 
@@ -138,6 +139,7 @@ export default function EarningsScreen() {
   // ── main render ─────────────────────────────────────────────────
 
   return (
+    <ScreenWrapper activeTabKey="earnings">
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
@@ -214,6 +216,7 @@ export default function EarningsScreen() {
         </View>
       </ScrollView>
     </View>
+    </ScreenWrapper>
   );
 }
 
@@ -241,7 +244,7 @@ const styles = StyleSheet.create({
     alignItems:        'center',
     justifyContent:    'space-between',
     backgroundColor:   C.primary,
-    paddingTop:        52,
+    paddingTop:        12,
     paddingBottom:     16,
     paddingHorizontal: 20,
   },

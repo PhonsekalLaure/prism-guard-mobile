@@ -3,11 +3,12 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
@@ -25,6 +26,7 @@ export default function ProfileScreen() {
   const router = useRouter();
   const {
     profile,
+    setProfile,          // ← make sure useProfile exposes this
     fullName,
     displayId,
     email,
@@ -47,6 +49,20 @@ export default function ProfileScreen() {
     setTimeout(() => setToast((p) => ({ ...p, visible: false })), 3200);
   };
 
+ const onEditAvatar = async (uri) => {
+  try {
+    showToast('camera-outline', 'Uploading…', 'Updating your profile photo.');
+
+    const { avatar_url } = await authService.updateAvatar(uri); // ← goes through your API
+
+    setProfile((prev) => ({ ...prev, avatar_url }));
+    showToast('checkmark-circle', 'Photo Updated', 'Your new photo is saved.');
+  } catch (err) {
+    console.error('Avatar upload failed:', err);
+    showToast('alert-circle', 'Upload Failed', 'Couldn\'t save photo. Try again.');
+  }
+};
+
   return (
     <ScreenWrapper activeTabKey="profile">
       {/* ── Header ── */}
@@ -66,9 +82,7 @@ export default function ProfileScreen() {
           rank={profile?.position || "SECURITY OFFICER"}
           employeeId={displayId}
           avatarUri={profile?.avatar_url}
-          onEditAvatar={() =>
-            showToast("camera-outline", "Edit Photo", "Feature coming soon.")
-          }
+          onEditAvatar={onEditAvatar}   // ← now passes the URI up from ProfileCard
         />
 
         {/* ── Personal Details ── */}
@@ -83,7 +97,7 @@ export default function ProfileScreen() {
             showToast(
               "checkmark-circle",
               "Changes Saved",
-              "Your profile has been updated.",
+              "Your profile has been updated."
             );
           }}
         />
@@ -95,7 +109,6 @@ export default function ProfileScreen() {
           }
         />
 
-        {/* ── Security & Account ── */}
         {/* ── Logout ── */}
         <TouchableOpacity
           style={styles.btnLogout}
