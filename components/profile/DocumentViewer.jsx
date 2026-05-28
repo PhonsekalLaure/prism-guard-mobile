@@ -18,12 +18,14 @@ import { WebView } from "react-native-webview";
 const { width: SW, height: SH } = Dimensions.get("window");
 
 const isPdf = (url) =>
-  typeof url === "string" && url.toLowerCase().includes(".pdf");
+  typeof url === "string" &&
+  (url.toLowerCase().includes(".pdf") ||
+   /cloudinary\.com\/.+\/raw\/upload\//i.test(url));
 
 export default function DocumentViewer({ visible, uri, onClose }) {
   const scale   = useRef(new Animated.Value(0.85)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(false);
 
   useEffect(() => {
@@ -102,7 +104,9 @@ export default function DocumentViewer({ visible, uri, onClose }) {
         {error && (
           <View style={styles.errorWrap}>
             <Ionicons name="document-outline" size={48} color="rgba(255,255,255,0.4)" />
-            <Text style={styles.errorText}>Could not load document</Text>
+            <Text style={styles.errorText}>
+              Could not load document.{"\n"}Check your connection and try again.
+            </Text>
           </View>
         )}
       </Animated.View>
@@ -149,8 +153,10 @@ const styles = StyleSheet.create({
     gap:            12,
   },
   errorText: {
-    color:    "rgba(255,255,255,0.5)",
-    fontSize: 14,
+    color:     "rgba(255,255,255,0.5)",
+    fontSize:  14,
+    textAlign: "center",
+    lineHeight: 22,
   },
   closeBtn: {
     position:        "absolute",
