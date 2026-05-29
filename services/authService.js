@@ -1,5 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+
+async function parseJsonResponse(response) {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("Server returned an invalid response");
+  }
+}
 
 const authService = {
   async login(email, password) {
@@ -9,7 +21,7 @@ const authService = {
       body: JSON.stringify({ email: email.trim(), password }),
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data = await parseJsonResponse(response);
 
     if (!response.ok) {
       throw new Error(data.error || "Login failed");
@@ -30,7 +42,7 @@ const authService = {
       body: JSON.stringify({ identifier }),
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data = await parseJsonResponse(response);
 
     if (!response.ok) {
       throw new Error(data.error || "Failed to send reset link");
@@ -46,11 +58,10 @@ const authService = {
       body: JSON.stringify({ identifier, code, password }),
     });
 
-    const data = await response.json();
+    const data = await parseJsonResponse(response);
 
     if (!response.ok) {
-      const err = new Error(data.error || "Failed to reset password");
-      throw err;
+      throw new Error(data.error || "Failed to reset password");
     }
 
     return data;
@@ -61,7 +72,7 @@ const authService = {
       method: "GET",
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data = await parseJsonResponse(response);
 
     if (!response.ok) {
       throw new Error(data.error || "Session invalid");
@@ -91,7 +102,7 @@ const authService = {
       body: JSON.stringify({ refreshToken }),
     });
 
-    const data = await response.json().catch(() => ({}));
+    const data = await parseJsonResponse(response);
     if (!response.ok) {
       await this.logout();
       throw new Error(data.error || "Session expired");
