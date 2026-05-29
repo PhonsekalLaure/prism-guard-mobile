@@ -370,7 +370,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: PrismColors.navy },
+  screen: { flex: 1, backgroundColor:  "#0a3d80" },
   scroll: {
     flexGrow: 1,
     alignItems: "center",
