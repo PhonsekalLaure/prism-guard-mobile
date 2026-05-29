@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import ScreenWrapper from '@/components/dashboard/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
 import { fetchCurrentPayroll } from '../../services/earningsService';
+import { useActiveDeploymentAccess } from '@/hooks/useActiveDeploymentAccess';
 
 // ─── helpers ─────────────────────────────────────────────────────
 
@@ -53,12 +54,15 @@ const LineRow = ({ label, amount, deduction = false, bold = false }) => (
 // ─── screen ───────────────────────────────────────────────────────
 
 export default function EarningsScreen() {
+  const { deployment, deploymentLoading, profileLoading } = useActiveDeploymentAccess();
   const [payroll, setPayroll]       = useState(null);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]           = useState(null);
 
   const load = useCallback(async (isRefresh = false) => {
+    if (profileLoading || deploymentLoading || !deployment) return;
+
     try {
       setError(null);
       if (!isRefresh) setLoading(true);
@@ -70,9 +74,22 @@ export default function EarningsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [deployment, deploymentLoading, profileLoading]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    if (profileLoading || deploymentLoading) return undefined;
+
+    if (!deployment) {
+      setLoading(false);
+      Alert.alert("No Access", "You have no access to this right now.", [
+        { text: "OK", onPress: () => router.replace("/(tabs)") },
+      ]);
+      return undefined;
+    }
+
+    load();
+    return undefined;
+  }, [deployment, deploymentLoading, load, profileLoading]);
 
   const onRefresh = () => { setRefreshing(true); load(true); };
 
@@ -107,11 +124,21 @@ export default function EarningsScreen() {
 
   // ── render states ───────────────────────────────────────────────
 
-  if (loading) {
+  if (profileLoading || deploymentLoading || loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={C.primary} />
-      </View>
+      <ScreenWrapper activeTabKey="earnings">
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={C.primary} />
+        </View>
+      </ScreenWrapper>
+    );
+  }
+
+  if (!deployment) {
+    return (
+      <ScreenWrapper activeTabKey="home">
+        <View style={styles.centered} />
+      </ScreenWrapper>
     );
   }
 
