@@ -38,9 +38,10 @@ export default function PersonalDetails({
   addressFromProfile = "",
   emergencyNameFromProfile = "",
   emergencyNumFromProfile = "",
+  editMode = false,
+  onEditModeChange,
   onSave,
 }) {
-  const [editMode, setEditMode] = useState(false);
   const [email, setEmail] = useState(emailFromAuth);
   const [phone, setPhone] = useState(phoneFromProfile);
   const [address, setAddress] = useState(addressFromProfile);
@@ -68,7 +69,7 @@ export default function PersonalDetails({
     if (editMode && onSave) {
       onSave({ email, phone, address, emergencyName, emergencyNum });
     }
-    setEditMode(!editMode);
+    onEditModeChange?.(!editMode);
   };
 
   return (

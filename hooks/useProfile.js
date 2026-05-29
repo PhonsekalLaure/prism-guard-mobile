@@ -24,6 +24,18 @@ export function useProfile() {
         if (active) setLoading(false);
       });
 
+    authService.getMe()
+      .then((data) => {
+        if (!active || !data?.profile) return;
+        setProfile(data.profile);
+        AsyncStorage.setItem("profile", JSON.stringify(data.profile));
+        if (data.user?.email) {
+          AsyncStorage.setItem("user_email", data.user.email);
+          setEmail(data.user.email);
+        }
+      })
+      .catch(() => {});
+
     AsyncStorage.getItem("user_email").then((e) => {
       if (active && e) setEmail(e);
     });

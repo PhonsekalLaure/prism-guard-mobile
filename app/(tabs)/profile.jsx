@@ -3,7 +3,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Text,
@@ -37,6 +36,7 @@ export default function ProfileScreen() {
   } = useProfile();
 
   const [showLogout, setShowLogout] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [toast, setToast] = useState({
     visible: false,
     icon: "checkmark-circle",
@@ -82,6 +82,7 @@ export default function ProfileScreen() {
           rank={profile?.position || "SECURITY OFFICER"}
           employeeId={displayId}
           avatarUri={profile?.avatar_url}
+          editable={editMode}
           onEditAvatar={onEditAvatar}   // ← now passes the URI up from ProfileCard
         />
 
@@ -92,6 +93,8 @@ export default function ProfileScreen() {
           addressFromProfile={address}
           emergencyNameFromProfile={emergencyName}
           emergencyNumFromProfile={emergencyNum}
+          editMode={editMode}
+          onEditModeChange={setEditMode}
           onSave={(data) => {
             console.log("Saved:", data);
             showToast(
