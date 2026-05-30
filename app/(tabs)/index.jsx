@@ -10,6 +10,7 @@ import ShiftStatusCard from "@/components/dashboard/Shiftstatuscard";
 import TimeInButton from "@/components/dashboard/TimeinButton";
 import { PrismSpacing } from "@/constants/prismTheme";
 import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
+import { useGeofenceMonitor } from "@/hooks/useGeofenceMonitor";
 import {
   clockIn,
   clockOut,
@@ -18,6 +19,7 @@ import {
 import { fetchAnnouncements } from "@/services/announcementsService";
 import { fetchNotificationStats } from "@/services/notificationService";
 import { validateGuardLocation } from "@/utils/geofence";
+import { useIsFocused } from "@react-navigation/native";
 import { useFocusEffect, useRouter } from "expo-router";
 
 const formatDate = () => {
@@ -63,6 +65,12 @@ export default function DashboardScreen() {
     profile,
   } = useActiveDeploymentAccess();
   const router = useRouter();
+  const isFocused = useIsFocused();
+
+  useGeofenceMonitor(deployment, {
+    attendanceLogId: activeAttendanceLog?.id,
+    enabled: Boolean(profile?.id && isFocused && isOnDuty),
+  });
 
   useEffect(() => {
     const interval = setInterval(() => setDateString(formatDate()), 60000);

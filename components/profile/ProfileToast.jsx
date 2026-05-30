@@ -25,7 +25,7 @@ export default function ProfileToast({ visible, icon, title, message }) {
         }),
       ]).start();
     }
-  }, [visible]);
+  }, [opacity, visible]);
 
   return (
     <Animated.View style={[styles.toast, { opacity }]} pointerEvents="none">

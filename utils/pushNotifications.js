@@ -176,13 +176,16 @@ export function addNotificationResponseListener() {
 
       const deployment = JSON.parse(deploymentRaw);
       if (!deployment?.client_sites) return;
+      if (!attendanceLogId) return;
 
       const result = await validateGuardLocation(deployment.client_sites);
 
       await saveLocationPing({
-        attendanceLogId: attendanceLogId || null,
+        attendanceLogId,
         latitude: result.coords.latitude,
         longitude: result.coords.longitude,
+        isWithinGeofence: result.isInside,
+        violationStage: result.isInside ? "inside" : "warning_ping",
       });
 
       console.log(`Checkpoint ping saved for ${checkType}`);

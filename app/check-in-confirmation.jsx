@@ -2,7 +2,7 @@
 import { PrismColors } from "@/constants/prismTheme";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import CheckInMap from "@/components/check-in/CheckInMap";
+import CheckInMap from "../components/check-in/CheckInMap";
 
 const CHECK_TYPE_LABELS = {
   shift_start: "Time In",
