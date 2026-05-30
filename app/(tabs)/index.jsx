@@ -56,7 +56,12 @@ export default function DashboardScreen() {
   });
 
   const toastTimeout = useRef(null);
-  const { deployment, fullName, profile } = useActiveDeploymentAccess();
+  const {
+    deployment,
+    fullName,
+    loading: deploymentAccessLoading,
+    profile,
+  } = useActiveDeploymentAccess();
   const router = useRouter();
 
   useEffect(() => {
@@ -252,6 +257,8 @@ export default function DashboardScreen() {
           shiftEnd="19:00"
           location={deployment?.client_sites?.site_name || "No Site Assigned"}
           isOnDuty={isOnDuty}
+          hasDeployment={Boolean(deployment)}
+          isCheckingDeployment={deploymentAccessLoading}
         />
         <TimeInButton
           isOnDuty={isOnDuty}
@@ -262,8 +269,8 @@ export default function DashboardScreen() {
           announcements={announcements}
           loading={announcementsLoading}
           error={announcementsError}
-          onSeeAll={() => {}}
-          onItemPress={() => {}}
+          onSeeAll={() => router.push("/announcements")}
+          onItemPress={(item) => router.push(`/announcement/${item.id}`)}
         />
       </ScrollView>
 

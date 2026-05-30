@@ -35,6 +35,8 @@ export default function Layout() {
         <Stack.Screen name="login" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="notifications" />
+        <Stack.Screen name="announcements" />
+        <Stack.Screen name="announcement/[id]" />
         {/* Add this 👇 */}
         <Stack.Screen
           name="check-in-confirmation"

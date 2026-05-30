@@ -9,7 +9,36 @@ import {
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-const ShiftStatusCard = ({ shiftStart, shiftEnd, location, isOnDuty }) => {
+const ShiftStatusCard = ({
+  shiftStart,
+  shiftEnd,
+  location,
+  isOnDuty,
+  hasDeployment = true,
+  isCheckingDeployment = false,
+}) => {
+  if (isCheckingDeployment) {
+    return (
+      <View style={[styles.container, styles.emptyContainer]}>
+        <Text style={styles.emptyTitle}>Checking deployment</Text>
+        <Text style={styles.emptyText}>
+          Please wait while we confirm your assignment.
+        </Text>
+      </View>
+    );
+  }
+
+  if (!hasDeployment) {
+    return (
+      <View style={[styles.container, styles.emptyContainer]}>
+        <Text style={styles.emptyTitle}>No active deployment</Text>
+        <Text style={styles.emptyText}>
+          You are currently not assigned to a site.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.statusRow}>
@@ -55,6 +84,21 @@ const styles = StyleSheet.create({
     marginBottom: PrismSpacing.md,
     padding: PrismSpacing.md,
     ...PrismShadows.card,
+  },
+  emptyContainer: {
+    alignItems: "center",
+    paddingVertical: PrismSpacing.xl,
+  },
+  emptyTitle: {
+    fontSize: PrismTypography.base,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.textPrimary,
+    marginBottom: PrismSpacing.xs,
+  },
+  emptyText: {
+    fontSize: PrismTypography.sm,
+    color: PrismColors.textSecondary,
+    textAlign: "center",
   },
   statusRow: {
     alignItems: "center",

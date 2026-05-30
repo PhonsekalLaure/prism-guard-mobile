@@ -22,7 +22,10 @@ export default function ScreenWrapper({ children, activeTabKey = "home" }) {
   const activeTab = NAV_TAB_KEYS.includes(normalizedTab)
     ? normalizedTab
     : activeTabKey;
-  const canAccessReport = !profileLoading && !deploymentLoading && Boolean(deployment);
+  const accessLoaded = !profileLoading && !deploymentLoading;
+  const canAccessDeploymentTabs = accessLoaded && Boolean(deployment);
+  const guardedTabs = ["schedule", "earnings", "payslip"];
+  const canAccessReport = canAccessDeploymentTabs;
 
   useFocusEffect(
     useCallback(() => {
@@ -31,6 +34,18 @@ export default function ScreenWrapper({ children, activeTabKey = "home" }) {
   );
 
   const handleTabPress = (key) => {
+    if (guardedTabs.includes(key)) {
+      if (profileLoading || deploymentLoading) {
+        Alert.alert("Checking Access", "Please try again in a moment.");
+        return;
+      }
+
+      if (!canAccessDeploymentTabs) {
+        Alert.alert("No Access", "You have no access to this right now.");
+        return;
+      }
+    }
+
     router.replace(`/(tabs)/${key === "home" ? "" : key}`);
   };
 
