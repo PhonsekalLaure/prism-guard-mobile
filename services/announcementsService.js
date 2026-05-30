@@ -3,15 +3,18 @@ import authService from "@/services/authService";
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
 const getPreview = (announcement) => {
-  const preview =
-    announcement.preview ||
-    announcement.message ||
-    announcement.body ||
-    announcement.content ||
-    "";
+  const preview = announcement.preview || getContent(announcement);
 
   return preview.length > 120 ? `${preview.slice(0, 117)}...` : preview;
 };
+
+const getContent = (announcement) => (
+  announcement.message ||
+  announcement.body ||
+  announcement.content ||
+  announcement.description ||
+  ""
+);
 
 const normalizeAnnouncement = (announcement, index) => ({
   id: String(announcement.id || announcement.announcement_id || index),
@@ -20,7 +23,13 @@ const normalizeAnnouncement = (announcement, index) => ({
     announcement.subject ||
     announcement.heading ||
     "Announcement",
+  content: getContent(announcement),
   preview: getPreview(announcement),
+  createdAt:
+    announcement.created_at ||
+    announcement.published_at ||
+    announcement.date ||
+    null,
   raw: announcement,
 });
 
@@ -42,4 +51,9 @@ export const fetchAnnouncements = async () => {
   }
 
   return (data.announcements || []).map(normalizeAnnouncement);
+};
+
+export const fetchAnnouncementById = async (id) => {
+  const announcements = await fetchAnnouncements();
+  return announcements.find((announcement) => announcement.id === String(id)) || null;
 };
