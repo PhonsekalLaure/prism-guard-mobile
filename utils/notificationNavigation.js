@@ -14,6 +14,14 @@ export function getNotificationRoute(data = {}) {
     return "/(tabs)/report";
   }
 
+  if (screen === "cash_advance") {
+    return "/cash-advance";
+  }
+
+  if (route === "/(tabs)/earnings" || screen === "earnings") {
+    return "/(tabs)/earnings";
+  }
+
   if (route === "/notifications" || screen === "notifications") {
     return "/notifications";
   }

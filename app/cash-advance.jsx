@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import ScreenWrapper from '@/components/dashboard/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
 import {
+  fetchCashAdvanceHistory,
   fetchCashAdvanceLimit,
   submitCashAdvanceRequest,
 } from '../services/earningsService';
@@ -42,6 +43,8 @@ const C = {
   text:       '#1A1A2E',
   muted:      '#8A8FA8',
   danger:     '#E74C3C',
+  success:    '#2E7D32',
+  warning:    '#C27C0E',
 };
 
 // ─── helpers ──────────────────────────────────────────────────────
@@ -51,6 +54,26 @@ const toCurrency = (val) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+const formatDate = (value) => {
+  if (!value) return 'Recently submitted';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Recently submitted';
+
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(date);
+};
+
+const STATUS_META = {
+  pending: { label: 'Pending', color: C.warning, icon: 'time-outline' },
+  approved: { label: 'Approved', color: C.primary, icon: 'checkmark-circle-outline' },
+  released: { label: 'Released', color: C.success, icon: 'cash-outline' },
+  rejected: { label: 'Rejected', color: C.danger, icon: 'close-circle-outline' },
+  settled: { label: 'Settled', color: C.muted, icon: 'receipt-outline' },
+};
 
 // ─── screen ───────────────────────────────────────────────────────
 
@@ -63,6 +86,9 @@ export default function CashAdvanceScreen() {
   const [reason, setReason]             = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [submitting, setSubmitting]     = useState(false);
+  const [history, setHistory]           = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState(null);
 
   const loadLimit = useCallback(async () => {
     try {
@@ -76,7 +102,22 @@ export default function CashAdvanceScreen() {
     }
   }, []);
 
-  useEffect(() => { loadLimit(); }, [loadLimit]);
+  const loadHistory = useCallback(async () => {
+    try {
+      setHistoryError(null);
+      const data = await fetchCashAdvanceHistory();
+      setHistory(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setHistoryError(err.message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadLimit();
+    loadHistory();
+  }, [loadLimit, loadHistory]);
 
   // ── derived — inside component so they can access state ──────────
   const available = limitData?.available_limit ?? 0;
@@ -117,10 +158,15 @@ export default function CashAdvanceScreen() {
             setSubmitting(true);
             try {
               await submitCashAdvanceRequest({ amount: parsed, reason });
+              setAmount('');
+              setReason('');
+              setDropdownOpen(false);
+              setHistoryLoading(true);
+              setLimitLoading(true);
+              await Promise.all([loadLimit(), loadHistory()]);
               Alert.alert(
                 'Request Submitted',
-                'Your cash advance request is now pending approval.',
-                [{ text: 'OK', onPress: () => router.back() }]
+                'Your cash advance request is now pending approval.'
               );
             } catch (err) {
               Alert.alert('Error', err.message);
@@ -260,6 +306,72 @@ export default function CashAdvanceScreen() {
             }
           </TouchableOpacity>
         </View>
+
+        <View style={styles.historyCard}>
+          <View style={styles.historyHeader}>
+            <View>
+              <Text style={styles.historyTitle}>Recent Requests</Text>
+              <Text style={styles.historySubtitle}>Track approval and release status</Text>
+            </View>
+            <TouchableOpacity
+              onPress={() => {
+                setHistoryLoading(true);
+                loadHistory();
+              }}
+              hitSlop={HIT}
+              disabled={historyLoading}
+            >
+              <Ionicons
+                name="refresh"
+                size={20}
+                color={historyLoading ? C.muted : C.primary}
+              />
+            </TouchableOpacity>
+          </View>
+
+          {historyLoading ? (
+            <View style={styles.historyState}>
+              <ActivityIndicator color={C.primary} size="small" />
+              <Text style={styles.historyStateText}>Loading requests</Text>
+            </View>
+          ) : historyError ? (
+            <View style={styles.historyState}>
+              <Text style={styles.historyErrorText}>{historyError}</Text>
+            </View>
+          ) : history.length === 0 ? (
+            <View style={styles.historyState}>
+              <Text style={styles.historyStateText}>No cash advance requests yet.</Text>
+            </View>
+          ) : (
+            history.slice(0, 5).map((item) => {
+              const status = String(item.status || 'pending').toLowerCase();
+              const statusMeta = STATUS_META[status] || STATUS_META.pending;
+              const amountLabel = toCurrency(item.amount_approved || item.amount_requested);
+
+              return (
+                <View key={item.id} style={styles.historyItem}>
+                  <View style={[styles.historyIcon, { backgroundColor: `${statusMeta.color}18` }]}>
+                    <Ionicons name={statusMeta.icon} size={18} color={statusMeta.color} />
+                  </View>
+                  <View style={styles.historyBody}>
+                    <View style={styles.historyTopRow}>
+                      <Text style={styles.historyAmount}>{amountLabel}</Text>
+                      <Text style={[styles.historyStatus, { color: statusMeta.color }]}>
+                        {statusMeta.label}
+                      </Text>
+                    </View>
+                    <Text style={styles.historyReason} numberOfLines={1}>
+                      {item.reason || 'No reason provided'}
+                    </Text>
+                    <Text style={styles.historyDate}>
+                      {formatDate(item.created_at)}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
       </ScrollView>
     </View>
     </ScreenWrapper>
@@ -376,4 +488,57 @@ const styles = StyleSheet.create({
   submitBtn:         { backgroundColor: C.accent, borderRadius: 10, paddingVertical: 14, alignItems: 'center', marginTop: 24 },
   submitBtnDisabled: { opacity: 0.45 },
   submitBtnText:     { fontSize: 15, fontWeight: '700', color: C.primary },
+
+  historyCard: {
+    backgroundColor: C.card,
+    borderRadius:    14,
+    padding:         18,
+    shadowColor:     '#000',
+    shadowOffset:    { width: 0, height: 2 },
+    shadowOpacity:   0.06,
+    shadowRadius:    6,
+    elevation:       2,
+  },
+  historyHeader: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+    marginBottom:   12,
+  },
+  historyTitle: { fontSize: 15, fontWeight: '700', color: C.text },
+  historySubtitle: { fontSize: 11, color: C.muted, marginTop: 2 },
+  historyState: {
+    minHeight:      70,
+    alignItems:     'center',
+    justifyContent: 'center',
+    gap:            8,
+  },
+  historyStateText: { color: C.muted, fontSize: 13 },
+  historyErrorText: { color: C.danger, fontSize: 13, textAlign: 'center' },
+  historyItem: {
+    flexDirection:    'row',
+    alignItems:       'center',
+    paddingVertical:  12,
+    borderTopWidth:   1,
+    borderTopColor:   '#EEF0F5',
+  },
+  historyIcon: {
+    width:          36,
+    height:         36,
+    borderRadius:   18,
+    alignItems:     'center',
+    justifyContent: 'center',
+    marginRight:    12,
+  },
+  historyBody: { flex: 1 },
+  historyTopRow: {
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'space-between',
+    gap:            12,
+  },
+  historyAmount: { fontSize: 14, fontWeight: '700', color: C.text },
+  historyStatus: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
+  historyReason: { fontSize: 12, color: C.text, marginTop: 3 },
+  historyDate: { fontSize: 11, color: C.muted, marginTop: 3 },
 });
