@@ -1,3 +1,7 @@
+import { getDateKey, getMonthKey } from "./dateKeys";
+
+export { getDateKey, getMonthKey };
+
 export function countInclusiveDays(startDate, endDate) {
   if (!startDate || !endDate) return 0;
 
@@ -6,14 +10,6 @@ export function countInclusiveDays(startDate, endDate) {
   if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
 
   return Math.floor((end.getTime() - start.getTime()) / 86400000) + 1;
-}
-
-export function getDateKey(year, month, day) {
-  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-export function getMonthKey(year, month) {
-  return `${year}-${String(month + 1).padStart(2, "0")}`;
 }
 
 export function getTodayDateKey() {

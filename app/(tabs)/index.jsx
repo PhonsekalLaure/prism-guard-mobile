@@ -10,6 +10,7 @@ import ShiftStatusCard from "@/components/dashboard/Shiftstatuscard";
 import TimeInButton from "@/components/dashboard/TimeinButton";
 import { PrismSpacing } from "@/constants/prismTheme";
 import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
+import { useGeofenceMonitor } from "@/hooks/useGeofenceMonitor";
 import {
   clockIn,
   clockOut,
@@ -18,6 +19,7 @@ import {
 import { fetchAnnouncements } from "@/services/announcementsService";
 import { fetchNotificationStats } from "@/services/notificationService";
 import { validateGuardLocation } from "@/utils/geofence";
+import { useIsFocused } from "@react-navigation/native";
 import { useFocusEffect, useRouter } from "expo-router";
 
 const formatDate = () => {
@@ -56,8 +58,19 @@ export default function DashboardScreen() {
   });
 
   const toastTimeout = useRef(null);
-  const { deployment, fullName, profile } = useActiveDeploymentAccess();
+  const {
+    deployment,
+    fullName,
+    loading: deploymentAccessLoading,
+    profile,
+  } = useActiveDeploymentAccess();
   const router = useRouter();
+  const isFocused = useIsFocused();
+
+  useGeofenceMonitor(deployment, {
+    attendanceLogId: activeAttendanceLog?.id,
+    enabled: Boolean(profile?.id && isFocused && isOnDuty),
+  });
 
   useEffect(() => {
     const interval = setInterval(() => setDateString(formatDate()), 60000);
@@ -252,6 +265,8 @@ export default function DashboardScreen() {
           shiftEnd="19:00"
           location={deployment?.client_sites?.site_name || "No Site Assigned"}
           isOnDuty={isOnDuty}
+          hasDeployment={Boolean(deployment)}
+          isCheckingDeployment={deploymentAccessLoading}
         />
         <TimeInButton
           isOnDuty={isOnDuty}
@@ -262,8 +277,8 @@ export default function DashboardScreen() {
           announcements={announcements}
           loading={announcementsLoading}
           error={announcementsError}
-          onSeeAll={() => {}}
-          onItemPress={() => {}}
+          onSeeAll={() => router.push("/announcements")}
+          onItemPress={(item) => router.push(`/announcement/${item.id}`)}
         />
       </ScrollView>
 

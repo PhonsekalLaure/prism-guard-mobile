@@ -39,7 +39,7 @@ const ClockOutModal = ({ visible = false, onCancel, onConfirm }) => {
       scaleAnim.setValue(0.85);
       opacityAnim.setValue(0);
     }
-  }, [visible]);
+  }, [opacityAnim, scaleAnim, visible]);
 
   return (
     <Modal

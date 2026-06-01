@@ -1,3 +1,5 @@
+export { getDateKey } from "./dateKeys";
+
 export function getTodayParts() {
   const today = new Date();
   return {
@@ -5,10 +7,6 @@ export function getTodayParts() {
     year: today.getFullYear(),
     day: today.getDate(),
   };
-}
-
-export function getDateKey(year, month, day) {
-  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
 
 export function getDaysInMonth(year, month) {

@@ -2,7 +2,7 @@
 import { PrismColors } from "@/constants/prismTheme";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import MapView, { Circle, Marker } from "react-native-maps";
+import CheckInMap from "../components/check-in/CheckInMap";
 
 const CHECK_TYPE_LABELS = {
   shift_start: "Time In",
@@ -53,30 +53,15 @@ export default function CheckInConfirmation() {
 
   return (
     <View style={styles.container}>
-      <MapView
+      <CheckInMap
         style={styles.map}
         region={region}
-        scrollEnabled={false}
-        zoomEnabled={false}
-      >
-        <Circle
-          center={{ latitude: post.latitude, longitude: post.longitude }}
-          radius={post.geofence_radius_meters}
-          fillColor={circleFill}
-          strokeColor={circleColor}
-          strokeWidth={2}
-        />
-        <Marker
-          coordinate={{ latitude: post.latitude, longitude: post.longitude }}
-          title={post.site_name}
-          pinColor="green"
-        />
-        <Marker
-          coordinate={guardCoords}
-          title="Your Location"
-          pinColor={isInside ? "blue" : "red"}
-        />
-      </MapView>
+        post={post}
+        guardCoords={guardCoords}
+        circleFill={circleFill}
+        circleColor={circleColor}
+        isInside={isInside}
+      />
 
       <View style={styles.card}>
         <View style={[styles.badge, { backgroundColor: badgeBg }]}>

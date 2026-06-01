@@ -19,6 +19,7 @@ export default function ProfileCard({
   rank,
   employeeId,
   avatarUri,
+  editable = false,
   onEditAvatar,
 }) {
   const [localAvatar, setLocalAvatar] = useState(null);
@@ -87,9 +88,11 @@ export default function ProfileCard({
     <View style={styles.container}>
       <View style={styles.avatarWrap}>
         <Image source={{ uri: displayAvatar }} style={styles.avatar} />
-        <TouchableOpacity style={styles.cameraBtn} onPress={handleEditAvatar}>
-          <Ionicons name="camera" size={14} color="#fff" />
-        </TouchableOpacity>
+        {editable && (
+          <TouchableOpacity style={styles.cameraBtn} onPress={handleEditAvatar}>
+            <Ionicons name="camera" size={14} color="#fff" />
+          </TouchableOpacity>
+        )}
       </View>
       <Text style={styles.name}>{name || "Officer"}</Text>
       <View style={styles.rankBadge}>

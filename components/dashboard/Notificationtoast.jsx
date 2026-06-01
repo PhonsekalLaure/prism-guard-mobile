@@ -48,7 +48,7 @@ const NotificationToast = ({
         }),
       ]).start();
     }
-  }, [visible]);
+  }, [opacity, translateY, visible]);
 
   const accentColor =
     type === "success"

@@ -45,7 +45,7 @@ export default function DocumentViewer({ visible, uri, onClose }) {
         Animated.timing(opacity, { toValue: 0,    useNativeDriver: true, duration: 150 }),
       ]).start();
     }
-  }, [visible]);
+  }, [opacity, scale, visible]);
 
   // Google Docs viewer renders PDFs without any native PDF lib
   const pdfViewerUrl = uri

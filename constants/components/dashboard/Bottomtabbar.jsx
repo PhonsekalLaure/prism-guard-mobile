@@ -20,6 +20,7 @@ const TabItem = ({ icon, label, isActive, onPress }) => (
     style={styles.tabItem}
     onPress={onPress}
     activeOpacity={0.75}
+    accessibilityState={{ selected: isActive }}
   >
     {isActive && <View style={styles.activeIndicator} />}
     <Feather

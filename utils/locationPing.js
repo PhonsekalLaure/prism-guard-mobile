@@ -7,6 +7,8 @@ export async function saveLocationPing({
   attendanceLogId,
   latitude,
   longitude,
+  isWithinGeofence,
+  violationStage,
 }) {
   const token = await AsyncStorage.getItem("access_token");
   if (!token) throw new Error("No session found");
@@ -21,6 +23,8 @@ export async function saveLocationPing({
       attendanceLogId,
       latitude,
       longitude,
+      isWithinGeofence,
+      violationStage,
     }),
   });
 
