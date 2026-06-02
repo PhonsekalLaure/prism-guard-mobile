@@ -2,6 +2,7 @@ export const LEAVE_TYPE_LABELS = {
   sick: "Sick Leave",
   emergency: "Emergency Leave",
   maternity_paternity: "Maternity / Paternity Leave",
+  service_incentive: "Service Incentive Leave",
 };
 
 export const LEAVE_OPTIONS = [
@@ -11,5 +12,10 @@ export const LEAVE_OPTIONS = [
     value: "maternity_paternity",
     label: LEAVE_TYPE_LABELS.maternity_paternity,
     icon: "heart",
+  },
+  {
+    value: "service_incentive",
+    label: LEAVE_TYPE_LABELS.service_incentive,
+    icon: "briefcase",
   },
 ];

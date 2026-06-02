@@ -127,7 +127,7 @@ export default function LeaveScreen() {
       return;
     }
 
-    if (selectedCredit?.remainingRequests === 0) {
+    if (selectedCredit?.remainingRequests !== null && selectedCredit?.remainingRequests === 0) {
       Alert.alert(
         "Leave Limit Reached",
         `You have already used the maximum ${selectedCredit.leaveTypeLabel} requests.`,

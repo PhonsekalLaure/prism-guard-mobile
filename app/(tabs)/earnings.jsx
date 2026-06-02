@@ -95,30 +95,48 @@ export default function EarningsScreen() {
 
   // ── derived values ──────────────────────────────────────────────
   const grossPay = payroll
-    ? parseFloat(payroll.basic_pay ?? 0) +
+    ? parseFloat(payroll.gross_pay ?? 0) ||
+      parseFloat(payroll.basic_pay ?? 0) +
       parseFloat(payroll.overtime_pay ?? 0) +
-      parseFloat(payroll.holiday_pay ?? 0)
+      parseFloat(payroll.holiday_pay ?? 0) +
+      parseFloat(payroll.night_differential_pay ?? 0)
     : 0;
 
   const totalDeductions = payroll
-    ? parseFloat(payroll.statutory_deductions ?? 0) +
+    ? parseFloat(payroll.total_deductions ?? 0) ||
+      parseFloat(payroll.statutory_deductions ?? 0) +
       parseFloat(payroll.cash_advance_deduction ?? 0) +
-      parseFloat(payroll.absences_deduction ?? 0)
+      parseFloat(payroll.absences_deduction ?? 0) +
+      parseFloat(payroll.leave_deduction ?? 0) +
+      parseFloat(payroll.awol_deduction ?? 0) +
+      parseFloat(payroll.late_undertime_deduction ?? 0) +
+      parseFloat(payroll.withholding_tax ?? 0)
     : 0;
 
   const earnings = payroll
     ? [
-        { label: 'Basic Pay', amount: payroll.basic_pay },
+        { label: 'Regular Pay', amount: payroll.regular_pay ?? payroll.basic_pay },
         parseFloat(payroll.overtime_pay) > 0 && { label: 'Overtime Pay', amount: payroll.overtime_pay },
+        parseFloat(payroll.night_differential_pay) > 0 && { label: 'Night Differential', amount: payroll.night_differential_pay },
         parseFloat(payroll.holiday_pay)  > 0 && { label: 'Holiday Pay',  amount: payroll.holiday_pay },
       ].filter(Boolean)
     : [];
 
   const deductions = payroll
     ? [
-        parseFloat(payroll.statutory_deductions)    > 0 && { label: 'Statutory Deductions',   amount: payroll.statutory_deductions },
+        parseFloat(payroll.sss_employee)            > 0 && { label: 'SSS',                    amount: payroll.sss_employee },
+        parseFloat(payroll.philhealth_employee)     > 0 && { label: 'PhilHealth',             amount: payroll.philhealth_employee },
+        parseFloat(payroll.pagibig_employee)        > 0 && { label: 'Pag-IBIG',               amount: payroll.pagibig_employee },
+        parseFloat(payroll.withholding_tax)         > 0 && { label: 'Withholding Tax',        amount: payroll.withholding_tax },
+        !parseFloat(payroll.sss_employee) &&
+          !parseFloat(payroll.philhealth_employee) &&
+          !parseFloat(payroll.pagibig_employee) &&
+          parseFloat(payroll.statutory_deductions)  > 0 && { label: 'Statutory Deductions',   amount: payroll.statutory_deductions },
         parseFloat(payroll.cash_advance_deduction)  > 0 && { label: 'Cash Advance Deduction', amount: payroll.cash_advance_deduction },
         parseFloat(payroll.absences_deduction)      > 0 && { label: 'Absences Deduction',     amount: payroll.absences_deduction },
+        parseFloat(payroll.leave_deduction)         > 0 && { label: 'Unpaid Leave Deduction', amount: payroll.leave_deduction },
+        parseFloat(payroll.awol_deduction)          > 0 && { label: 'AWOL Deduction',         amount: payroll.awol_deduction },
+        parseFloat(payroll.late_undertime_deduction)> 0 && { label: 'Late/Undertime',         amount: payroll.late_undertime_deduction },
       ].filter(Boolean)
     : [];
 
