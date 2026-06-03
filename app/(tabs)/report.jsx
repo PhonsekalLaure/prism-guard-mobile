@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -67,6 +68,7 @@ const titleCase = (value) =>
 
 export default function ReportScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { deployment, deploymentLoading, profileLoading } = useActiveDeploymentAccess();
   const [narrative, setNarrative] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
@@ -75,6 +77,7 @@ export default function ReportScreen() {
   const [incidentHistory, setIncidentHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(null);
+  const accessDeniedAlertShownRef = useRef(false);
 
   const locationLabel = deployment?.client_sites?.site_name || "Current assigned site";
 
@@ -97,8 +100,15 @@ export default function ReportScreen() {
   }, []);
 
   useEffect(() => {
+    if (!isFocused) {
+      accessDeniedAlertShownRef.current = false;
+      return undefined;
+    }
+
     if (profileLoading || deploymentLoading) return undefined;
     if (!deployment) {
+      if (accessDeniedAlertShownRef.current) return undefined;
+      accessDeniedAlertShownRef.current = true;
       Alert.alert("No Access", "You have no access to this right now.", [
         { text: "OK", onPress: () => router.replace("/(tabs)") },
       ]);
@@ -110,7 +120,7 @@ export default function ReportScreen() {
     return () => {
       active = false;
     };
-  }, [deployment, deploymentLoading, loadIncidentHistory, profileLoading, router]);
+  }, [deployment, deploymentLoading, isFocused, loadIncidentHistory, profileLoading, router]);
 
   if (profileLoading || deploymentLoading) {
     return (

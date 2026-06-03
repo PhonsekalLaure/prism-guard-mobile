@@ -1,5 +1,6 @@
+import { useIsFocused } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     Alert,
     KeyboardAvoidingView,
@@ -25,10 +26,30 @@ import LeaveForm from "../../components/leave/LeaveForm";
 import LeaveHeader from "../../components/leave/LeaveHeader";
 import LeaveRequestHistory from "../../components/leave/LeaveRequestHistory";
 import ReviewLeaveModal from "../../components/leave/ReviewLeaveModal";
-import { countInclusiveDays } from "../../utils/leaveDates";
+import { addDaysToDateKey, countInclusiveDays, getTodayDateKey } from "../../utils/leaveDates";
+
+function getLeaveStartDateError(leaveType, startDate) {
+  const today = getTodayDateKey();
+
+  if (leaveType === "sick" && startDate !== today) {
+    return "Sick leave must start today.";
+  }
+
+  if (leaveType === "emergency" && startDate !== today) {
+    return "Emergency leave must start today.";
+  }
+
+  const earliestPlannedDate = addDaysToDateKey(today, 1) || today;
+  if (leaveType === "maternity_paternity" && startDate < earliestPlannedDate) {
+    return "Maternity / paternity leave must start from a future scheduled duty day.";
+  }
+
+  return null;
+}
 
 export default function LeaveScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const { deployment, deploymentLoading, profileLoading } = useActiveDeploymentAccess();
 
   const [formData, setFormData] = useState({
@@ -50,6 +71,7 @@ export default function LeaveScreen() {
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const accessDeniedAlertShownRef = useRef(false);
 
   const navigateBackToSchedule = useCallback(() => {
     router.replace("/(tabs)/schedule");
@@ -75,12 +97,19 @@ export default function LeaveScreen() {
   }, []);
 
   useEffect(() => {
+    if (!isFocused) {
+      accessDeniedAlertShownRef.current = false;
+      return;
+    }
+
     if (profileLoading || deploymentLoading) return;
     if (!deployment) {
       setCreditsLoading(false);
       setRequestsLoading(false);
+      if (accessDeniedAlertShownRef.current) return;
+      accessDeniedAlertShownRef.current = true;
       Alert.alert("No Access", "You have no access to this right now.", [
-        { text: "OK", onPress: navigateBackToSchedule },
+        { text: "OK", onPress: () => router.replace("/(tabs)") },
       ]);
       return;
     }
@@ -89,9 +118,10 @@ export default function LeaveScreen() {
   }, [
     deployment,
     deploymentLoading,
+    isFocused,
     loadLeaveData,
-    navigateBackToSchedule,
     profileLoading,
+    router,
   ]);
 
   const handleFormChange = (field, value) => {
@@ -112,6 +142,12 @@ export default function LeaveScreen() {
 
     if (daysRequested <= 0) {
       Alert.alert("Invalid Dates", "End date cannot be before start date.");
+      return;
+    }
+
+    const startDateError = getLeaveStartDateError(leaveType, startDate);
+    if (startDateError) {
+      Alert.alert("Invalid Start Date", startDateError);
       return;
     }
 

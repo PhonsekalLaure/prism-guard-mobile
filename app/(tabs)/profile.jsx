@@ -13,9 +13,11 @@ import {
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import LogoutModal from "@/components/profile/LogoutModal";
 import MyDocuments from "@/components/profile/MyDocuments";
+import PasswordModal from "@/components/profile/PasswordModal";
 import PersonalDetails from "@/components/profile/PersonalDetails";
 import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileToast from "@/components/profile/ProfileToast";
+import SecurityAccount from "@/components/profile/SecurityAccount";
 import { useProfile } from "@/hooks/useProfile";
 import authService from "@/services/authService";
 
@@ -36,6 +38,7 @@ export default function ProfileScreen() {
   } = useProfile();
 
   const [showLogout, setShowLogout] = useState(false);
+  const [showPassModal, setShowPassModal] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [toast, setToast] = useState({
     visible: false,
@@ -113,6 +116,8 @@ export default function ProfileScreen() {
         />
 
         {/* ── Logout ── */}
+        <SecurityAccount onChangePassword={() => setShowPassModal(true)} />
+
         <TouchableOpacity
           style={styles.btnLogout}
           onPress={() => setShowLogout(true)}

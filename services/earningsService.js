@@ -16,6 +16,7 @@ export const fetchCurrentPayroll = async () => {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_URL}/api/mobile/earnings/payroll/current`, { headers });
   const json = await res.json();
+  if (res.status === 404) return null;
   if (!res.ok) throw new Error(json.message || 'Failed to load payroll.');
   return json.data;
 };

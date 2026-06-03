@@ -1,6 +1,7 @@
 // prism-guard-mobile/app/(tabs)/earnings.jsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useIsFocused } from '@react-navigation/native';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -54,11 +55,13 @@ const LineRow = ({ label, amount, deduction = false, bold = false }) => (
 // ─── screen ───────────────────────────────────────────────────────
 
 export default function EarningsScreen() {
+  const isFocused = useIsFocused();
   const { deployment, deploymentLoading, profileLoading } = useActiveDeploymentAccess();
   const [payroll, setPayroll]       = useState(null);
   const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError]           = useState(null);
+  const accessDeniedAlertShownRef = useRef(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (profileLoading || deploymentLoading || !deployment) return;
@@ -77,10 +80,17 @@ export default function EarningsScreen() {
   }, [deployment, deploymentLoading, profileLoading]);
 
   useEffect(() => {
+    if (!isFocused) {
+      accessDeniedAlertShownRef.current = false;
+      return undefined;
+    }
+
     if (profileLoading || deploymentLoading) return undefined;
 
     if (!deployment) {
       setLoading(false);
+      if (accessDeniedAlertShownRef.current) return undefined;
+      accessDeniedAlertShownRef.current = true;
       Alert.alert("No Access", "You have no access to this right now.", [
         { text: "OK", onPress: () => router.replace("/(tabs)") },
       ]);
@@ -89,7 +99,7 @@ export default function EarningsScreen() {
 
     load();
     return undefined;
-  }, [deployment, deploymentLoading, load, profileLoading]);
+  }, [deployment, deploymentLoading, isFocused, load, profileLoading]);
 
   const onRefresh = () => { setRefreshing(true); load(true); };
 
@@ -144,22 +154,72 @@ export default function EarningsScreen() {
 
   if (error) {
     return (
-      <View style={styles.centered}>
-        <Ionicons name="alert-circle-outline" size={48} color={C.danger} />
-        <Text style={styles.errorText}>{error}</Text>
-        <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
-          <Text style={styles.retryBtnText}>Retry</Text>
-        </TouchableOpacity>
-      </View>
+      <ScreenWrapper activeTabKey="earnings">
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={HIT}>
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>My Earnings</Text>
+            <TouchableOpacity onPress={() => router.push('/notifications')} hitSlop={HIT}>
+              <Ionicons name="notifications-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.centered}>
+            <Ionicons name="alert-circle-outline" size={48} color={C.danger} />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScreenWrapper>
     );
   }
 
   if (!payroll) {
     return (
-      <View style={styles.centered}>
-        <Ionicons name="document-outline" size={48} color={C.muted} />
-        <Text style={styles.emptyText}>No payroll record available yet.</Text>
-      </View>
+      <ScreenWrapper activeTabKey="earnings">
+        <View style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} hitSlop={HIT}>
+              <Ionicons name="arrow-back" size={24} color="#fff" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>My Earnings</Text>
+            <TouchableOpacity onPress={() => router.push('/notifications')} hitSlop={HIT}>
+              <Ionicons name="notifications-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+          </View>
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+            }
+          >
+            <View style={styles.emptyCard}>
+              <Ionicons name="wallet-outline" size={34} color={C.primary} />
+              <Text style={styles.emptyTitle}>Earnings are being prepared</Text>
+              <Text style={styles.emptyText}>
+                Payroll details will appear here after the first approved cutoff for this assignment.
+              </Text>
+            </View>
+            <View style={styles.ctaCard}>
+              <View>
+                <Text style={styles.ctaTitle}>Need Cash Assistance?</Text>
+                <Text style={styles.ctaSubtitle}>Request a cash advance (Bale)</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.ctaBtn}
+                onPress={() => router.push('/cash-advance')}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="cash-outline" size={20} color={C.primary} style={{ marginRight: 8 }} />
+                <Text style={styles.ctaBtnText}>Request Cash Advance</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
+      </ScreenWrapper>
     );
   }
 
@@ -352,6 +412,19 @@ const styles = StyleSheet.create({
 
   // States
   errorText:     { color: C.danger, fontSize: 14, textAlign: 'center', marginTop: 12 },
+  emptyCard: {
+    backgroundColor: C.card,
+    borderRadius: 14,
+    padding: 22,
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  emptyTitle:    { color: C.text, fontSize: 16, fontWeight: '700', textAlign: 'center' },
   emptyText:     { color: C.muted,  fontSize: 14, textAlign: 'center', marginTop: 12 },
   retryBtn:      { marginTop: 16, backgroundColor: C.primary, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 24 },
   retryBtnText:  { color: '#fff', fontWeight: '600' },
