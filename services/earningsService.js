@@ -12,38 +12,48 @@ const getAuthHeaders = async () => {
   };
 };
 
-export const fetchCurrentPayroll = async () => {
+async function requestEarnings(path, options = {}) {
+  const {
+    fallbackMessage = 'Request failed.',
+    notFoundAsNull = false,
+    ...fetchOptions
+  } = options;
   const headers = await getAuthHeaders();
-  const res = await fetch(`${API_URL}/api/mobile/earnings/payroll/current`, { headers });
+  const res = await fetch(`${API_URL}/api/mobile/earnings${path}`, {
+    ...fetchOptions,
+    headers: {
+      ...headers,
+      ...(fetchOptions.headers || {}),
+    },
+  });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.message || 'Failed to load payroll.');
+  if (res.status === 404 && notFoundAsNull) return null;
+  if (!res.ok) throw new Error(json.message || fallbackMessage);
   return json.data;
+}
+
+export const fetchCurrentPayroll = async () => {
+  return requestEarnings('/payroll/current', {
+    fallbackMessage: 'Failed to load payroll.',
+    notFoundAsNull: true,
+  });
 };
 
 export const fetchCashAdvanceLimit = async () => {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${API_URL}/api/mobile/earnings/cash-advance/limit`, { headers });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || 'Failed to load limit.');
-  return json.data;
+  return requestEarnings('/cash-advance/limit', {
+    fallbackMessage: 'Failed to load limit.',
+  });
 };
 
 export const submitCashAdvanceRequest = async ({ amount, reason }) => {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${API_URL}/api/mobile/earnings/cash-advance/request`, {
+  return requestEarnings('/cash-advance/request', {
     method: 'POST',
-    headers,
     body: JSON.stringify({ amount, reason }),
   });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || 'Request failed.');
-  return json.data;
 };
 
 export const fetchCashAdvanceHistory = async () => {
-  const headers = await getAuthHeaders();
-  const res = await fetch(`${API_URL}/api/mobile/earnings/cash-advance/history`, { headers });
-  const json = await res.json();
-  if (!res.ok) throw new Error(json.message || 'Failed to load history.');
-  return json.data;
+  return requestEarnings('/cash-advance/history', {
+    fallbackMessage: 'Failed to load history.',
+  });
 };
