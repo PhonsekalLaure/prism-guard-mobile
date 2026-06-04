@@ -11,9 +11,27 @@ import {
     View,
 } from "react-native";
 import { LEAVE_TYPE_LABELS } from "@/constants/leaveTypes";
-import { formatLeaveDate, getTodayDateKey } from "@/utils/leaveDates";
+import { addDaysToDateKey, formatLeaveDate, getTodayDateKey } from "@/utils/leaveDates";
 import LeavePicker from "./LeavePicker";
 import ScheduledLeaveDatePicker from "./ScheduledLeaveDatePicker";
+
+function getStartDateBounds(leaveType) {
+  const today = getTodayDateKey();
+
+  if (leaveType === "sick") {
+    return { minDate: today, maxDate: today };
+  }
+
+  if (leaveType === "emergency") {
+    return { minDate: today, maxDate: today };
+  }
+
+  if (leaveType === "maternity_paternity") {
+    return { minDate: addDaysToDateKey(today, 1) || today };
+  }
+
+  return { minDate: today };
+}
 
 const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
   const [showLeavePicker, setShowLeavePicker] = useState(false);
@@ -22,6 +40,7 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
   const leaveCreditsByType = Object.fromEntries(
     (leaveCredits?.byType || []).map((item) => [item.leaveType, item]),
   );
+  const startDateBounds = getStartDateBounds(formData.leaveType);
 
   const handlePickDocument = async () => {
     try {
@@ -83,7 +102,13 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
         <Text style={styles.label}>Start Date</Text>
         <TouchableOpacity
           style={styles.inputRow}
-          onPress={() => setShowStartPicker(true)}
+          onPress={() => {
+            if (!formData.leaveType) {
+              Alert.alert("Select Leave Type", "Please choose a leave type first.");
+              return;
+            }
+            setShowStartPicker(true);
+          }}
           activeOpacity={0.75}
         >
           <Feather
@@ -106,7 +131,8 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
             visible={showStartPicker}
             title="Select Start Date"
             selectedDate={formData.startDate}
-            minDate={getTodayDateKey()}
+            minDate={startDateBounds.minDate}
+            maxDate={startDateBounds.maxDate}
             onSelect={(dateKey) => {
               onChange("startDate", dateKey);
               if (formData.endDate && formData.endDate < dateKey) {
@@ -122,7 +148,17 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
         <Text style={styles.label}>End Date</Text>
         <TouchableOpacity
           style={styles.inputRow}
-          onPress={() => setShowEndPicker(true)}
+          onPress={() => {
+            if (!formData.leaveType) {
+              Alert.alert("Select Leave Type", "Please choose a leave type first.");
+              return;
+            }
+            if (!formData.startDate) {
+              Alert.alert("Select Start Date", "Please choose the start date first.");
+              return;
+            }
+            setShowEndPicker(true);
+          }}
           activeOpacity={0.75}
         >
           <Feather
@@ -223,6 +259,8 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
         selected={formData.leaveType}
         onSelect={(val) => {
           onChange("leaveType", val);
+          onChange("startDate", "");
+          onChange("endDate", "");
           setShowLeavePicker(false);
         }}
         onClose={() => setShowLeavePicker(false)}

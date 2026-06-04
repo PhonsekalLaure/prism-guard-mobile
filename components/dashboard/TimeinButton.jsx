@@ -15,7 +15,12 @@ import {
   View,
 } from "react-native";
 
-const TimeInButton = ({ isOnDuty = false, onPress, disabled = false }) => {
+const TimeInButton = ({
+  isOnDuty = false,
+  onPress,
+  disabled = false,
+  compact = false,
+}) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseOpacity = useRef(new Animated.Value(0.6)).current;
   const pressScale = useRef(new Animated.Value(1)).current;
@@ -68,10 +73,11 @@ const TimeInButton = ({ isOnDuty = false, onPress, disabled = false }) => {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, compact && styles.containerCompact]}>
       <Animated.View
         style={[
           styles.pulseRing,
+          compact && styles.pulseRingCompact,
           disabled && styles.pulseRingChecking,
           {
             transform: [{ scale: pulseAnim }],
@@ -84,6 +90,7 @@ const TimeInButton = ({ isOnDuty = false, onPress, disabled = false }) => {
         <TouchableOpacity
           style={[
             styles.button,
+            compact && styles.buttonCompact,
             isOnDuty && styles.buttonActive,
             disabled && styles.buttonDisabled,
           ]}
@@ -99,12 +106,24 @@ const TimeInButton = ({ isOnDuty = false, onPress, disabled = false }) => {
               color={isOnDuty ? PrismColors.navy : PrismColors.gold}
             />
           ) : (
-            <Text style={[styles.buttonIcon, isOnDuty && styles.buttonIconActive]}>
+            <Text
+              style={[
+                styles.buttonIcon,
+                compact && styles.buttonIconCompact,
+                isOnDuty && styles.buttonIconActive,
+              ]}
+            >
               {isOnDuty ? "STOP" : "GO"}
             </Text>
           )}
 
-          <Text style={[styles.buttonLabel, isOnDuty && styles.buttonLabelActive]}>
+          <Text
+            style={[
+              styles.buttonLabel,
+              compact && styles.buttonLabelCompact,
+              isOnDuty && styles.buttonLabelActive,
+            ]}
+          >
             {disabled ? "CHECKING" : isOnDuty ? "TIME OUT" : "TIME IN"}
           </Text>
         </TouchableOpacity>
@@ -119,6 +138,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginVertical: PrismSpacing.xxl,
   },
+  containerCompact: {
+    marginVertical: 0,
+  },
   pulseRing: {
     position: "absolute",
     width: 110,
@@ -127,6 +149,13 @@ const styles = StyleSheet.create({
     backgroundColor: PrismColors.goldDim,
     borderWidth: 2,
     borderColor: PrismColors.gold,
+  },
+  pulseRingCompact: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    backgroundColor: "rgba(125, 211, 252, 0.22)",
+    borderColor: "#7DD3FC",
   },
   pulseRingChecking: {
     borderWidth: 4,
@@ -143,6 +172,14 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: PrismColors.navyLight,
   },
+  buttonCompact: {
+    width: 78,
+    height: 78,
+    borderRadius: 39,
+    backgroundColor: "#BAE6FD",
+    borderColor: "#7DD3FC",
+    borderWidth: 2,
+  },
   buttonActive: {
     backgroundColor: PrismColors.gold,
     borderColor: PrismColors.goldLight,
@@ -157,6 +194,10 @@ const styles = StyleSheet.create({
     fontWeight: PrismTypography.extraBold,
     color: PrismColors.gold,
   },
+  buttonIconCompact: {
+    fontSize: 15,
+    color: PrismColors.navy,
+  },
   buttonIconActive: {
     color: PrismColors.navy,
   },
@@ -165,6 +206,11 @@ const styles = StyleSheet.create({
     fontWeight: PrismTypography.extraBold,
     color: PrismColors.gold,
     letterSpacing: 1.5,
+  },
+  buttonLabelCompact: {
+    fontSize: 10,
+    color: PrismColors.navy,
+    letterSpacing: 0.8,
   },
   buttonLabelActive: {
     color: PrismColors.navy,

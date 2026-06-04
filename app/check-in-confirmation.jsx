@@ -1,5 +1,6 @@
 // app/check-in-confirmation.jsx
 import { PrismColors } from "@/constants/prismTheme";
+import { normalizeCoordinate, normalizeSiteGeofence } from "@/utils/geofence";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import CheckInMap from "../components/check-in/CheckInMap";
@@ -16,8 +17,13 @@ export default function CheckInConfirmation() {
   const router = useRouter();
 
   const params = useLocalSearchParams();
-  const post        = JSON.parse(params.post);
-  const guardCoords = JSON.parse(params.guardCoords);
+  const post        = normalizeSiteGeofence(JSON.parse(params.post));
+  const rawGuardCoords = JSON.parse(params.guardCoords);
+  const guardCoords = {
+    latitude: normalizeCoordinate(rawGuardCoords?.latitude, "guard latitude"),
+    longitude: normalizeCoordinate(rawGuardCoords?.longitude, "guard longitude"),
+    accuracy: Number(rawGuardCoords?.accuracy),
+  };
   const distance    = Number(params.distance);
   const checkType   = params.checkType;
   const timestamp   = params.timestamp;
@@ -34,13 +40,6 @@ export default function CheckInConfirmation() {
     day:     "numeric",
   });
 
-  const region = {
-    latitude:       post.latitude,
-    longitude:      post.longitude,
-    latitudeDelta:  (post.geofence_radius_meters / 111000) * 5,
-    longitudeDelta: (post.geofence_radius_meters / 111000) * 5,
-  };
-
   // Colors based on inside/outside
   const circleColor   = isInside ? "rgba(76, 175, 80, 0.9)"  : "rgba(244, 67, 54, 0.9)";
   const circleFill    = isInside ? "rgba(76, 175, 80, 0.15)" : "rgba(244, 67, 54, 0.15)";
@@ -55,7 +54,6 @@ export default function CheckInConfirmation() {
     <View style={styles.container}>
       <CheckInMap
         style={styles.map}
-        region={region}
         post={post}
         guardCoords={guardCoords}
         circleFill={circleFill}

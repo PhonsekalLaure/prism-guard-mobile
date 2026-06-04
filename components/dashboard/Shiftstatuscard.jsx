@@ -16,6 +16,9 @@ const ShiftStatusCard = ({
   isOnDuty,
   hasDeployment = true,
   isCheckingDeployment = false,
+  clockInTime = null,
+  dutyTimingLabel = null,
+  hasRemainingTime = false,
 }) => {
   if (isCheckingDeployment) {
     return (
@@ -71,6 +74,26 @@ const ShiftStatusCard = ({
           </Text>
         </View>
       </View>
+      {isOnDuty ? (
+        <View
+          style={[
+            styles.dutySummary,
+            hasRemainingTime ? styles.dutySummaryWarning : styles.dutySummaryReady,
+          ]}
+        >
+          <View style={styles.dutySummaryItem}>
+            <Text style={styles.dutySummaryLabel}>On duty since</Text>
+            <Text style={styles.dutySummaryValue}>{clockInTime || shiftStart}</Text>
+          </View>
+          <View style={styles.dutySummaryDivider} />
+          <View style={styles.dutySummaryItem}>
+            <Text style={styles.dutySummaryLabel}>Time-out status</Text>
+            <Text style={styles.dutySummaryValue}>
+              {dutyTimingLabel || "Checking schedule"}
+            </Text>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -148,6 +171,42 @@ const styles = StyleSheet.create({
     width: 1,
     height: 30,
     backgroundColor: PrismColors.border,
+  },
+  dutySummary: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: PrismSpacing.md,
+    borderRadius: PrismRadius.md,
+    borderWidth: 1,
+    paddingHorizontal: PrismSpacing.md,
+    paddingVertical: PrismSpacing.sm,
+  },
+  dutySummaryWarning: {
+    backgroundColor: PrismColors.warning + "12",
+    borderColor: PrismColors.warning + "55",
+  },
+  dutySummaryReady: {
+    backgroundColor: PrismColors.success + "12",
+    borderColor: PrismColors.success + "55",
+  },
+  dutySummaryItem: {
+    flex: 1,
+  },
+  dutySummaryLabel: {
+    fontSize: PrismTypography.xs,
+    color: PrismColors.textSecondary,
+    marginBottom: 2,
+  },
+  dutySummaryValue: {
+    fontSize: PrismTypography.sm,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.textPrimary,
+  },
+  dutySummaryDivider: {
+    width: 1,
+    alignSelf: "stretch",
+    backgroundColor: PrismColors.border,
+    marginHorizontal: PrismSpacing.md,
   },
 });
 

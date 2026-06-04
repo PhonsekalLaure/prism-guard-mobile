@@ -50,6 +50,12 @@
         }
       ],
       "@react-native-community/datetimepicker",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Prism Guard uses your location to verify that time-in, time-out, and duty checks happen within your assigned post geofence."
+        }
+      ],
       "expo-web-browser",
       "expo-font",
       "expo-image"

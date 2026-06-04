@@ -1,6 +1,7 @@
 // prism-guard-mobile/app/(tabs)/earnings.jsx
 
-import React, { useCallback, useEffect, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -53,6 +54,20 @@ function LineRow({ label, amount, deduction = false, bold = false }) {
   );
 }
 
+function Header() {
+  return (
+    <View style={styles.header}>
+      <TouchableOpacity onPress={() => router.back()} hitSlop={HIT}>
+        <Ionicons name="arrow-back" size={24} color="#fff" />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>My Earnings</Text>
+      <TouchableOpacity onPress={() => router.push('/notifications')} hitSlop={HIT}>
+        <Ionicons name="notifications-outline" size={24} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
 function CenterState({
   icon,
   color,
@@ -63,15 +78,18 @@ function CenterState({
 }) {
   return (
     <ScreenWrapper activeTabKey="earnings">
-      <View style={styles.centered}>
-        <Ionicons name={icon} size={48} color={color} />
-        <Text style={error ? styles.errorText : styles.emptyText}>{text}</Text>
-        {onRetry && (
-          <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
-            <Text style={styles.retryBtnText}>Retry</Text>
-          </TouchableOpacity>
-        )}
-        {children}
+      <View style={styles.container}>
+        <Header />
+        <View style={styles.centered}>
+          <Ionicons name={icon} size={48} color={color} />
+          <Text style={error ? styles.errorText : styles.emptyText}>{text}</Text>
+          {onRetry && (
+            <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
+              <Text style={styles.retryBtnText}>Retry</Text>
+            </TouchableOpacity>
+          )}
+          {children}
+        </View>
       </View>
     </ScreenWrapper>
   );
@@ -97,11 +115,13 @@ function CashAdvanceCta() {
 }
 
 export default function EarningsScreen() {
+  const isFocused = useIsFocused();
   const { deployment, deploymentLoading, profileLoading } = useActiveDeploymentAccess();
   const [payroll, setPayroll] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const accessDeniedAlertShownRef = useRef(false);
 
   const load = useCallback(async (isRefresh = false) => {
     if (profileLoading || deploymentLoading || !deployment) return;
@@ -120,10 +140,17 @@ export default function EarningsScreen() {
   }, [deployment, deploymentLoading, profileLoading]);
 
   useEffect(() => {
+    if (!isFocused) {
+      accessDeniedAlertShownRef.current = false;
+      return undefined;
+    }
+
     if (profileLoading || deploymentLoading) return undefined;
 
     if (!deployment) {
       setLoading(false);
+      if (accessDeniedAlertShownRef.current) return undefined;
+      accessDeniedAlertShownRef.current = true;
       Alert.alert('No Access', 'You have no access to this right now.', [
         { text: 'OK', onPress: () => router.replace('/(tabs)') },
       ]);
@@ -132,7 +159,7 @@ export default function EarningsScreen() {
 
     load();
     return undefined;
-  }, [deployment, deploymentLoading, load, profileLoading]);
+  }, [deployment, deploymentLoading, isFocused, load, profileLoading]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -171,15 +198,26 @@ export default function EarningsScreen() {
 
   if (!payroll) {
     return (
-      <CenterState
-        icon="document-outline"
-        color={C.muted}
-        text="No payroll estimate available yet."
-      >
-        <View style={styles.stateCtaWrapper}>
-          <CashAdvanceCta />
+      <ScreenWrapper activeTabKey="earnings">
+        <View style={styles.container}>
+          <Header />
+          <ScrollView
+            contentContainerStyle={styles.scroll}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+            }
+          >
+            <View style={styles.emptyCard}>
+              <Ionicons name="wallet-outline" size={34} color={C.primary} />
+              <Text style={styles.emptyTitle}>Earnings are being prepared</Text>
+              <Text style={styles.emptyText}>
+                Payroll estimates will appear here once records are available for this assignment.
+              </Text>
+            </View>
+            <CashAdvanceCta />
+          </ScrollView>
         </View>
-      </CenterState>
+      </ScreenWrapper>
     );
   }
 
@@ -191,15 +229,7 @@ export default function EarningsScreen() {
   return (
     <ScreenWrapper activeTabKey="earnings">
       <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} hitSlop={HIT}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>My Earnings</Text>
-          <TouchableOpacity onPress={() => router.push('/notifications')} hitSlop={HIT}>
-            <Ionicons name="notifications-outline" size={24} color="#fff" />
-          </TouchableOpacity>
-        </View>
+        <Header />
 
         <ScrollView
           contentContainerStyle={styles.scroll}
@@ -350,7 +380,6 @@ const styles = StyleSheet.create({
   ctaBtnText: { fontSize: 15, fontWeight: '700', color: C.primary },
 
   errorText: { color: C.danger, fontSize: 14, textAlign: 'center', marginTop: 12 },
-  emptyText: { color: C.muted, fontSize: 14, textAlign: 'center', marginTop: 12 },
   retryBtn: {
     marginTop: 16,
     backgroundColor: C.primary,
@@ -359,5 +388,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   retryBtnText: { color: '#fff', fontWeight: '600' },
-  stateCtaWrapper: { width: '100%', marginTop: 20 },
+  emptyCard: {
+    backgroundColor: C.card,
+    borderRadius: 14,
+    padding: 22,
+    alignItems: 'center',
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  emptyTitle: { color: C.text, fontSize: 16, fontWeight: '700', textAlign: 'center' },
+  emptyText: { color: C.muted, fontSize: 14, textAlign: 'center', marginTop: 12 },
 });

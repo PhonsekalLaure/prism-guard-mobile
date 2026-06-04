@@ -17,6 +17,14 @@ export function getTodayDateKey() {
   return getDateKey(today.getFullYear(), today.getMonth(), today.getDate());
 }
 
+export function addDaysToDateKey(dateStr, days) {
+  const date = parseDateKey(dateStr);
+  if (!date) return "";
+
+  date.setDate(date.getDate() + days);
+  return getDateKey(date.getFullYear(), date.getMonth(), date.getDate());
+}
+
 export function parseDateKey(dateStr) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || ""))) return null;
   const [year, month, day] = dateStr.split("-").map(Number);

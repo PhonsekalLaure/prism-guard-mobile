@@ -67,6 +67,7 @@ export default function ScheduledLeaveDatePicker({
   title,
   selectedDate,
   minDate,
+  maxDate,
   rangeStartDate,
   onSelect,
   onClose,
@@ -193,6 +194,9 @@ export default function ScheduledLeaveDatePicker({
     }
     if (minDate && compareDateKeys(dateKey, minDate) < 0) {
       return "before-minimum";
+    }
+    if (maxDate && compareDateKeys(dateKey, maxDate) > 0) {
+      return "after-maximum";
     }
     if (!scheduledSet.has(dateKey)) {
       return "not-scheduled";

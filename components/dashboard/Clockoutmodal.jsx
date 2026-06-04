@@ -16,7 +16,13 @@ import {
   View,
 } from "react-native";
 
-const ClockOutModal = ({ visible = false, onCancel, onConfirm }) => {
+const ClockOutModal = ({
+  visible = false,
+  onCancel,
+  onConfirm,
+  timingMessage = null,
+  hasRemainingTime = false,
+}) => {
   const scaleAnim = useRef(new Animated.Value(0.85)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -64,6 +70,19 @@ const ClockOutModal = ({ visible = false, onCancel, onConfirm }) => {
             Are you sure you want to clock out? This will end your current
             session.
           </Text>
+          {timingMessage ? (
+            <View
+              style={[
+                styles.timingNotice,
+                hasRemainingTime ? styles.timingNoticeWarning : styles.timingNoticeReady,
+              ]}
+            >
+              <Text style={styles.timingLabel}>
+                {hasRemainingTime ? "Before Shift End" : "Time-out Status"}
+              </Text>
+              <Text style={styles.timingText}>{timingMessage}</Text>
+            </View>
+          ) : null}
 
           <View style={styles.actions}>
             <TouchableOpacity
@@ -129,7 +148,35 @@ const styles = StyleSheet.create({
     color: PrismColors.textSecondary,
     textAlign: "center",
     lineHeight: 20,
+    marginBottom: PrismSpacing.md,
+  },
+  timingNotice: {
+    width: "100%",
+    borderRadius: PrismRadius.md,
+    borderWidth: 1,
+    padding: PrismSpacing.md,
     marginBottom: PrismSpacing.xl,
+  },
+  timingNoticeWarning: {
+    backgroundColor: PrismColors.warning + "14",
+    borderColor: PrismColors.warning + "66",
+  },
+  timingNoticeReady: {
+    backgroundColor: PrismColors.success + "14",
+    borderColor: PrismColors.success + "66",
+  },
+  timingLabel: {
+    fontSize: PrismTypography.xs,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.textPrimary,
+    letterSpacing: 0.5,
+    marginBottom: PrismSpacing.xs,
+    textTransform: "uppercase",
+  },
+  timingText: {
+    fontSize: PrismTypography.sm,
+    color: PrismColors.textPrimary,
+    lineHeight: 19,
   },
   actions: {
     flexDirection: "row",
