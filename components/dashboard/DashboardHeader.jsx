@@ -50,7 +50,6 @@ const DashboardHeader = ({
       <View style={styles.welcomeArea}>
         <Text style={styles.officerName}>{officerName}</Text>
         <View style={styles.dateRow}>
-          <Text style={styles.calendarIcon}>📅</Text>
           <Text style={styles.dateText}>{dateString}</Text>
         </View>
       </View>
@@ -147,9 +146,6 @@ backgroundColor: "rgba(255, 215, 0, 0.7)",
     flexDirection: "row",
     alignItems: "center",
     gap: PrismSpacing.xs,
-  },
-  calendarIcon: {
-    fontSize: 13,
   },
   dateText: {
     fontSize: PrismTypography.sm,
