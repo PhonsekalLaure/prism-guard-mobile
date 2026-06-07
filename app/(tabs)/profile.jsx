@@ -19,9 +19,10 @@ import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileToast from "@/components/profile/ProfileToast";
 import SecurityAccount from "@/components/profile/SecurityAccount";
 import { useProfile } from "@/hooks/useProfile";
+import { PrismColors } from "@/constants/prismTheme";
 import authService from "@/services/authService";
 
-const NAVY = "#0d2550";
+const NAVY = PrismColors.navy;
 
 export default function ProfileScreen() {
   const router = useRouter();

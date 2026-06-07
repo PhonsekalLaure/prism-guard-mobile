@@ -12,6 +12,7 @@ import {
 } from "@/utils/passwordPolicy";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
 import { useState } from "react";
 import {
   Image,
@@ -247,6 +248,7 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { refreshAccess } = useActiveDeploymentAccess();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -264,11 +266,17 @@ export default function LoginScreen() {
       setError("");
       setLoading(true);
       await authService.login(email, password);
-      setShowSuccess(true);
+      // refresh profile/deployment state before navigating to tabs
+      try {
+        setShowSuccess(true);
+        await refreshAccess({ quiet: true });
+      } catch (e) {
+        // ignore refresh errors here; we'll still navigate
+      }
       setTimeout(() => {
         setShowSuccess(false);
         router.replace("/(tabs)");
-      }, 2000);
+      }, 1200);
     } catch (err) {
       setError(err?.message || "Login failed. Please try again.");
     } finally {

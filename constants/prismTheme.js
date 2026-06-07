@@ -1,10 +1,10 @@
 // constants/prismTheme.js
 
 export const PrismColors = {
-  // Primary
-  navy: '#0D1F3C',
-  navyLight: '#162B52',
-  navyMid: '#1A3260',
+  // Primary (aligned with earnings header color)
+  navy: '#1A3C8F',
+  navyLight: '#0a4d9e',
+  navyMid: '#06407f',
 
   // Accent
   gold: '#E6B215',
@@ -65,7 +65,7 @@ export const PrismRadius = {
 
 export const PrismShadows = {
   card: {
-    shadowColor: '#0D1F3C',
+    shadowColor: '#093269',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
@@ -79,7 +79,7 @@ export const PrismShadows = {
     elevation: 8,
   },
   header: {
-    shadowColor: '#0D1F3C',
+    shadowColor: '#093269',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.2,
     shadowRadius: 16,

@@ -1,5 +1,6 @@
 import { PrismColors } from "@/constants/prismTheme";
 import { useRouter } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function ScheduleHeader({ hasNotification = true }) {
@@ -14,7 +15,7 @@ export default function ScheduleHeader({ hasNotification = true }) {
         style={styles.bellBtn}
         onPress={() => router.push("/notifications")}
       >
-        <Text style={styles.bellIcon}>🔔</Text>
+        <Ionicons name="notifications-outline" size={22} color="#fff" />
         {hasNotification && <View style={styles.dot} />}
       </TouchableOpacity>
     </View>

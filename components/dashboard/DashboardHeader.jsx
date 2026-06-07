@@ -6,8 +6,10 @@ import {
   PrismTypography,
 } from "@/constants/prismTheme";
 import React from "react";
+import { Ionicons } from "@expo/vector-icons";
 import {
   StatusBar,
+  Image,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -26,8 +28,11 @@ const DashboardHeader = ({
 
       <View style={styles.topRow}>
         <View style={styles.logoArea}>
-          <View style={styles.shieldIcon}>
-            <Text style={styles.shieldText}>⬡</Text>
+          <View style={styles.logoContainer}>
+            <Image
+              source={require("@/assets/images/Logo.png")}
+              style={styles.logoImage}
+            />
           </View>
           <Text style={styles.appName}>PRISM-Guard</Text>
         </View>
@@ -37,7 +42,7 @@ const DashboardHeader = ({
           onPress={onBellPress}
           activeOpacity={0.7}
         >
-          <Text style={styles.bellIcon}>🔔</Text>
+          <Ionicons name="notifications-outline" size={22} color="#fff" />
           {hasNotification && <View style={styles.notificationDot} />}
         </TouchableOpacity>
       </View>
@@ -85,6 +90,22 @@ const styles = StyleSheet.create({
   shieldText: {
     fontSize: 18,
     color: PrismColors.navy,
+  },
+  // larger, fixed logo size to match header title visually
+  logoImage: {
+    width: 40,
+    height: 40,
+    resizeMode: "contain",
+  },
+  logoContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 4,
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    marginRight: PrismSpacing.md,
   },
   appName: {
     fontSize: PrismTypography.md,

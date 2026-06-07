@@ -538,10 +538,42 @@ export default function DashboardScreen() {
   const todayShift = todaySchedule?.scheduleDays?.find((item) => item.date === todayDateKey)
     || (todaySchedule?.selectedDate === todayDateKey ? todaySchedule?.selectedShift : null)
     || null;
+  // If there's no shift for today, try to pick a sensible fallback from the schedule:
+  let fallbackShift = null;
+  if (!todayShift && todaySchedule?.scheduleDays?.length) {
+    // prefer schedule's selectedShift if available
+    if (todaySchedule.selectedShift) {
+      fallbackShift = todaySchedule.selectedShift;
+    } else {
+      const depId = deployment?.id || deployment?.deploymentId || null;
+      const siteId = deployment?.site_id || deployment?.client_sites?.id || null;
+
+      // try to find a shift that matches current deployment/site
+      fallbackShift = todaySchedule.scheduleDays.find((d) => (
+        (d.deploymentId && depId && d.deploymentId === depId) ||
+        (d.siteId && siteId && d.siteId === siteId) ||
+        (d.siteId && deployment?.client_sites && d.siteId === deployment.client_sites.id) ||
+        (d.siteId && deployment?.client_sites && d.siteId === deployment.client_sites.site_id)
+      ));
+
+      // if none matched, pick the next available day on or after today
+      if (!fallbackShift) {
+        fallbackShift = todaySchedule.scheduleDays.find((d) => d.date >= todayDateKey) || todaySchedule.scheduleDays[0];
+      }
+    }
+  }
   const deploymentShiftStart = deployment?.shift_start || deployment?.shiftStart || deployment?.start_time;
   const deploymentShiftEnd = deployment?.shift_end || deployment?.shiftEnd || deployment?.end_time;
-  const displayShiftStart = todayShift?.shiftStart || deploymentShiftStart || "--";
-  const displayShiftEnd = todayShift?.shiftEnd || deploymentShiftEnd || "--";
+  const displayShiftStart = todayShift?.shiftStart || fallbackShift?.shiftStart || deploymentShiftStart || "--";
+  const displayShiftEnd = todayShift?.shiftEnd || fallbackShift?.shiftEnd || deploymentShiftEnd || "--";
+  const formatShiftDisplay = (dateKey, value) => {
+    if (!value || value === "--") return "--";
+    const dt = parseShiftDateTime(dateKey, value);
+    if (!dt) return String(value);
+    return dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  };
+  const displayShiftStartFormatted = formatShiftDisplay(todayDateKey, displayShiftStart);
+  const displayShiftEndFormatted = formatShiftDisplay(todayDateKey, displayShiftEnd);
   const shiftTiming = getShiftTiming({
     dateKey: todayDateKey,
     shiftStart: displayShiftStart,
@@ -564,8 +596,8 @@ export default function DashboardScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <ShiftStatusCard
-          shiftStart={displayShiftStart}
-          shiftEnd={displayShiftEnd}
+          shiftStart={displayShiftStartFormatted}
+          shiftEnd={displayShiftEndFormatted}
           location={deployment?.client_sites?.site_name || "No Site Assigned"}
           isOnDuty={isOnDuty}
           hasDeployment={Boolean(deployment)}
