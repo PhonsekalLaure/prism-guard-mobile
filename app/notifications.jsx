@@ -54,14 +54,20 @@ export default function NotificationsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
 
-  const loadNotifications = useCallback(async ({ silent = false } = {}) => {
+  const ITEMS_PER_PAGE = 5;
+
+  const loadNotifications = useCallback(async ({ silent = false, pageNum = 1 } = {}) => {
     if (!silent) setLoading(true);
     setError(null);
 
     try {
-      const result = await fetchNotifications({ limit: 50 });
-      setItems(result.notifications);
+      const result = await fetchNotifications({ limit: ITEMS_PER_PAGE * pageNum });
+      const paginated = result.notifications.slice(0, ITEMS_PER_PAGE * pageNum);
+      setItems(paginated);
+      setHasMore(result.notifications.length > ITEMS_PER_PAGE * pageNum);
     } catch (err) {
       setError(err.message || "Could not load notifications");
     } finally {
@@ -71,12 +77,19 @@ export default function NotificationsScreen() {
   }, []);
 
   useEffect(() => {
-    loadNotifications();
+    loadNotifications({ pageNum: 1 });
   }, [loadNotifications]);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    loadNotifications({ silent: true });
+    setPage(1);
+    loadNotifications({ silent: true, pageNum: 1 });
+  };
+
+  const handleLoadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    loadNotifications({ silent: true, pageNum: nextPage });
   };
 
   const handleMarkAllRead = async () => {
@@ -153,6 +166,54 @@ export default function NotificationsScreen() {
               <Text style={styles.stateText}>You are all caught up.</Text>
             </View>
           )}
+          ListFooterComponent={
+            items.length > 0 && (
+              <View style={styles.paginationContainer}>
+                <Text style={styles.paginationInfo}>
+                  Showing {items.length} notifications
+                </Text>
+                <View style={styles.paginationControls}>
+                  <TouchableOpacity
+                    style={[styles.arrowButton, page === 1 && styles.arrowButtonDisabled]}
+                    onPress={() => {
+                      if (page > 1) {
+                        setPage(page - 1);
+                        loadNotifications({ silent: true, pageNum: page - 1 });
+                      }
+                    }}
+                    disabled={page === 1}
+                  >
+                    <Ionicons
+                      name="chevron-back"
+                      size={20}
+                      color={page === 1 ? PrismColors.textLight : PrismColors.navy}
+                    />
+                  </TouchableOpacity>
+                  <Text style={styles.pageIndicator}>
+                    Page {page}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.arrowButton, !hasMore && styles.arrowButtonDisabled]}
+                    onPress={() => {
+                      if (hasMore) {
+                        handleLoadMore();
+                      }
+                    }}
+                    disabled={!hasMore}
+                  >
+                    <Ionicons
+                      name="chevron-forward"
+                      size={20}
+                      color={!hasMore ? PrismColors.textLight : PrismColors.navy}
+                    />
+                  </TouchableOpacity>
+                </View>
+                {!hasMore && (
+                  <Text style={styles.endMessage}>No more notifications</Text>
+                )}
+              </View>
+            )
+          }
           renderItem={({ item }) => {
             const event = item.event || {};
             return (
@@ -297,5 +358,47 @@ const styles = StyleSheet.create({
   retryText: {
     color: PrismColors.white,
     fontWeight: PrismTypography.bold,
+  },
+  paginationContainer: {
+    alignItems: "center",
+    gap: PrismSpacing.md,
+    paddingVertical: PrismSpacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: PrismColors.border,
+    marginTop: PrismSpacing.md,
+  },
+  paginationInfo: {
+    color: PrismColors.textSecondary,
+    fontSize: PrismTypography.sm,
+    textAlign: "center",
+  },
+  paginationControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: PrismSpacing.lg,
+  },
+  arrowButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: PrismColors.border,
+  },
+  arrowButtonDisabled: {
+    opacity: 0.5,
+  },
+  pageIndicator: {
+    color: PrismColors.textPrimary,
+    fontSize: PrismTypography.sm,
+    fontWeight: PrismTypography.semibold,
+    minWidth: 60,
+    textAlign: "center",
+  },
+  endMessage: {
+    color: PrismColors.textSecondary,
+    fontSize: PrismTypography.xs,
+    fontStyle: "italic",
   },
 });
