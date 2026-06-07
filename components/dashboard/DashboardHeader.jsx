@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   logoArea: {
     flexDirection: "row",
     alignItems: "center",
-    gap: PrismSpacing.sm,
+    gap: 1,
   },
   shieldIcon: {
     width: 36,
@@ -91,26 +91,29 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: PrismColors.navy,
   },
-  // larger, fixed logo size to match header title visually
-  logoImage: {
+  // logo container with padding so logo breathes; image scales proportionally
+  logoContainer: {
     width: 40,
     height: 40,
-    resizeMode: "contain",
-  },
-  logoContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 4,
-    backgroundColor: "transparent",
+    borderRadius: 58,
+backgroundColor: "rgba(255, 215, 0, 0.7)",
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
-    marginRight: PrismSpacing.md,
+    marginRight: 12,
+    borderWidth: 2,
+    borderColor: "#FFD700",
+  },
+  // image fills container and preserves aspect ratio
+  logoImage: {
+    width: 60,
+    height: 60,
+    resizeMode: "contain",
   },
   appName: {
     fontSize: PrismTypography.md,
     fontWeight: PrismTypography.bold,
-    color: PrismColors.gold,
+    color: "#FFD700",
     letterSpacing: 1.2,
   },
   bellWrapper: {
