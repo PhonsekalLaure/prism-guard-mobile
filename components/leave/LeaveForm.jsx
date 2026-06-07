@@ -19,7 +19,10 @@ function getStartDateBounds(leaveType) {
   const today = getTodayDateKey();
 
   if (leaveType === "sick") {
-    return { minDate: today, maxDate: today };
+    return {
+      minDate: today,
+      maxDate: addDaysToDateKey(today, 1),
+    };
   }
 
   if (leaveType === "emergency") {
@@ -27,13 +30,20 @@ function getStartDateBounds(leaveType) {
   }
 
   if (leaveType === "maternity_paternity") {
-    return { minDate: addDaysToDateKey(today, 1) || today };
+    return { minDate: addDaysToDateKey(today, 30) };
+  }
+
+  if (leaveType === "service_incentive") {
+    return {
+      minDate: addDaysToDateKey(today, 7),
+      maxDate: addDaysToDateKey(today, 14),
+    };
   }
 
   return { minDate: today };
 }
 
-const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
+const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, submitDisabled }) => {
   const [showLeavePicker, setShowLeavePicker] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
@@ -41,6 +51,7 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
     (leaveCredits?.byType || []).map((item) => [item.leaveType, item]),
   );
   const startDateBounds = getStartDateBounds(formData.leaveType);
+  const todayDateKey = getTodayDateKey();
 
   const handlePickDocument = async () => {
     try {
@@ -71,6 +82,13 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
 
   return (
     <View style={styles.card}>
+      <View style={styles.todayRow}>
+        <View>
+          <Text style={styles.todayLabel}>Today's Date</Text>
+          <Text style={styles.todayValue}>{formatLeaveDate(todayDateKey)}</Text>
+        </View>
+      </View>
+
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Leave Type</Text>
         <TouchableOpacity
@@ -179,12 +197,19 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
             title="Select End Date"
             selectedDate={formData.endDate}
             minDate={formData.startDate || getTodayDateKey()}
+            maxDate={formData.leaveType === "emergency" ? formData.startDate || getTodayDateKey() : undefined}
             rangeStartDate={formData.startDate}
             onSelect={(dateKey) => onChange("endDate", dateKey)}
             onClose={() => setShowEndPicker(false)}
           />
         )}
       </View>
+
+      {errorMessage ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Reason</Text>
@@ -247,9 +272,10 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit }) => {
       </View>
 
       <TouchableOpacity
-        style={styles.submitBtn}
+        style={[styles.submitBtn, submitDisabled && styles.submitBtnDisabled]}
         onPress={onSubmit}
         activeOpacity={0.85}
+        disabled={submitDisabled}
       >
         <Text style={styles.submitText}>Submit Request</Text>
       </TouchableOpacity>
@@ -347,6 +373,40 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.35,
     shadowRadius: 16,
     elevation: 5,
+  },
+  submitBtnDisabled: {
+    backgroundColor: "#CBD5E1",
+    shadowColor: "transparent",
+    elevation: 0,
+  },
+  errorContainer: {
+    paddingHorizontal: 4,
+  },
+  errorText: {
+    color: "#B91C1C",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  todayRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E8ECF2",
+    marginBottom: 12,
+  },
+  todayLabel: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#8A94A6",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  todayValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1A2340",
   },
   submitText: {
     color: "#FFFFFF",

@@ -11,6 +11,13 @@ import {
     View
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
+import {
+  formatLeaveDate,
+  getTodayDateKey,
+  parseDateKey,
+  addDaysToDateKey,
+  countInclusiveDays,
+} from "../../utils/leaveDates";
 
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
@@ -21,28 +28,149 @@ import {
     fetchSupportingDocument,
     submitLeaveRequest,
 } from "@/services/leaveService";
+import { fetchMonthlySchedule } from "@/services/scheduleService";
 import LeaveBalanceCard from "../../components/leave/LeaveBalanceCard";
 import LeaveForm from "../../components/leave/LeaveForm";
 import LeaveHeader from "../../components/leave/LeaveHeader";
 import LeaveRequestHistory from "../../components/leave/LeaveRequestHistory";
 import ReviewLeaveModal from "../../components/leave/ReviewLeaveModal";
-import { addDaysToDateKey, countInclusiveDays, getTodayDateKey } from "../../utils/leaveDates";
 
 function getLeaveStartDateError(leaveType, startDate) {
   const today = getTodayDateKey();
+  if (!startDate) return null;
 
-  if (leaveType === "sick" && startDate !== today) {
-    return "Sick leave must start today.";
+  if (startDate < today) {
+    return "Cannot request leave in the past";
+  }
+
+  if (leaveType === "sick") {
+    const tomorrow = addDaysToDateKey(today, 1);
+    if (startDate !== today && startDate !== tomorrow) {
+      return "Sick leave can only be requested for today or tomorrow";
+    }
   }
 
   if (leaveType === "emergency" && startDate !== today) {
-    return "Emergency leave must start today.";
+    return "Emergency leave must be for today only";
   }
 
-  const earliestPlannedDate = addDaysToDateKey(today, 1) || today;
-  if (leaveType === "maternity_paternity" && startDate < earliestPlannedDate) {
-    return "Maternity / paternity leave must start from a future scheduled duty day.";
+  if (leaveType === "maternity_paternity") {
+    const earliest = addDaysToDateKey(today, 30);
+    if (startDate < earliest) {
+      return `Maternity leave requires at least 30 days notice (earliest: ${formatLeaveDate(earliest)})`;
+    }
   }
+
+  if (leaveType === "service_incentive") {
+    const earliest = addDaysToDateKey(today, 7);
+    const latest = addDaysToDateKey(today, 14);
+    if (startDate < earliest || startDate > latest) {
+      return "Service incentive leave must be requested 7 to 14 days in advance";
+    }
+  }
+
+  return null;
+}
+
+function getLeaveEndDateError(leaveType, startDate, endDate) {
+  const today = getTodayDateKey();
+  if (!startDate || !endDate) return null;
+
+  if (endDate < startDate) {
+    return "End date cannot be before the start date";
+  }
+
+  if (endDate < today) {
+    return "Cannot request leave in the past";
+  }
+
+  if (leaveType === "emergency" && endDate !== today) {
+    return "Emergency leave must be for today only";
+  }
+
+  return null;
+}
+
+function getWeekdayLabel(dateString) {
+  const date = parseDateKey(dateString);
+  if (!date) return null;
+  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return labels[date.getUTCDay()];
+}
+
+function getMonthKeysBetween(startDate, endDate) {
+  const start = parseDateKey(startDate);
+  const end = parseDateKey(endDate);
+  if (!start || !end || end < start) return [];
+
+  const keys = [];
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
+  const final = new Date(end.getFullYear(), end.getMonth(), 1);
+
+  while (cursor <= final) {
+    keys.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`);
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return keys;
+}
+
+function getDateRange(startDate, endDate) {
+  const start = parseDateKey(startDate);
+  const end = parseDateKey(endDate);
+  if (!start || !end || end < start) return [];
+
+  const dates = [];
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const year = cursor.getFullYear();
+    const month = String(cursor.getMonth() + 1).padStart(2, "0");
+    const day = String(cursor.getDate()).padStart(2, "0");
+    dates.push(`${year}-${month}-${day}`);
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function getUniqueWeekdayLabels(dates = []) {
+  const seen = new Set();
+  const labels = [];
+  for (const date of dates) {
+    const label = getWeekdayLabel(date);
+    if (label && !seen.has(label)) {
+      seen.add(label);
+      labels.push(label);
+    }
+  }
+  const order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  return labels.sort((a, b) => order.indexOf(a) - order.indexOf(b));
+}
+
+async function loadScheduledDatesForMonth(monthKey) {
+  const [year, monthString] = monthKey.split("-").map(Number);
+  return (await fetchMonthlySchedule({ year, month: monthString - 1 })).scheduledDates || [];
+}
+
+async function validateDutyDays(startDate, endDate) {
+  const monthKeys = getMonthKeysBetween(startDate, endDate);
+  if (monthKeys.length === 0) return null;
+
+  const scheduleArrays = await Promise.all(monthKeys.map(loadScheduledDatesForMonth));
+  const scheduledSet = new Set(scheduleArrays.flat());
+  const requestedDates = getDateRange(startDate, endDate);
+
+  if (requestedDates.every((date) => scheduledSet.has(date))) return null;
+
+  return "You can only request leave on scheduled shift days";
+}
+
+function getLeaveFormError(formData) {
+  const startDateError = getLeaveStartDateError(formData.leaveType, formData.startDate);
+  if (startDateError) return startDateError;
+
+  const endDateError = getLeaveEndDateError(formData.leaveType, formData.startDate, formData.endDate);
+  if (endDateError) return endDateError;
 
   return null;
 }
@@ -71,6 +199,8 @@ export default function LeaveScreen() {
   const [requests, setRequests] = useState([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
+  const [scheduleValidationError, setScheduleValidationError] = useState("");
+  const scheduleValidationSeq = useRef(0);
   const accessDeniedAlertShownRef = useRef(false);
 
   const navigateBackToSchedule = useCallback(() => {
@@ -128,10 +258,57 @@ export default function LeaveScreen() {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleOpenReview = () => {
+  useEffect(() => {
+    let active = true;
+    const requestId = scheduleValidationSeq.current + 1;
+    scheduleValidationSeq.current = requestId;
+
+    async function validate() {
+      if (!formData.leaveType || !formData.startDate || !formData.endDate) {
+        setScheduleValidationError("");
+        return;
+      }
+
+      try {
+        const error = await validateDutyDays(formData.startDate, formData.endDate);
+        if (!active || requestId !== scheduleValidationSeq.current) return;
+        setScheduleValidationError(error || "");
+      } catch {
+        if (!active || requestId !== scheduleValidationSeq.current) return;
+        setScheduleValidationError("");
+      }
+    }
+
+    validate();
+    return () => { active = false; };
+  }, [formData.leaveType, formData.startDate, formData.endDate]);
+
+  const validationError = getLeaveFormError(formData) || scheduleValidationError;
+  const isSubmitDisabled = (
+    !formData.leaveType
+    || !formData.startDate
+    || !formData.endDate
+    || !formData.reason
+    || !formData.supportingDocument
+    || Boolean(validationError)
+  );
+
+  const handleOpenReview = async () => {
     const { leaveType, startDate, endDate, reason, supportingDocument } = formData;
     if (!leaveType || !startDate || !endDate || !reason || !supportingDocument) {
       Alert.alert("Incomplete Form", "Please fill in all required fields.");
+      return;
+    }
+
+    if (validationError) {
+      Alert.alert("Invalid Leave Request", validationError);
+      return;
+    }
+
+    const scheduleDutyError = await validateDutyDays(startDate, endDate);
+    if (scheduleDutyError) {
+      setScheduleValidationError(scheduleDutyError);
+      Alert.alert("Invalid Duty Days", scheduleDutyError);
       return;
     }
 
@@ -142,12 +319,6 @@ export default function LeaveScreen() {
 
     if (daysRequested <= 0) {
       Alert.alert("Invalid Dates", "End date cannot be before start date.");
-      return;
-    }
-
-    const startDateError = getLeaveStartDateError(leaveType, startDate);
-    if (startDateError) {
-      Alert.alert("Invalid Start Date", startDateError);
       return;
     }
 
@@ -261,6 +432,8 @@ export default function LeaveScreen() {
             leaveCredits={credits}
             onChange={handleFormChange}
             onSubmit={handleOpenReview}
+            errorMessage={validationError}
+            submitDisabled={isSubmitDisabled}
           />
           <LeaveRequestHistory
             requests={requests}

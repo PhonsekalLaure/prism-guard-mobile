@@ -189,7 +189,7 @@ export default function ScheduledLeaveDatePicker({
   };
 
   const getDisabledReason = (dateKey) => {
-    if (!hasLoadedVisibleMonth || isLoading) {
+    if (isLoading) {
       return "loading";
     }
     if (minDate && compareDateKeys(dateKey, minDate) < 0) {
@@ -303,11 +303,11 @@ export default function ScheduledLeaveDatePicker({
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: PrismColors.navy }]} />
-            <Text style={styles.legendText}>Selectable shift day</Text>
+            <Text style={styles.legendText}>Scheduled shift day</Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: "#cbd5e1" }]} />
-            <Text style={styles.legendText}>Day off / unavailable</Text>
+            <Text style={styles.legendText}>No shift / unavailable</Text>
           </View>
         </View>
       </View>
@@ -419,6 +419,7 @@ const styles = StyleSheet.create({
   },
   disabledCircle: {
     backgroundColor: "#f1f5f9",
+    opacity: 0.35,
   },
   selectedCircle: {
     backgroundColor: PrismColors.navy,
