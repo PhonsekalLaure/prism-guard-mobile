@@ -56,6 +56,15 @@
           "locationWhenInUsePermission": "Prism Guard uses your location to verify that time-in, time-out, and duty checks happen within your assigned post geofence."
         }
       ],
+      [
+        "react-native-maps",
+        {
+          "maps": {
+            "ios": "AIzaSyDR7xPxWS78_gnWcqC2zocNjSSpYoO_LpM",
+            "android": "AIzaSyDR7xPxWS78_gnWcqC2zocNjSSpYoO_LpM"
+          }
+        }
+      ],
       "expo-web-browser",
       "expo-font",
       "expo-image"
