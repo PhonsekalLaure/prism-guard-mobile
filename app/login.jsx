@@ -266,10 +266,10 @@ export default function LoginScreen() {
       setError("");
       setLoading(true);
       await authService.login(email, password);
-      // refresh profile/deployment state before navigating to tabs
+      // refresh profile/deployment state before navigating to the home tab
+      setShowSuccess(true);
       try {
-        setShowSuccess(true);
-        await refreshAccess({ quiet: true });
+        await refreshAccess();
       } catch (e) {
         // ignore refresh errors here; we'll still navigate
       }

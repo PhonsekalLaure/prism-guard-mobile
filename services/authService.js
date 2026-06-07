@@ -178,6 +178,24 @@ const authService = {
     if (!apiResponse.ok) throw new Error(data.error || 'Failed to update avatar');
     return data;
   },
+
+  async changeEmail(email) {
+    if (!email || !email.trim()) {
+      throw new Error('Please enter a valid email address.');
+    }
+
+    const apiResponse = await this.authenticatedFetch(
+      `${BASE_URL}/api/web/profile/change-email`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ email: email.trim() }),
+      }
+    );
+
+    const data = await parseJsonResponse(apiResponse);
+    if (!apiResponse.ok) throw new Error(data.error || 'Failed to request email change');
+    return data;
+  },
 };
 
 export default authService;

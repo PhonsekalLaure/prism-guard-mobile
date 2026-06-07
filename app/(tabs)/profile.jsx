@@ -1,11 +1,13 @@
 // app/(tabs)/profile.jsx
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -40,6 +42,10 @@ export default function ProfileScreen() {
 
   const [showLogout, setShowLogout] = useState(false);
   const [showPassModal, setShowPassModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [toast, setToast] = useState({
     visible: false,
@@ -51,6 +57,37 @@ export default function ProfileScreen() {
   const showToast = (icon, title, message) => {
     setToast({ visible: true, icon, title, message });
     setTimeout(() => setToast((p) => ({ ...p, visible: false })), 3200);
+  };
+
+  useEffect(() => {
+    if (showEmailModal) {
+      setNewEmail(email || "");
+      setEmailError("");
+    }
+  }, [showEmailModal, email]);
+
+  const handleRequestEmailChange = async () => {
+    const trimmedEmail = String(newEmail || "").trim();
+    if (!trimmedEmail || !trimmedEmail.includes("@")) {
+      setEmailError("Please enter a valid email address.");
+      return;
+    }
+
+    try {
+      setEmailError("");
+      setEmailLoading(true);
+      const result = await authService.changeEmail(trimmedEmail);
+      setShowEmailModal(false);
+      showToast(
+        "mail",
+        "Email change requested",
+        result.message || "Please confirm your new email address.",
+      );
+    } catch (err) {
+      setEmailError(err?.message || "Could not request email change.");
+    } finally {
+      setEmailLoading(false);
+    }
   };
 
  const onEditAvatar = async (uri) => {
@@ -117,7 +154,11 @@ export default function ProfileScreen() {
         />
 
         {/* ── Logout ── */}
-        <SecurityAccount onChangePassword={() => setShowPassModal(true)} />
+        <SecurityAccount
+          currentEmail={email}
+          onChangePassword={() => setShowPassModal(true)}
+          onChangeEmail={() => setShowEmailModal(true)}
+        />
 
         <TouchableOpacity
           style={styles.btnLogout}
@@ -129,6 +170,46 @@ export default function ProfileScreen() {
 
         <Text style={styles.version}>Version 1.0.4 (Build 220)</Text>
       </ScrollView>
+
+      <Modal transparent visible={showEmailModal} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Change Email</Text>
+            <Text style={styles.modalText}>
+              Enter your new email address to request an email change. Your current email will remain active until you confirm the new one.
+            </Text>
+            <TextInput
+              style={styles.input}
+              placeholder="New email address"
+              placeholderTextColor="#999"
+              value={newEmail}
+              onChangeText={setNewEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.secondaryBtn}
+                onPress={() => setShowEmailModal(false)}
+                disabled={emailLoading}
+              >
+                <Text style={styles.secondaryBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.primaryBtn, emailLoading && { opacity: 0.7 }]}
+                onPress={handleRequestEmailChange}
+                disabled={emailLoading}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {emailLoading ? "Requesting..." : "Request Email Change"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ── Modals ── */}
       <LogoutModal
@@ -187,5 +268,73 @@ const styles = StyleSheet.create({
     color: "#aaa",
     fontSize: 10,
     marginBottom: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  modalCard: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 10,
+  },
+  modalText: {
+    color: "#444",
+    lineHeight: 20,
+    marginBottom: 14,
+  },
+  input: {
+    backgroundColor: "#f2f3f5",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 14,
+    color: "#1a1a1a",
+    marginBottom: 8,
+  },
+  errorText: {
+    marginBottom: 10,
+    color: "#c62828",
+    fontSize: 13,
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 8,
+  },
+  secondaryBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: "#f2f3f5",
+  },
+  secondaryBtnText: {
+    color: "#333",
+    fontWeight: "700",
+  },
+  primaryBtn: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: NAVY,
+  },
+  primaryBtnText: {
+    color: "#fff",
+    fontWeight: "700",
   },
 });

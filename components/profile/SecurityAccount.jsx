@@ -20,7 +20,7 @@ function SecurityRow({ icon, label, sub, right, onPress }) {
   );
 }
 
-export default function SecurityAccount({ onChangePassword }) {
+export default function SecurityAccount({ onChangePassword, onChangeEmail, currentEmail }) {
   return (
     <View style={styles.card}>
       <Text style={styles.titleText}>Security & Account</Text>
@@ -35,23 +35,11 @@ export default function SecurityAccount({ onChangePassword }) {
       <View style={styles.divider} />
 
       <SecurityRow
-        icon="mobile-alt"
-        label="Device Binding"
-        sub="Samsung Galaxy A54"
-        right={
-          <View style={styles.activeBadge}>
-            <Ionicons name="checkmark-circle" size={10} color="#2e7d32" />
-            <Text style={styles.activeBadgeText}>Active</Text>
-          </View>
-        }
-      />
-
-      <View style={styles.divider} />
-
-      <SecurityRow
-        icon="fingerprint"
-        label="Biometric Login"
-        right={<Ionicons name="toggle" size={32} color="#2e7d32" />}
+        icon="mail-bulk"
+        label="Change Email"
+        sub={currentEmail || "No email on file"}
+        onPress={onChangeEmail}
+        right={<Ionicons name="chevron-forward" size={14} color="#ccc" />}
       />
     </View>
   );
