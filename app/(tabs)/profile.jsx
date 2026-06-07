@@ -21,6 +21,7 @@ import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileToast from "@/components/profile/ProfileToast";
 import SecurityAccount from "@/components/profile/SecurityAccount";
 import { useProfile } from "@/hooks/useProfile";
+import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
 import { PrismColors } from "@/constants/prismTheme";
 import authService from "@/services/authService";
 
@@ -39,6 +40,7 @@ export default function ProfileScreen() {
     emergencyName,
     emergencyNum,
   } = useProfile();
+  const { refreshAccess } = useActiveDeploymentAccess();
 
   const [showLogout, setShowLogout] = useState(false);
   const [showPassModal, setShowPassModal] = useState(false);
@@ -218,6 +220,7 @@ export default function ProfileScreen() {
         onConfirm={async () => {
           setShowLogout(false);
           await authService.logout();
+          await refreshAccess();
           router.replace("/login");
         }}
       />

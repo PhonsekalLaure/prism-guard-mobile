@@ -20,13 +20,14 @@ const TimeInButton = ({
   onPress,
   disabled = false,
   compact = false,
+  noShiftToday = false,
 }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseOpacity = useRef(new Animated.Value(0.6)).current;
   const pressScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (!isOnDuty && !disabled) {
+    if (!isOnDuty && !disabled && !noShiftToday) {
       const pulse = Animated.loop(
         Animated.parallel([
           Animated.sequence([
@@ -60,8 +61,8 @@ const TimeInButton = ({
     }
 
     pulseAnim.setValue(1);
-    pulseOpacity.setValue(disabled ? 0.25 : 0);
-  }, [disabled, isOnDuty, pulseAnim, pulseOpacity]);
+    pulseOpacity.setValue(disabled || noShiftToday ? 0.25 : 0);
+  }, [disabled, isOnDuty, noShiftToday, pulseAnim, pulseOpacity]);
 
   const animatePress = (toValue) => {
     Animated.spring(pressScale, {
@@ -92,6 +93,7 @@ const TimeInButton = ({
             styles.button,
             compact && styles.buttonCompact,
             isOnDuty && styles.buttonActive,
+            noShiftToday && styles.buttonNoShift,
             disabled && styles.buttonDisabled,
           ]}
           onPress={onPress}
@@ -100,7 +102,17 @@ const TimeInButton = ({
           activeOpacity={0.85}
           disabled={disabled}
         >
-          {disabled ? (
+          {noShiftToday ? (
+            <Text
+              style={[
+                styles.buttonIcon,
+                compact && styles.buttonIconCompact,
+                styles.buttonIconNoShift,
+              ]}
+            >
+              🔒
+            </Text>
+          ) : disabled ? (
             <ActivityIndicator
               size="small"
               color={isOnDuty ? PrismColors.navy : PrismColors.gold}
@@ -122,9 +134,10 @@ const TimeInButton = ({
               styles.buttonLabel,
               compact && styles.buttonLabelCompact,
               isOnDuty && styles.buttonLabelActive,
+              noShiftToday && styles.buttonLabelNoShift,
             ]}
           >
-            {disabled ? "CHECKING" : isOnDuty ? "TIME OUT" : "TIME IN"}
+            {noShiftToday ? "NO SHIFT TODAY" : disabled ? "CHECKING" : isOnDuty ? "TIME OUT" : "TIME IN"}
           </Text>
         </TouchableOpacity>
       </Animated.View>
@@ -165,9 +178,10 @@ const styles = StyleSheet.create({
     height: 110,
     borderRadius: 55,
     backgroundColor: PrismColors.navy,
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
+    padding: 0,
     ...PrismShadows.button,
     borderWidth: 3,
     borderColor: PrismColors.navyLight,
@@ -189,10 +203,25 @@ const styles = StyleSheet.create({
     opacity: 0.82,
     borderWidth: 5,
   },
+  buttonNoShift: {
+    backgroundColor: "#DC2626",
+    borderColor: "#991B1B",
+    opacity: 0.85,
+  },
   buttonIcon: {
     fontSize: 20,
     fontWeight: PrismTypography.extraBold,
     color: PrismColors.gold,
+  },
+  buttonIconNoShift: {
+    color: "#F8FAFB",
+    marginBottom: 6,
+  },
+  buttonLabelNoShift: {
+    color: "#F8FAFB",
+    fontSize: 12,
+    lineHeight: 15,
+    textAlign: "center",
   },
   buttonIconCompact: {
     fontSize: 15,
@@ -206,11 +235,15 @@ const styles = StyleSheet.create({
     fontWeight: PrismTypography.extraBold,
     color: PrismColors.gold,
     letterSpacing: 1.5,
+    textAlign: "center",
+    lineHeight: 16,
   },
   buttonLabelCompact: {
     fontSize: 10,
     color: PrismColors.navy,
     letterSpacing: 0.8,
+    textAlign: "center",
+    lineHeight: 14,
   },
   buttonLabelActive: {
     color: PrismColors.navy,

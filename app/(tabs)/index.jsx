@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import * as Notifications from "expo-notifications";
 
 import CheckInMap from "@/components/check-in/CheckInMap";
 import AnnouncementList from "@/components/dashboard/AnnouncementList";
@@ -174,6 +175,7 @@ const AttendanceMapCard = ({
   result,
   isOnDuty,
   loading,
+  noShiftToday,
   onActionPress,
 }) => {
   if (!site) return null;
@@ -193,7 +195,7 @@ const AttendanceMapCard = ({
     ? "rgba(230, 178, 21, 0.16)"
     : isInside ? "rgba(76, 175, 80, 0.15)" : "rgba(244, 67, 54, 0.15)";
   const statusText = !hasResult
-    ? "Ready to verify location"
+    ? (noShiftToday ? "No shift scheduled today" : "Ready to verify location")
     : isInside
     ? `${label} recorded`
     : `Outside geofence - ${label} blocked`;
@@ -217,6 +219,7 @@ const AttendanceMapCard = ({
             isOnDuty={isOnDuty}
             onPress={onActionPress}
             disabled={loading}
+            noShiftToday={noShiftToday}
             compact
           />
         </View>
@@ -295,6 +298,7 @@ export default function DashboardScreen() {
   const [announcementsLoading, setAnnouncementsLoading] = useState(true);
   const [announcementsError, setAnnouncementsError] = useState(null);
   const [todaySchedule, setTodaySchedule] = useState(null);
+  const [todayScheduleLoading, setTodayScheduleLoading] = useState(true);
   const [dateString, setDateString] = useState(formatDate());
   const [now, setNow] = useState(new Date());
   const [locationVerification, setLocationVerification] = useState(null);
@@ -351,29 +355,34 @@ export default function DashboardScreen() {
     loadAnnouncements();
   }, [profile?.id]);
 
+  const resetDashboardState = useCallback(() => {
+    setIsOnDuty(false);
+    setActiveAttendanceLog(null);
+    setShowModal(false);
+    setLoading(false);
+    setAnnouncements([]);
+    setAnnouncementsLoading(true);
+    setAnnouncementsError(null);
+    setTodaySchedule(null);
+    setTodayScheduleLoading(true);
+    setDateString(formatDate());
+    setNow(new Date());
+    setLocationVerification(null);
+    setUnreadNotifications(0);
+    setToast({
+      visible: false,
+      icon: "📍",
+      title: "",
+      message: "",
+      type: "success",
+    });
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
-      if (!profile?.id) return undefined;
+      resetDashboardState();
 
-      let isMounted = true;
-      fetchNotificationStats()
-        .then((stats) => {
-          if (isMounted) setUnreadNotifications(stats.unread || 0);
-        })
-        .catch((err) => {
-          console.warn("Could not load notifications:", err.message);
-        });
-
-      return () => {
-        isMounted = false;
-      };
-    }, [profile?.id]),
-  );
-
-  useFocusEffect(
-    useCallback(() => {
-      if (!profile?.id || deploymentAccessLoading || !deployment) {
-        setTodaySchedule(null);
+      if (!profile?.id) {
         return undefined;
       }
 
@@ -381,23 +390,85 @@ export default function DashboardScreen() {
       const today = getTodayParts();
       const selectedDate = getDateKey(today.year, today.month, today.day);
 
-      fetchMonthlySchedule({
-        year: today.year,
-        month: today.month,
-        selectedDate,
-      })
-        .then((data) => {
+      const loadNotifications = async () => {
+        try {
+          const stats = await fetchNotificationStats();
+          if (isMounted) setUnreadNotifications(stats.unread || 0);
+        } catch (err) {
+          if (isMounted) console.warn("Could not load notifications:", err.message);
+        }
+      };
+
+      const loadAnnouncements = async () => {
+        try {
+          const data = await fetchAnnouncements();
+          if (isMounted) {
+            setAnnouncements(data);
+            setAnnouncementsLoading(false);
+            setAnnouncementsError(null);
+          }
+        } catch (err) {
+          if (isMounted) {
+            setAnnouncements([]);
+            setAnnouncementsLoading(false);
+            setAnnouncementsError(err.message);
+          }
+          console.warn("Could not load announcements:", err.message);
+        }
+      };
+
+      const loadAttendance = async () => {
+        try {
+          const attendanceLog = await fetchActiveAttendance();
+          if (isMounted) {
+            setActiveAttendanceLog(attendanceLog);
+            setIsOnDuty(Boolean(attendanceLog));
+          }
+        } catch (err) {
+          if (isMounted) {
+            setActiveAttendanceLog(null);
+            setIsOnDuty(false);
+          }
+          console.warn("Could not load active attendance:", err.message);
+        }
+      };
+
+      const loadSchedule = async () => {
+        if (deploymentAccessLoading || !deployment) {
+          if (isMounted) {
+            setTodaySchedule(null);
+            setTodayScheduleLoading(false);
+          }
+          return;
+        }
+
+        try {
+          setTodayScheduleLoading(true);
+          const data = await fetchMonthlySchedule({
+            year: today.year,
+            month: today.month,
+            selectedDate,
+          });
           if (isMounted) setTodaySchedule(data);
-        })
-        .catch((err) => {
-          if (isMounted) setTodaySchedule(null);
+        } catch (err) {
+          if (isMounted) {
+            setTodaySchedule(null);
+          }
           console.warn("Could not load today's schedule:", err.message);
-        });
+        } finally {
+          if (isMounted) setTodayScheduleLoading(false);
+        }
+      };
+
+      loadNotifications();
+      loadAnnouncements();
+      loadAttendance();
+      loadSchedule();
 
       return () => {
         isMounted = false;
       };
-    }, [deployment, deploymentAccessLoading, profile?.id]),
+    }, [deployment, deploymentAccessLoading, profile?.id, resetDashboardState]),
   );
 
   useEffect(() => {
@@ -426,6 +497,25 @@ export default function DashboardScreen() {
 
   const handleMainAction = async () => {
     if (!isOnDuty) {
+      if (noShiftToday) {
+        const title = "No scheduled shift today";
+        const body = "You don't have a scheduled shift for today. Contact your supervisor.";
+
+        try {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title,
+              body,
+              data: { type: "noShiftToday" },
+            },
+            trigger: null,
+          });
+        } catch (err) {
+          console.warn("Local notification failed:", err.message || err);
+        }
+        return;
+      }
+
       try {
         setLoading(true);
 
@@ -538,6 +628,8 @@ export default function DashboardScreen() {
   const todayShift = todaySchedule?.scheduleDays?.find((item) => item.date === todayDateKey)
     || (todaySchedule?.selectedDate === todayDateKey ? todaySchedule?.selectedShift : null)
     || null;
+  const scheduleLoaded = !todayScheduleLoading && todaySchedule !== null;
+  const noShiftToday = scheduleLoaded && !todayShift && !isOnDuty;
   // If there's no shift for today, try to pick a sensible fallback from the schedule:
   let fallbackShift = null;
   if (!todayShift && todaySchedule?.scheduleDays?.length) {
@@ -612,15 +704,10 @@ export default function DashboardScreen() {
             result={locationVerification}
             isOnDuty={isOnDuty}
             loading={loading}
+            noShiftToday={noShiftToday}
             onActionPress={handleMainAction}
           />
-        ) : (
-          <TimeInButton
-            isOnDuty={isOnDuty}
-            onPress={handleMainAction}
-            disabled={loading}
-          />
-        )}
+        ) : null}
         <AnnouncementList
           announcements={announcements}
           loading={announcementsLoading}

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
-export function useDeployment(employeeId) {
+export function useDeployment(employeeId, authVersion) {
   const [deployment, setDeployment] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,7 +33,10 @@ export function useDeployment(employeeId) {
     }
 
     try {
-      if (!quiet && mountedRef.current) setLoading(true);
+      if (!quiet && mountedRef.current) {
+        setLoading(true);
+        setDeployment(null);
+      }
       if (mountedRef.current) setError(null);
       const response = await authService.authenticatedFetch(
         `${BASE_URL}/api/mobile/deployments/${employeeId}/active`,
@@ -70,7 +73,7 @@ export function useDeployment(employeeId) {
     }
 
     fetchDeployment();
-  }, [employeeId, refresh]);
+  }, [employeeId, authVersion, refresh]);
 
   return { deployment, loading, error, refresh };
 }
