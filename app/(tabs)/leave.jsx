@@ -35,6 +35,8 @@ import LeaveHeader from "../../components/leave/LeaveHeader";
 import LeaveRequestHistory from "../../components/leave/LeaveRequestHistory";
 import ReviewLeaveModal from "../../components/leave/ReviewLeaveModal";
 
+const LEAVE_HISTORY_PAGE_SIZE = 3;
+
 function getLeaveStartDateError(leaveType, startDate) {
   const today = getTodayDateKey();
   if (!startDate) return null;
@@ -199,6 +201,8 @@ export default function LeaveScreen() {
   });
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [requests, setRequests] = useState([]);
+  const [requestsPage, setRequestsPage] = useState(1);
+  const [requestsTotalCount, setRequestsTotalCount] = useState(0);
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [scheduleValidationError, setScheduleValidationError] = useState("");
@@ -216,14 +220,34 @@ export default function LeaveScreen() {
     try {
       const [creditResult, requestResult] = await Promise.all([
         fetchLeaveCredits(),
-        fetchLeaveRequests(),
+        fetchLeaveRequests({ page: 1, limit: LEAVE_HISTORY_PAGE_SIZE }),
       ]);
       setCredits(creditResult);
-      setRequests(requestResult);
+      setRequests(requestResult.requests);
+      setRequestsPage(requestResult.page);
+      setRequestsTotalCount(requestResult.totalCount);
     } catch (e) {
       setLoadError(e.message || "Could not load leave data.");
     } finally {
       setCreditsLoading(false);
+      setRequestsLoading(false);
+    }
+  }, []);
+
+  const loadLeaveHistory = useCallback(async (page) => {
+    setRequestsLoading(true);
+    setLoadError(null);
+    try {
+      const result = await fetchLeaveRequests({
+        page,
+        limit: LEAVE_HISTORY_PAGE_SIZE,
+      });
+      setRequests(result.requests);
+      setRequestsPage(result.page);
+      setRequestsTotalCount(result.totalCount);
+    } catch (e) {
+      setLoadError(e.message || "Could not load leave request history.");
+    } finally {
       setRequestsLoading(false);
     }
   }, []);
@@ -382,14 +406,24 @@ export default function LeaveScreen() {
           text: "Cancel Request",
           style: "destructive",
           onPress: async () => {
+            setCreditsLoading(true);
             try {
               await cancelLeaveRequest(request.id);
-              await loadLeaveData();
+              const nextPage = requests.length === 1
+                ? Math.max(requestsPage - 1, 1)
+                : requestsPage;
+              const [creditResult] = await Promise.all([
+                fetchLeaveCredits(),
+                loadLeaveHistory(nextPage),
+              ]);
+              setCredits(creditResult);
             } catch (error) {
               Alert.alert(
                 "Cancellation Failed",
                 error.message || "Something went wrong. Please try again.",
               );
+            } finally {
+              setCreditsLoading(false);
             }
           },
         },
@@ -410,6 +444,16 @@ export default function LeaveScreen() {
         error.message || "Could not open the supporting document.",
       );
     }
+  };
+
+  const requestsTotalPages = Math.max(
+    Math.ceil(requestsTotalCount / LEAVE_HISTORY_PAGE_SIZE),
+    1,
+  );
+
+  const handleHistoryPageChange = (page) => {
+    if (page < 1 || page > requestsTotalPages || requestsLoading) return;
+    loadLeaveHistory(page);
   };
 
   return (
@@ -444,6 +488,10 @@ export default function LeaveScreen() {
           <LeaveRequestHistory
             requests={requests}
             loading={requestsLoading}
+            page={requestsPage}
+            totalCount={requestsTotalCount}
+            totalPages={requestsTotalPages}
+            onPageChange={handleHistoryPageChange}
             onCancel={handleCancelRequest}
             onOpenDocument={handleOpenDocument}
           />

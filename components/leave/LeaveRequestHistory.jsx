@@ -19,14 +19,21 @@ function getReviewNoteLabel(status) {
 function LeaveRequestHistory({
   requests = [],
   loading = false,
+  page = 1,
+  totalCount = 0,
+  totalPages = 1,
+  onPageChange,
   onCancel,
   onOpenDocument,
 }) {
+  const previousDisabled = loading || page <= 1;
+  const nextDisabled = loading || page >= totalPages;
+
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.title}>Leave Requests</Text>
-        <Text style={styles.subtitle}>{loading ? "Loading..." : `${requests.length} total`}</Text>
+        <Text style={styles.subtitle}>{loading ? "Loading..." : `${totalCount} total`}</Text>
       </View>
 
       {!loading && requests.length === 0 ? (
@@ -83,6 +90,28 @@ function LeaveRequestHistory({
           );
         })
       )}
+
+      {totalPages > 1 ? (
+        <View style={styles.pagination}>
+          <TouchableOpacity
+            style={[styles.pageButton, previousDisabled && styles.pageButtonDisabled]}
+            onPress={() => onPageChange?.(page - 1)}
+            disabled={previousDisabled}
+            accessibilityLabel="Previous leave request page"
+          >
+            <Feather name="chevron-left" size={18} color="#0f3b73" />
+          </TouchableOpacity>
+          <Text style={styles.pageLabel}>Page {page} of {totalPages}</Text>
+          <TouchableOpacity
+            style={[styles.pageButton, nextDisabled && styles.pageButtonDisabled]}
+            onPress={() => onPageChange?.(page + 1)}
+            disabled={nextDisabled}
+            accessibilityLabel="Next leave request page"
+          >
+            <Feather name="chevron-right" size={18} color="#0f3b73" />
+          </TouchableOpacity>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -179,6 +208,33 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     color: "#b91c1c",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  pagination: {
+    minHeight: 36,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 14,
+  },
+  pageButton: {
+    width: 36,
+    height: 36,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#eff6ff",
+  },
+  pageButtonDisabled: {
+    opacity: 0.4,
+  },
+  pageLabel: {
+    minWidth: 84,
+    textAlign: "center",
+    color: "#475569",
     fontSize: 12,
     fontWeight: "700",
   },

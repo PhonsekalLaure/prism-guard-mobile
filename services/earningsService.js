@@ -52,8 +52,18 @@ export const submitCashAdvanceRequest = async ({ amount, reason }) => {
   });
 };
 
-export const fetchCashAdvanceHistory = async () => {
-  return requestEarnings('/cash-advance/history', {
+export const fetchCashAdvanceHistory = async ({ page = 1, limit = 3 } = {}) => {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  const result = await requestEarnings(`/cash-advance/history?${params.toString()}`, {
     fallbackMessage: 'Failed to load history.',
   });
+  return {
+    history: result?.history || [],
+    totalCount: result?.totalCount || 0,
+    page: result?.page || page,
+    limit: result?.limit || limit,
+  };
 };

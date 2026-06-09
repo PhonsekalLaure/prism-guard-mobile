@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   RefreshControl,
   ScrollView,
   StatusBar,
@@ -73,6 +75,7 @@ export default function IncidentDetailScreen() {
   const [error, setError] = useState(null);
   const [messageText, setMessageText] = useState("");
   const [sending, setSending] = useState(false);
+  const scrollViewRef = useRef(null);
 
   const loadIncident = useCallback(async ({ quiet = false } = {}) => {
     if (!id) return;
@@ -120,6 +123,9 @@ export default function IncidentDetailScreen() {
 
   const messages = incident?.messages || [];
   const threadClosed = incident?.status === "resolved";
+  const handleReplyFocus = () => {
+    setTimeout(() => scrollViewRef.current?.scrollToEnd({ animated: true }), 100);
+  };
 
   return (
     <ScreenWrapper activeTabKey="report">
@@ -144,76 +150,84 @@ export default function IncidentDetailScreen() {
           <Text style={styles.errorText}>{error}</Text>
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.body}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={(
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={PrismColors.navy} />
-          )}
+        <KeyboardAvoidingView
+          style={styles.keyboardArea}
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
         >
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryTop}>
-              <View style={styles.reportIcon}>
-                <Ionicons name="document-text-outline" size={22} color={PrismColors.navy} />
-              </View>
-              <View style={styles.summaryCopy}>
-                <Text style={styles.reportId}>{incident.reportId || `INC-${String(incident.id || "").slice(0, 8).toUpperCase()}`}</Text>
-                <Text style={styles.title}>{incident.title || "Incident report"}</Text>
-              </View>
-            </View>
-            <View style={styles.badgeRow}>
-              <Text style={styles.badge}>{titleCase(incident.reviewStatus || incident.status)}</Text>
-              <Text style={styles.badge}>{titleCase(incident.severity || "medium")}</Text>
-            </View>
-            <Text style={styles.meta}>{incident.siteName || "Unknown site"}</Text>
-            <Text style={styles.meta}>Submitted {formatDateTime(incident.submittedAt || incident.createdAt)}</Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Original Report</Text>
-            <Text style={styles.bodyText}>{incident.rawText || "No original report available."}</Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Status Summary</Text>
-            <Text style={styles.bodyText}>{incident.summary || "Report submitted for operations review."}</Text>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Conversation</Text>
-            {messages.length === 0 ? (
-              <Text style={styles.emptyText}>No messages yet.</Text>
-            ) : (
-              messages.map((message) => <ThreadMessage key={message.id} message={message} />)
+          <ScrollView
+            ref={scrollViewRef}
+            contentContainerStyle={styles.body}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            refreshControl={(
+              <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={PrismColors.navy} />
             )}
-
-            {threadClosed ? (
-              <Text style={styles.closedText}>This thread is closed because the incident is resolved.</Text>
-            ) : (
-              <View style={styles.replyBox}>
-                <TextInput
-                  style={styles.replyInput}
-                  value={messageText}
-                  onChangeText={setMessageText}
-                  placeholder="Write a reply to Operations..."
-                  placeholderTextColor={PrismColors.textSecondary}
-                  multiline
-                  editable={!sending}
-                />
-                <TouchableOpacity
-                  style={[styles.sendButton, sending && styles.sendButtonDisabled]}
-                  onPress={handleSendMessage}
-                  disabled={sending}
-                  activeOpacity={0.86}
-                >
-                  <Text style={styles.sendText}>{sending ? "Sending..." : "Send Message"}</Text>
-                  <Ionicons name="send" size={16} color={PrismColors.navy} />
-                </TouchableOpacity>
+          >
+            <View style={styles.summaryCard}>
+              <View style={styles.summaryTop}>
+                <View style={styles.reportIcon}>
+                  <Ionicons name="document-text-outline" size={22} color={PrismColors.navy} />
+                </View>
+                <View style={styles.summaryCopy}>
+                  <Text style={styles.reportId}>{incident.reportId || `INC-${String(incident.id || "").slice(0, 8).toUpperCase()}`}</Text>
+                  <Text style={styles.title}>{incident.title || "Incident report"}</Text>
+                </View>
               </View>
-            )}
-          </View>
-        </ScrollView>
+              <View style={styles.badgeRow}>
+                <Text style={styles.badge}>{titleCase(incident.reviewStatus || incident.status)}</Text>
+                <Text style={styles.badge}>{titleCase(incident.severity || "medium")}</Text>
+              </View>
+              <Text style={styles.meta}>{incident.siteName || "Unknown site"}</Text>
+              <Text style={styles.meta}>Submitted {formatDateTime(incident.submittedAt || incident.createdAt)}</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Original Report</Text>
+              <Text style={styles.bodyText}>{incident.rawText || "No original report available."}</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Status Summary</Text>
+              <Text style={styles.bodyText}>{incident.summary || "Report submitted for operations review."}</Text>
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.sectionTitle}>Conversation</Text>
+              {messages.length === 0 ? (
+                <Text style={styles.emptyText}>No messages yet.</Text>
+              ) : (
+                messages.map((message) => <ThreadMessage key={message.id} message={message} />)
+              )}
+
+              {threadClosed ? (
+                <Text style={styles.closedText}>This thread is closed because the incident is resolved.</Text>
+              ) : (
+                <View style={styles.replyBox}>
+                  <TextInput
+                    style={styles.replyInput}
+                    value={messageText}
+                    onChangeText={setMessageText}
+                    onFocus={handleReplyFocus}
+                    placeholder="Write a reply to Operations..."
+                    placeholderTextColor={PrismColors.textSecondary}
+                    multiline
+                    editable={!sending}
+                  />
+                  <TouchableOpacity
+                    style={[styles.sendButton, sending && styles.sendButtonDisabled]}
+                    onPress={handleSendMessage}
+                    disabled={sending}
+                    activeOpacity={0.86}
+                  >
+                    <Text style={styles.sendText}>{sending ? "Sending..." : "Send Message"}</Text>
+                    <Ionicons name="send" size={16} color={PrismColors.navy} />
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       )}
     </ScreenWrapper>
   );
@@ -251,6 +265,9 @@ const styles = StyleSheet.create({
     color: PrismColors.danger,
     fontSize: PrismTypography.base,
     textAlign: "center",
+  },
+  keyboardArea: {
+    flex: 1,
   },
   body: {
     padding: PrismSpacing.md,
