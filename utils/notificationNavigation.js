@@ -1,6 +1,7 @@
 export function getNotificationRoute(data = {}) {
   const route = data.route || data.actionUrl || data.action_url || null;
   const screen = data.screen || null;
+  const incidentId = data.incidentId || data.incident_id || data.relatedEntityId || data.related_entity_id || null;
 
   if (route === "/(tabs)/leave" || screen === "leave") {
     return "/(tabs)/leave";
@@ -8,6 +9,14 @@ export function getNotificationRoute(data = {}) {
 
   if (route === "/(tabs)/schedule" || screen === "schedule") {
     return "/(tabs)/schedule";
+  }
+
+  if (screen === "incident_detail" && incidentId) {
+    return `/incident/${incidentId}`;
+  }
+
+  if (typeof route === "string" && route.startsWith("/incident/")) {
+    return route;
   }
 
   if (route === "/(tabs)/report" || screen === "report" || screen === "incident_reports") {

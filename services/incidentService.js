@@ -31,9 +31,18 @@ async function submitIncidentReport({
   return data.incident;
 }
 
-async function fetchIncidentReports(limit = 10) {
-  const data = await request(`?limit=${encodeURIComponent(limit)}`);
-  return data.incidents || [];
+async function fetchIncidentReports({ page = 1, limit = 3 } = {}) {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  const data = await request(`?${params.toString()}`);
+  return {
+    incidents: data.incidents || [],
+    totalCount: data.totalCount || 0,
+    page: data.page || page,
+    limit: data.limit || limit,
+  };
 }
 
 async function fetchIncidentReportById(id) {
@@ -41,8 +50,17 @@ async function fetchIncidentReportById(id) {
   return data.incident;
 }
 
+async function sendIncidentMessage(id, message) {
+  const data = await request(`/${id}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
+  return data.message;
+}
+
 export default {
   submitIncidentReport,
   fetchIncidentReports,
   fetchIncidentReportById,
+  sendIncidentMessage,
 };
