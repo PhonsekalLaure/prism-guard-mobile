@@ -40,13 +40,14 @@ function getLeaveStartDateError(leaveType, startDate) {
   if (!startDate) return null;
 
   if (startDate < today) {
-    return "Cannot request leave in the past";
+    if (leaveType !== "sick") {
+      return "Cannot request leave in the past";
+    }
   }
 
   if (leaveType === "sick") {
-    const tomorrow = addDaysToDateKey(today, 1);
-    if (startDate !== today && startDate !== tomorrow) {
-      return "Sick leave can only be requested for today or tomorrow";
+    if (startDate > today) {
+      return "Sick leave can only be requested for past absences or today";
     }
   }
 
@@ -81,7 +82,13 @@ function getLeaveEndDateError(leaveType, startDate, endDate) {
   }
 
   if (endDate < today) {
-    return "Cannot request leave in the past";
+    if (leaveType !== "sick") {
+      return "Cannot request leave in the past";
+    }
+  }
+
+  if (leaveType === "sick" && endDate > today) {
+    return "Sick leave can only be requested for past absences or today";
   }
 
   if (leaveType === "emergency" && endDate !== today) {
@@ -89,13 +96,6 @@ function getLeaveEndDateError(leaveType, startDate, endDate) {
   }
 
   return null;
-}
-
-function getWeekdayLabel(dateString) {
-  const date = parseDateKey(dateString);
-  if (!date) return null;
-  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return labels[date.getUTCDay()];
 }
 
 function getMonthKeysBetween(startDate, endDate) {
@@ -133,32 +133,34 @@ function getDateRange(startDate, endDate) {
   return dates;
 }
 
-function getUniqueWeekdayLabels(dates = []) {
-  const seen = new Set();
-  const labels = [];
-  for (const date of dates) {
-    const label = getWeekdayLabel(date);
-    if (label && !seen.has(label)) {
-      seen.add(label);
-      labels.push(label);
-    }
-  }
-  const order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  return labels.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-}
-
 async function loadScheduledDatesForMonth(monthKey) {
   const [year, monthString] = monthKey.split("-").map(Number);
-  return (await fetchMonthlySchedule({ year, month: monthString - 1 })).scheduledDates || [];
+  const result = await fetchMonthlySchedule({ year, month: monthString - 1 });
+  return {
+    scheduledDates: result.scheduledDates || [],
+    absentDates: result.absentDates || [],
+  };
 }
 
-async function validateDutyDays(startDate, endDate) {
+async function validateLeaveDates(leaveType, startDate, endDate) {
   const monthKeys = getMonthKeysBetween(startDate, endDate);
   if (monthKeys.length === 0) return null;
 
-  const scheduleArrays = await Promise.all(monthKeys.map(loadScheduledDatesForMonth));
-  const scheduledSet = new Set(scheduleArrays.flat());
+  const scheduleMonths = await Promise.all(monthKeys.map(loadScheduledDatesForMonth));
+  const scheduledSet = new Set(scheduleMonths.flatMap((item) => item.scheduledDates));
+  const absentSet = new Set(scheduleMonths.flatMap((item) => item.absentDates));
   const requestedDates = getDateRange(startDate, endDate);
+
+  if (leaveType === "sick") {
+    const today = getTodayDateKey();
+    const isValidSickDate = (date) => (
+      (date < today && absentSet.has(date))
+      || (date === today && scheduledSet.has(date))
+    );
+    if (requestedDates.every(isValidSickDate)) return null;
+
+    return "Sick leave can only be filed for past absent shift days or today's scheduled shift";
+  }
 
   if (requestedDates.every((date) => scheduledSet.has(date))) return null;
 
@@ -270,7 +272,11 @@ export default function LeaveScreen() {
       }
 
       try {
-        const error = await validateDutyDays(formData.startDate, formData.endDate);
+        const error = await validateLeaveDates(
+          formData.leaveType,
+          formData.startDate,
+          formData.endDate,
+        );
         if (!active || requestId !== scheduleValidationSeq.current) return;
         setScheduleValidationError(error || "");
       } catch {
@@ -305,7 +311,7 @@ export default function LeaveScreen() {
       return;
     }
 
-    const scheduleDutyError = await validateDutyDays(startDate, endDate);
+    const scheduleDutyError = await validateLeaveDates(leaveType, startDate, endDate);
     if (scheduleDutyError) {
       setScheduleValidationError(scheduleDutyError);
       Alert.alert("Invalid Duty Days", scheduleDutyError);
