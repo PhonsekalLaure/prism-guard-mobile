@@ -66,6 +66,8 @@ const titleCase = (value) =>
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
+const HISTORY_PAGE_SIZE = 3;
+
 export default function ReportScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -75,6 +77,8 @@ export default function ReportScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [occurredAt, setOccurredAt] = useState(() => new Date());
   const [incidentHistory, setIncidentHistory] = useState([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotalCount, setHistoryTotalCount] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(null);
   const accessDeniedAlertShownRef = useRef(false);
@@ -83,14 +87,20 @@ export default function ReportScreen() {
 
   const loadIncidentHistory = useCallback(async ({
     quiet = false,
+    page = 1,
     isActive = () => true,
   } = {}) => {
     try {
       if (!quiet) setHistoryLoading(true);
       setHistoryError(null);
-      const incidents = await incidentService.fetchIncidentReports(5);
+      const result = await incidentService.fetchIncidentReports({
+        page,
+        limit: HISTORY_PAGE_SIZE,
+      });
       if (!isActive()) return;
-      setIncidentHistory(incidents);
+      setIncidentHistory(result.incidents);
+      setHistoryTotalCount(result.totalCount);
+      setHistoryPage(result.page || page);
     } catch (err) {
       if (!isActive()) return;
       setHistoryError(err.message || "Unable to load recent reports.");
@@ -116,7 +126,7 @@ export default function ReportScreen() {
     }
 
     let active = true;
-    loadIncidentHistory({ isActive: () => active });
+    loadIncidentHistory({ page: 1, isActive: () => active });
     return () => {
       active = false;
     };
@@ -173,7 +183,7 @@ export default function ReportScreen() {
         `Report ${incident?.id ? `#${incident.id.slice(0, 8)}` : ""} submitted for operations review.`,
         [{ text: "OK", onPress: () => setNarrative("") }],
       );
-      await loadIncidentHistory({ quiet: true });
+      await loadIncidentHistory({ quiet: true, page: 1 });
     } catch (err) {
       Alert.alert(
         "Submission Failed",
@@ -182,6 +192,15 @@ export default function ReportScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const historyTotalPages = Math.max(Math.ceil(historyTotalCount / HISTORY_PAGE_SIZE), 1);
+  const historyStart = historyTotalCount === 0 ? 0 : ((historyPage - 1) * HISTORY_PAGE_SIZE) + 1;
+  const historyEnd = Math.min(historyPage * HISTORY_PAGE_SIZE, historyTotalCount);
+
+  const handleHistoryPageChange = (nextPage) => {
+    if (nextPage < 1 || nextPage > historyTotalPages || historyLoading) return;
+    loadIncidentHistory({ quiet: true, page: nextPage });
   };
 
   return (
@@ -223,7 +242,10 @@ export default function ReportScreen() {
         <View style={styles.historyCard}>
           <View style={styles.historyHeader}>
             <Text style={styles.historyTitle}>Recent Reports</Text>
-            <TouchableOpacity onPress={loadIncidentHistory} disabled={historyLoading}>
+            <TouchableOpacity
+              onPress={() => loadIncidentHistory({ page: historyPage })}
+              disabled={historyLoading}
+            >
               <Ionicons
                 name="refresh"
                 size={18}
@@ -242,7 +264,12 @@ export default function ReportScreen() {
             <Text style={styles.historyEmpty}>No submitted incident reports yet.</Text>
           ) : (
             incidentHistory.map((incident) => (
-              <View key={incident.id} style={styles.historyItem}>
+              <TouchableOpacity
+                key={incident.id}
+                style={styles.historyItem}
+                onPress={() => router.push(`/incident/${incident.id}`)}
+                activeOpacity={0.82}
+              >
                 <View style={styles.historyItemTop}>
                   <Text style={styles.historyItemTitle} numberOfLines={1}>
                     {incident.title || "Incident report"}
@@ -260,8 +287,43 @@ export default function ReportScreen() {
                 <Text style={styles.historyDate}>
                   Submitted {formatIncidentDate(incident.submittedAt)}
                 </Text>
-              </View>
+              </TouchableOpacity>
             ))
+          )}
+
+          {!historyLoading && !historyError && incidentHistory.length > 0 && (
+            <View style={styles.historyPagination}>
+              <Text style={styles.historyPaginationInfo}>
+                Showing {historyStart}-{historyEnd} of {historyTotalCount} reports
+              </Text>
+              <View style={styles.historyPaginationControls}>
+                <TouchableOpacity
+                  style={[styles.historyArrowButton, historyPage === 1 && styles.historyArrowButtonDisabled]}
+                  onPress={() => handleHistoryPageChange(historyPage - 1)}
+                  disabled={historyPage === 1 || historyLoading}
+                >
+                  <Ionicons
+                    name="chevron-back"
+                    size={19}
+                    color={historyPage === 1 ? PrismColors.textLight : PrismColors.navy}
+                  />
+                </TouchableOpacity>
+                <Text style={styles.historyPageIndicator}>
+                  Page {historyPage} of {historyTotalPages}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.historyArrowButton, historyPage >= historyTotalPages && styles.historyArrowButtonDisabled]}
+                  onPress={() => handleHistoryPageChange(historyPage + 1)}
+                  disabled={historyPage >= historyTotalPages || historyLoading}
+                >
+                  <Ionicons
+                    name="chevron-forward"
+                    size={19}
+                    color={historyPage >= historyTotalPages ? PrismColors.textLight : PrismColors.navy}
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -401,6 +463,43 @@ const styles = StyleSheet.create({
     marginTop: PrismSpacing.xs,
     fontSize: PrismTypography.xs,
     color: PrismColors.textSecondary,
+  },
+  historyPagination: {
+    alignItems: "center",
+    gap: PrismSpacing.sm,
+    paddingTop: PrismSpacing.md,
+    marginTop: PrismSpacing.md,
+    borderTopWidth: 1,
+    borderTopColor: PrismColors.border,
+  },
+  historyPaginationInfo: {
+    color: PrismColors.textSecondary,
+    fontSize: PrismTypography.sm,
+    textAlign: "center",
+  },
+  historyPaginationControls: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: PrismSpacing.lg,
+  },
+  historyArrowButton: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: PrismColors.border,
+  },
+  historyArrowButtonDisabled: {
+    opacity: 0.5,
+  },
+  historyPageIndicator: {
+    minWidth: 92,
+    color: PrismColors.textPrimary,
+    fontSize: PrismTypography.sm,
+    fontWeight: PrismTypography.semiBold,
+    textAlign: "center",
   },
   loadingState: {
     flex: 1,

@@ -1,10 +1,9 @@
-// prism-guard-mobile/app/(tabs)/earnings.jsx
-
+import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { router } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -12,86 +11,31 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import EarningsHeader from '@/components/earnings/EarningsHeader';
+import {
+  PayrollBreakdown,
+  PayrollNetPayCard,
+} from '@/components/earnings/PayrollBreakdown';
+import PayrollHistory from '@/components/earnings/PayrollHistory';
+import { EARNINGS_COLORS as C } from '@/components/earnings/earningsTheme';
 import ScreenWrapper from '@/components/dashboard/ScreenWrapper';
 import { useActiveDeploymentAccess } from '@/hooks/useActiveDeploymentAccess';
 import {
-  buildDeductions,
-  buildEarnings,
-  getGrossPay,
-  getTotalDeductions,
-  toCurrency,
-  toDate,
-} from '@/utils/earningsFormatters';
-import { fetchCurrentPayroll } from '../../services/earningsService';
+  fetchCurrentPayroll,
+  fetchPayrollHistory,
+} from '@/services/earningsService';
 
-const HIT = { top: 12, bottom: 12, left: 12, right: 12 };
+const HISTORY_PAGE_SIZE = 3;
 
-const C = {
-  primary: '#1A3C8F',
-  accent: '#F5C518',
-  background: '#F0F2F5',
-  card: '#FFFFFF',
-  text: '#1A1A2E',
-  muted: '#8A8FA8',
-  danger: '#E74C3C',
-};
-
-function LineRow({ label, amount, deduction = false, bold = false }) {
+function RetryCard({ message, onRetry }) {
   return (
-    <View style={styles.row}>
-      <Text style={[styles.rowLabel, bold && styles.boldText]}>{label}</Text>
-      <Text style={[
-        styles.rowAmount,
-        bold && styles.boldText,
-        deduction && styles.deductionText,
-      ]}
-      >
-        {deduction ? `- ${toCurrency(amount)}` : toCurrency(amount)}
-      </Text>
-    </View>
-  );
-}
-
-function Header() {
-  return (
-    <View style={styles.header}>
-      <TouchableOpacity onPress={() => router.back()} hitSlop={HIT}>
-        <Ionicons name="arrow-back" size={24} color="#fff" />
-      </TouchableOpacity>
-      <Text style={styles.headerTitle}>My Earnings</Text>
-      <TouchableOpacity onPress={() => router.push('/notifications')} hitSlop={HIT}>
-        <Ionicons name="notifications-outline" size={24} color="#fff" />
+    <View style={styles.emptyCard}>
+      <Ionicons name="alert-circle-outline" size={32} color={C.danger} />
+      <Text style={styles.errorText}>{message}</Text>
+      <TouchableOpacity style={styles.retryButton} onPress={onRetry}>
+        <Text style={styles.retryButtonText}>Retry</Text>
       </TouchableOpacity>
     </View>
-  );
-}
-
-function CenterState({
-  icon,
-  color,
-  text,
-  error = false,
-  onRetry = null,
-  children = null,
-}) {
-  return (
-    <ScreenWrapper activeTabKey="earnings">
-      <View style={styles.container}>
-        <Header />
-        <View style={styles.centered}>
-          <Ionicons name={icon} size={48} color={color} />
-          <Text style={error ? styles.errorText : styles.emptyText}>{text}</Text>
-          {onRetry && (
-            <TouchableOpacity style={styles.retryBtn} onPress={onRetry}>
-              <Text style={styles.retryBtnText}>Retry</Text>
-            </TouchableOpacity>
-          )}
-          {children}
-        </View>
-      </View>
-    </ScreenWrapper>
   );
 }
 
@@ -103,12 +47,12 @@ function CashAdvanceCta() {
         <Text style={styles.ctaSubtitle}>Request a cash advance (Bale)</Text>
       </View>
       <TouchableOpacity
-        style={styles.ctaBtn}
+        style={styles.ctaButton}
         onPress={() => router.push('/cash-advance')}
         activeOpacity={0.85}
       >
-        <Ionicons name="cash-outline" size={20} color={C.primary} style={{ marginRight: 8 }} />
-        <Text style={styles.ctaBtnText}>Request Cash Advance</Text>
+        <Ionicons name="cash-outline" size={20} color={C.primary} style={styles.ctaIcon} />
+        <Text style={styles.ctaButtonText}>Request Cash Advance</Text>
       </TouchableOpacity>
     </View>
   );
@@ -118,55 +62,79 @@ export default function EarningsScreen() {
   const isFocused = useIsFocused();
   const { deployment, deploymentLoading, profileLoading } = useActiveDeploymentAccess();
   const [payroll, setPayroll] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [currentLoading, setCurrentLoading] = useState(true);
+  const [currentError, setCurrentError] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotalCount, setHistoryTotalCount] = useState(0);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState(null);
-  const accessDeniedAlertShownRef = useRef(false);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (profileLoading || deploymentLoading || !deployment) return;
+  const loadCurrent = useCallback(async (showLoader = true) => {
+    if (!deployment) {
+      setPayroll(null);
+      setCurrentError(null);
+      setCurrentLoading(false);
+      return;
+    }
 
     try {
-      setError(null);
-      if (!isRefresh) setLoading(true);
+      if (showLoader) setCurrentLoading(true);
+      setCurrentError(null);
       setPayroll(await fetchCurrentPayroll());
     } catch (err) {
       setPayroll(null);
-      setError(err.message);
+      setCurrentError(err.message);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      setCurrentLoading(false);
     }
-  }, [deployment, deploymentLoading, profileLoading]);
+  }, [deployment]);
+
+  const loadHistory = useCallback(async (page = 1, showLoader = true) => {
+    try {
+      if (showLoader) setHistoryLoading(true);
+      setHistoryError(null);
+      const result = await fetchPayrollHistory({
+        page,
+        limit: HISTORY_PAGE_SIZE,
+      });
+      setHistory(result.history);
+      setHistoryPage(result.page);
+      setHistoryTotalCount(result.totalCount);
+    } catch (err) {
+      setHistoryError(err.message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (!isFocused) {
-      accessDeniedAlertShownRef.current = false;
-      return undefined;
-    }
+    if (!isFocused || profileLoading || deploymentLoading) return;
+    loadCurrent();
+    loadHistory(1);
+  }, [
+    deploymentLoading,
+    isFocused,
+    loadCurrent,
+    loadHistory,
+    profileLoading,
+  ]);
 
-    if (profileLoading || deploymentLoading) return undefined;
-
-    if (!deployment) {
-      setLoading(false);
-      if (accessDeniedAlertShownRef.current) return undefined;
-      accessDeniedAlertShownRef.current = true;
-      Alert.alert('No Access', 'You have no access to this right now.', [
-        { text: 'OK', onPress: () => router.replace('/(tabs)') },
-      ]);
-      return undefined;
-    }
-
-    load();
-    return undefined;
-  }, [deployment, deploymentLoading, isFocused, load, profileLoading]);
-
-  const onRefresh = () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    load(true);
+    await Promise.all([
+      loadCurrent(false),
+      loadHistory(1, false),
+    ]);
+    setRefreshing(false);
   };
 
-  if (profileLoading || deploymentLoading || loading) {
+  const initialLoading = profileLoading
+    || deploymentLoading
+    || (currentLoading && historyLoading);
+
+  if (initialLoading) {
     return (
       <ScreenWrapper activeTabKey="earnings">
         <View style={styles.centered}>
@@ -176,37 +144,41 @@ export default function EarningsScreen() {
     );
   }
 
-  if (!deployment) {
-    return (
-      <ScreenWrapper activeTabKey="home">
-        <View style={styles.centered} />
-      </ScreenWrapper>
-    );
-  }
+  return (
+    <ScreenWrapper activeTabKey="earnings">
+      <View style={styles.container}>
+        <EarningsHeader title="My Earnings" />
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          refreshControl={(
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
+          )}
+        >
+          {!deployment && (
+            <View style={styles.accessCard}>
+              <Ionicons name="briefcase-outline" size={28} color={C.primary} />
+              <View style={styles.accessContent}>
+                <Text style={styles.accessTitle}>No active assignment</Text>
+                <Text style={styles.accessText}>
+                  Current earnings estimates and cash advances are available only during an active
+                  deployment. Your finalized payroll history remains available below.
+                </Text>
+              </View>
+            </View>
+          )}
 
-  if (error) {
-    return (
-      <CenterState
-        icon="alert-circle-outline"
-        color={C.danger}
-        text={error}
-        error
-        onRetry={() => load()}
-      />
-    );
-  }
+          {deployment && currentLoading && (
+            <View style={styles.emptyCard}>
+              <ActivityIndicator color={C.primary} />
+              <Text style={styles.emptyText}>Loading current earnings...</Text>
+            </View>
+          )}
 
-  if (!payroll) {
-    return (
-      <ScreenWrapper activeTabKey="earnings">
-        <View style={styles.container}>
-          <Header />
-          <ScrollView
-            contentContainerStyle={styles.scroll}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
-            }
-          >
+          {deployment && !currentLoading && currentError && (
+            <RetryCard message={currentError} onRetry={() => loadCurrent()} />
+          )}
+
+          {deployment && !currentLoading && !currentError && !payroll && (
             <View style={styles.emptyCard}>
               <Ionicons name="wallet-outline" size={34} color={C.primary} />
               <Text style={styles.emptyTitle}>Earnings are being prepared</Text>
@@ -214,73 +186,38 @@ export default function EarningsScreen() {
                 Payroll estimates will appear here once records are available for this assignment.
               </Text>
             </View>
-            <CashAdvanceCta />
-          </ScrollView>
-        </View>
-      </ScreenWrapper>
-    );
-  }
-
-  const grossPay = getGrossPay(payroll);
-  const totalDeductions = getTotalDeductions(payroll);
-  const earnings = buildEarnings(payroll);
-  const deductions = buildDeductions(payroll);
-
-  return (
-    <ScreenWrapper activeTabKey="earnings">
-      <View style={styles.container}>
-        <Header />
-
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          refreshControl={(
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={C.primary} />
-          )}
-        >
-          <View style={styles.netPayCard}>
-            <View style={styles.netPayCircleDecor} />
-            <Text style={styles.netPayLabel}>{payroll.is_estimate ? 'ESTIMATED NET PAY' : 'NET PAY'}</Text>
-            <Text style={styles.netPayAmount}>{toCurrency(payroll.net_pay)}</Text>
-            <Text style={styles.netPayPeriod}>
-              Cutoff: {toDate(payroll.period_start)} - {toDate(payroll.period_end)}
-            </Text>
-            {payroll.is_estimate && (
-              <Text style={styles.estimateNote}>
-                Computed from available records for this cutoff. Final payroll may change after HR review.
-              </Text>
-            )}
-            <View style={styles.statusBadge}>
-              <Text style={styles.statusBadgeText}>{String(payroll.status || 'estimate').toUpperCase()}</Text>
-            </View>
-          </View>
-
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Earnings</Text>
-            {earnings.map((item, index) => (
-              <View key={item.label} style={index < earnings.length - 1 && styles.rowBorder}>
-                <LineRow label={item.label} amount={item.amount} />
-              </View>
-            ))}
-            <View style={[styles.rowBorder, styles.totalRowWrapper]}>
-              <LineRow label="Gross Pay" amount={grossPay} bold />
-            </View>
-          </View>
-
-          {deductions.length > 0 && (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Deductions</Text>
-              {deductions.map((item, index) => (
-                <View key={item.label} style={index < deductions.length - 1 && styles.rowBorder}>
-                  <LineRow label={item.label} amount={item.amount} deduction />
-                </View>
-              ))}
-              <View style={[styles.rowBorder, styles.totalRowWrapper]}>
-                <LineRow label="Total Deductions" amount={totalDeductions} deduction bold />
-              </View>
-            </View>
           )}
 
-          <CashAdvanceCta />
+          {deployment && !currentLoading && !currentError && payroll && (
+            <>
+              <PayrollNetPayCard
+                payroll={payroll}
+                decorated
+                label={payroll.is_estimate ? 'ESTIMATED NET PAY' : 'LATEST NET PAY'}
+                periodPrefix="Cutoff: "
+                showEstimateNote
+              />
+              <PayrollBreakdown
+                payroll={payroll}
+                earningsTitle="Current Earnings"
+                deductionsTitle="Current Deductions"
+              />
+            </>
+          )}
+
+          {deployment && <CashAdvanceCta />}
+
+          <PayrollHistory
+            history={history}
+            loading={historyLoading}
+            error={historyError}
+            page={historyPage}
+            pageSize={HISTORY_PAGE_SIZE}
+            totalCount={historyTotalCount}
+            onOpenRecord={(recordId) => router.push(`/payroll/${recordId}`)}
+            onPageChange={loadHistory}
+            onRetry={() => loadHistory(historyPage)}
+          />
         </ScrollView>
       </View>
     </ScreenWrapper>
@@ -290,74 +227,7 @@ export default function EarningsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: C.background },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: C.primary,
-    paddingTop: 12,
-    paddingBottom: 16,
-    paddingHorizontal: 20,
-  },
-  headerTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
-
   scroll: { padding: 16, paddingBottom: 40, gap: 14 },
-
-  netPayCard: {
-    backgroundColor: C.primary,
-    borderRadius: 16,
-    padding: 24,
-    overflow: 'hidden',
-  },
-  netPayCircleDecor: {
-    position: 'absolute',
-    right: -30,
-    top: -30,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  netPayLabel: {
-    color: 'rgba(255,255,255,0.7)',
-    fontSize: 11,
-    fontWeight: '600',
-    letterSpacing: 1.2,
-    marginBottom: 6,
-  },
-  netPayAmount: { color: C.accent, fontSize: 36, fontWeight: '800', marginBottom: 4 },
-  netPayPeriod: { color: 'rgba(255,255,255,0.65)', fontSize: 12, marginBottom: 10 },
-  estimateNote: { color: 'rgba(255,255,255,0.78)', fontSize: 11, lineHeight: 16, marginBottom: 10 },
-  statusBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  statusBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
-
-  card: {
-    backgroundColor: C.card,
-    borderRadius: 14,
-    padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: C.text, marginBottom: 12 },
-
-  row: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 9 },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: '#F0F0F5' },
-  rowLabel: { fontSize: 14, color: C.muted, flex: 1, paddingRight: 12 },
-  rowAmount: { fontSize: 14, color: C.text, fontWeight: '500', textAlign: 'right' },
-  deductionText: { color: C.danger },
-  boldText: { fontWeight: '700', color: C.text },
-  totalRowWrapper: { borderTopWidth: 1.5, borderTopColor: '#E0E0EA', marginTop: 2 },
-
   ctaCard: {
     backgroundColor: '#FFF8E1',
     borderRadius: 14,
@@ -365,11 +235,10 @@ const styles = StyleSheet.create({
     borderColor: '#FFECB3',
     padding: 18,
     gap: 14,
-    width: '100%',
   },
   ctaTitle: { fontSize: 15, fontWeight: '700', color: C.text },
   ctaSubtitle: { fontSize: 12, color: C.muted, marginTop: 2 },
-  ctaBtn: {
+  ctaButton: {
     backgroundColor: C.accent,
     borderRadius: 10,
     paddingVertical: 13,
@@ -377,17 +246,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ctaBtnText: { fontSize: 15, fontWeight: '700', color: C.primary },
-
-  errorText: { color: C.danger, fontSize: 14, textAlign: 'center', marginTop: 12 },
-  retryBtn: {
-    marginTop: 16,
-    backgroundColor: C.primary,
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
+  ctaIcon: { marginRight: 8 },
+  ctaButtonText: { fontSize: 15, fontWeight: '700', color: C.primary },
+  accessCard: {
+    backgroundColor: '#EAF0FF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CDD9F7',
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  retryBtnText: { color: '#fff', fontWeight: '600' },
+  accessContent: { flex: 1 },
+  accessTitle: { color: C.text, fontSize: 15, fontWeight: '700', marginBottom: 5 },
+  accessText: { color: C.muted, fontSize: 13, lineHeight: 19 },
   emptyCard: {
     backgroundColor: C.card,
     borderRadius: 14,
@@ -400,6 +273,15 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  emptyTitle: { color: C.text, fontSize: 16, fontWeight: '700', textAlign: 'center' },
-  emptyText: { color: C.muted, fontSize: 14, textAlign: 'center', marginTop: 12 },
+  emptyTitle: { color: C.text, fontSize: 15, fontWeight: '700', textAlign: 'center' },
+  emptyText: { color: C.muted, fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  errorText: { color: C.danger, fontSize: 13, textAlign: 'center' },
+  retryButton: {
+    marginTop: 6,
+    backgroundColor: C.primary,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+  },
+  retryButtonText: { color: '#fff', fontWeight: '600' },
 });

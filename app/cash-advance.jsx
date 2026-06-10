@@ -34,6 +34,7 @@ const REASONS = [
 ];
 
 const HIT = { top: 12, bottom: 12, left: 12, right: 12 };
+const HISTORY_PAGE_SIZE = 3;
 
 const C = {
   primary:    '#1A3C8F',
@@ -87,6 +88,8 @@ export default function CashAdvanceScreen() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [submitting, setSubmitting]     = useState(false);
   const [history, setHistory]           = useState([]);
+  const [historyPage, setHistoryPage]   = useState(1);
+  const [historyTotalCount, setHistoryTotalCount] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState(null);
 
@@ -102,11 +105,17 @@ export default function CashAdvanceScreen() {
     }
   }, []);
 
-  const loadHistory = useCallback(async () => {
+  const loadHistory = useCallback(async (page = 1) => {
     try {
+      setHistoryLoading(true);
       setHistoryError(null);
-      const data = await fetchCashAdvanceHistory();
-      setHistory(Array.isArray(data) ? data : []);
+      const result = await fetchCashAdvanceHistory({
+        page,
+        limit: HISTORY_PAGE_SIZE,
+      });
+      setHistory(result.history);
+      setHistoryPage(result.page);
+      setHistoryTotalCount(result.totalCount);
     } catch (err) {
       setHistoryError(err.message);
     } finally {
@@ -116,7 +125,7 @@ export default function CashAdvanceScreen() {
 
   useEffect(() => {
     loadLimit();
-    loadHistory();
+    loadHistory(1);
   }, [loadLimit, loadHistory]);
 
   // ── derived — inside component so they can access state ──────────
@@ -132,6 +141,15 @@ export default function CashAdvanceScreen() {
   })();
 
   const canSubmit = parsed >= minAmount && parsed <= available && reason !== '' && !submitting;
+  const historyTotalPages = Math.max(
+    Math.ceil(historyTotalCount / HISTORY_PAGE_SIZE),
+    1,
+  );
+
+  const handleHistoryPageChange = (page) => {
+    if (page < 1 || page > historyTotalPages || historyLoading) return;
+    loadHistory(page);
+  };
 
   // ── handlers ─────────────────────────────────────────────────────
 
@@ -161,9 +179,8 @@ export default function CashAdvanceScreen() {
               setAmount('');
               setReason('');
               setDropdownOpen(false);
-              setHistoryLoading(true);
               setLimitLoading(true);
-              await Promise.all([loadLimit(), loadHistory()]);
+              await Promise.all([loadLimit(), loadHistory(1)]);
               Alert.alert(
                 'Request Submitted',
                 'Your cash advance request is now pending approval.'
@@ -315,8 +332,7 @@ export default function CashAdvanceScreen() {
             </View>
             <TouchableOpacity
               onPress={() => {
-                setHistoryLoading(true);
-                loadHistory();
+                loadHistory(1);
               }}
               hitSlop={HIT}
               disabled={historyLoading}
@@ -343,7 +359,7 @@ export default function CashAdvanceScreen() {
               <Text style={styles.historyStateText}>No cash advance requests yet.</Text>
             </View>
           ) : (
-            history.slice(0, 5).map((item) => {
+            history.map((item) => {
               const status = String(item.status || 'pending').toLowerCase();
               const statusMeta = STATUS_META[status] || STATUS_META.pending;
               const amountLabel = toCurrency(item.amount_approved || item.amount_requested);
@@ -371,6 +387,37 @@ export default function CashAdvanceScreen() {
               );
             })
           )}
+
+          {historyTotalPages > 1 ? (
+            <View style={styles.pagination}>
+              <TouchableOpacity
+                style={[
+                  styles.pageButton,
+                  (historyLoading || historyPage <= 1) && styles.pageButtonDisabled,
+                ]}
+                onPress={() => handleHistoryPageChange(historyPage - 1)}
+                disabled={historyLoading || historyPage <= 1}
+                accessibilityLabel="Previous cash advance history page"
+              >
+                <Ionicons name="chevron-back" size={18} color={C.primary} />
+              </TouchableOpacity>
+              <Text style={styles.pageLabel}>
+                Page {historyPage} of {historyTotalPages}
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.pageButton,
+                  (historyLoading || historyPage >= historyTotalPages)
+                    && styles.pageButtonDisabled,
+                ]}
+                onPress={() => handleHistoryPageChange(historyPage + 1)}
+                disabled={historyLoading || historyPage >= historyTotalPages}
+                accessibilityLabel="Next cash advance history page"
+              >
+                <Ionicons name="chevron-forward" size={18} color={C.primary} />
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </View>
@@ -541,4 +588,30 @@ const styles = StyleSheet.create({
   historyStatus: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   historyReason: { fontSize: 12, color: C.text, marginTop: 3 },
   historyDate: { fontSize: 11, color: C.muted, marginTop: 3 },
+  pagination: {
+    minHeight:      36,
+    flexDirection:  'row',
+    alignItems:     'center',
+    justifyContent: 'center',
+    gap:            14,
+    marginTop:      10,
+  },
+  pageButton: {
+    width:           36,
+    height:          36,
+    borderWidth:     1,
+    borderColor:     '#C8D3EC',
+    borderRadius:    8,
+    alignItems:      'center',
+    justifyContent:  'center',
+    backgroundColor: '#EEF2FF',
+  },
+  pageButtonDisabled: { opacity: 0.4 },
+  pageLabel: {
+    minWidth:   84,
+    textAlign:  'center',
+    color:      C.muted,
+    fontSize:   12,
+    fontWeight: '700',
+  },
 });

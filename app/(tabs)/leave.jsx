@@ -35,18 +35,21 @@ import LeaveHeader from "../../components/leave/LeaveHeader";
 import LeaveRequestHistory from "../../components/leave/LeaveRequestHistory";
 import ReviewLeaveModal from "../../components/leave/ReviewLeaveModal";
 
+const LEAVE_HISTORY_PAGE_SIZE = 3;
+
 function getLeaveStartDateError(leaveType, startDate) {
   const today = getTodayDateKey();
   if (!startDate) return null;
 
   if (startDate < today) {
-    return "Cannot request leave in the past";
+    if (leaveType !== "sick") {
+      return "Cannot request leave in the past";
+    }
   }
 
   if (leaveType === "sick") {
-    const tomorrow = addDaysToDateKey(today, 1);
-    if (startDate !== today && startDate !== tomorrow) {
-      return "Sick leave can only be requested for today or tomorrow";
+    if (startDate > today) {
+      return "Sick leave can only be requested for past absences or today";
     }
   }
 
@@ -81,7 +84,13 @@ function getLeaveEndDateError(leaveType, startDate, endDate) {
   }
 
   if (endDate < today) {
-    return "Cannot request leave in the past";
+    if (leaveType !== "sick") {
+      return "Cannot request leave in the past";
+    }
+  }
+
+  if (leaveType === "sick" && endDate > today) {
+    return "Sick leave can only be requested for past absences or today";
   }
 
   if (leaveType === "emergency" && endDate !== today) {
@@ -89,13 +98,6 @@ function getLeaveEndDateError(leaveType, startDate, endDate) {
   }
 
   return null;
-}
-
-function getWeekdayLabel(dateString) {
-  const date = parseDateKey(dateString);
-  if (!date) return null;
-  const labels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  return labels[date.getUTCDay()];
 }
 
 function getMonthKeysBetween(startDate, endDate) {
@@ -133,32 +135,34 @@ function getDateRange(startDate, endDate) {
   return dates;
 }
 
-function getUniqueWeekdayLabels(dates = []) {
-  const seen = new Set();
-  const labels = [];
-  for (const date of dates) {
-    const label = getWeekdayLabel(date);
-    if (label && !seen.has(label)) {
-      seen.add(label);
-      labels.push(label);
-    }
-  }
-  const order = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  return labels.sort((a, b) => order.indexOf(a) - order.indexOf(b));
-}
-
 async function loadScheduledDatesForMonth(monthKey) {
   const [year, monthString] = monthKey.split("-").map(Number);
-  return (await fetchMonthlySchedule({ year, month: monthString - 1 })).scheduledDates || [];
+  const result = await fetchMonthlySchedule({ year, month: monthString - 1 });
+  return {
+    scheduledDates: result.scheduledDates || [],
+    absentDates: result.absentDates || [],
+  };
 }
 
-async function validateDutyDays(startDate, endDate) {
+async function validateLeaveDates(leaveType, startDate, endDate) {
   const monthKeys = getMonthKeysBetween(startDate, endDate);
   if (monthKeys.length === 0) return null;
 
-  const scheduleArrays = await Promise.all(monthKeys.map(loadScheduledDatesForMonth));
-  const scheduledSet = new Set(scheduleArrays.flat());
+  const scheduleMonths = await Promise.all(monthKeys.map(loadScheduledDatesForMonth));
+  const scheduledSet = new Set(scheduleMonths.flatMap((item) => item.scheduledDates));
+  const absentSet = new Set(scheduleMonths.flatMap((item) => item.absentDates));
   const requestedDates = getDateRange(startDate, endDate);
+
+  if (leaveType === "sick") {
+    const today = getTodayDateKey();
+    const isValidSickDate = (date) => (
+      (date < today && absentSet.has(date))
+      || (date === today && scheduledSet.has(date))
+    );
+    if (requestedDates.every(isValidSickDate)) return null;
+
+    return "Sick leave can only be filed for past absent shift days or today's scheduled shift";
+  }
 
   if (requestedDates.every((date) => scheduledSet.has(date))) return null;
 
@@ -197,6 +201,8 @@ export default function LeaveScreen() {
   });
   const [creditsLoading, setCreditsLoading] = useState(true);
   const [requests, setRequests] = useState([]);
+  const [requestsPage, setRequestsPage] = useState(1);
+  const [requestsTotalCount, setRequestsTotalCount] = useState(0);
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [scheduleValidationError, setScheduleValidationError] = useState("");
@@ -214,14 +220,34 @@ export default function LeaveScreen() {
     try {
       const [creditResult, requestResult] = await Promise.all([
         fetchLeaveCredits(),
-        fetchLeaveRequests(),
+        fetchLeaveRequests({ page: 1, limit: LEAVE_HISTORY_PAGE_SIZE }),
       ]);
       setCredits(creditResult);
-      setRequests(requestResult);
+      setRequests(requestResult.requests);
+      setRequestsPage(requestResult.page);
+      setRequestsTotalCount(requestResult.totalCount);
     } catch (e) {
       setLoadError(e.message || "Could not load leave data.");
     } finally {
       setCreditsLoading(false);
+      setRequestsLoading(false);
+    }
+  }, []);
+
+  const loadLeaveHistory = useCallback(async (page) => {
+    setRequestsLoading(true);
+    setLoadError(null);
+    try {
+      const result = await fetchLeaveRequests({
+        page,
+        limit: LEAVE_HISTORY_PAGE_SIZE,
+      });
+      setRequests(result.requests);
+      setRequestsPage(result.page);
+      setRequestsTotalCount(result.totalCount);
+    } catch (e) {
+      setLoadError(e.message || "Could not load leave request history.");
+    } finally {
       setRequestsLoading(false);
     }
   }, []);
@@ -270,7 +296,11 @@ export default function LeaveScreen() {
       }
 
       try {
-        const error = await validateDutyDays(formData.startDate, formData.endDate);
+        const error = await validateLeaveDates(
+          formData.leaveType,
+          formData.startDate,
+          formData.endDate,
+        );
         if (!active || requestId !== scheduleValidationSeq.current) return;
         setScheduleValidationError(error || "");
       } catch {
@@ -305,7 +335,7 @@ export default function LeaveScreen() {
       return;
     }
 
-    const scheduleDutyError = await validateDutyDays(startDate, endDate);
+    const scheduleDutyError = await validateLeaveDates(leaveType, startDate, endDate);
     if (scheduleDutyError) {
       setScheduleValidationError(scheduleDutyError);
       Alert.alert("Invalid Duty Days", scheduleDutyError);
@@ -376,14 +406,24 @@ export default function LeaveScreen() {
           text: "Cancel Request",
           style: "destructive",
           onPress: async () => {
+            setCreditsLoading(true);
             try {
               await cancelLeaveRequest(request.id);
-              await loadLeaveData();
+              const nextPage = requests.length === 1
+                ? Math.max(requestsPage - 1, 1)
+                : requestsPage;
+              const [creditResult] = await Promise.all([
+                fetchLeaveCredits(),
+                loadLeaveHistory(nextPage),
+              ]);
+              setCredits(creditResult);
             } catch (error) {
               Alert.alert(
                 "Cancellation Failed",
                 error.message || "Something went wrong. Please try again.",
               );
+            } finally {
+              setCreditsLoading(false);
             }
           },
         },
@@ -404,6 +444,16 @@ export default function LeaveScreen() {
         error.message || "Could not open the supporting document.",
       );
     }
+  };
+
+  const requestsTotalPages = Math.max(
+    Math.ceil(requestsTotalCount / LEAVE_HISTORY_PAGE_SIZE),
+    1,
+  );
+
+  const handleHistoryPageChange = (page) => {
+    if (page < 1 || page > requestsTotalPages || requestsLoading) return;
+    loadLeaveHistory(page);
   };
 
   return (
@@ -438,6 +488,10 @@ export default function LeaveScreen() {
           <LeaveRequestHistory
             requests={requests}
             loading={requestsLoading}
+            page={requestsPage}
+            totalCount={requestsTotalCount}
+            totalPages={requestsTotalPages}
+            onPageChange={handleHistoryPageChange}
             onCancel={handleCancelRequest}
             onOpenDocument={handleOpenDocument}
           />

@@ -54,9 +54,18 @@ export const fetchLeaveCredits = async () => {
   return request("/credits");
 };
 
-export const fetchLeaveRequests = async () => {
-  const result = await request("/requests");
-  return result.data || [];
+export const fetchLeaveRequests = async ({ page = 1, limit = 3 } = {}) => {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  const result = await request(`/requests?${params.toString()}`);
+  return {
+    requests: result.data || [],
+    totalCount: result.totalCount || 0,
+    page: result.page || page,
+    limit: result.limit || limit,
+  };
 };
 
 export const submitLeaveRequest = async ({

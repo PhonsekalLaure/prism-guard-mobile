@@ -20,8 +20,7 @@ function getStartDateBounds(leaveType) {
 
   if (leaveType === "sick") {
     return {
-      minDate: today,
-      maxDate: addDaysToDateKey(today, 1),
+      maxDate: today,
     };
   }
 
@@ -84,7 +83,7 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
     <View style={styles.card}>
       <View style={styles.todayRow}>
         <View>
-          <Text style={styles.todayLabel}>Today's Date</Text>
+          <Text style={styles.todayLabel}>Today&apos;s Date</Text>
           <Text style={styles.todayValue}>{formatLeaveDate(todayDateKey)}</Text>
         </View>
       </View>
@@ -151,6 +150,7 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
             selectedDate={formData.startDate}
             minDate={startDateBounds.minDate}
             maxDate={startDateBounds.maxDate}
+            selectableMode={formData.leaveType === "sick" ? "sick" : "scheduled"}
             onSelect={(dateKey) => {
               onChange("startDate", dateKey);
               if (formData.endDate && formData.endDate < dateKey) {
@@ -197,7 +197,8 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
             title="Select End Date"
             selectedDate={formData.endDate}
             minDate={formData.startDate || getTodayDateKey()}
-            maxDate={formData.leaveType === "emergency" ? formData.startDate || getTodayDateKey() : undefined}
+            maxDate={["emergency", "sick"].includes(formData.leaveType) ? getTodayDateKey() : undefined}
+            selectableMode={formData.leaveType === "sick" ? "sick" : "scheduled"}
             rangeStartDate={formData.startDate}
             onSelect={(dateKey) => onChange("endDate", dateKey)}
             onClose={() => setShowEndPicker(false)}

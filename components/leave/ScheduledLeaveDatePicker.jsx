@@ -68,6 +68,7 @@ export default function ScheduledLeaveDatePicker({
   selectedDate,
   minDate,
   maxDate,
+  selectableMode = "scheduled",
   rangeStartDate,
   onSelect,
   onClose,
@@ -105,7 +106,10 @@ export default function ScheduledLeaveDatePicker({
       const result = await fetchMonthlySchedule(target);
       setScheduleCache((prev) => ({
         ...prev,
-        [monthKey]: result.scheduledDates || [],
+        [monthKey]: {
+          scheduledDates: result.scheduledDates || [],
+          absentDates: result.absentDates || [],
+        },
       }));
     } catch (err) {
       setError(err.message || "Could not load scheduled dates.");
@@ -132,7 +136,11 @@ export default function ScheduledLeaveDatePicker({
   }, [loadMonth, month, rangeStartDate, visible, visibleMonthKey, year]);
 
   const scheduledSet = useMemo(
-    () => new Set(scheduleCache[visibleMonthKey] || []),
+    () => new Set(scheduleCache[visibleMonthKey]?.scheduledDates || []),
+    [scheduleCache, visibleMonthKey],
+  );
+  const absentSet = useMemo(
+    () => new Set(scheduleCache[visibleMonthKey]?.absentDates || []),
     [scheduleCache, visibleMonthKey],
   );
   const hasLoadedVisibleMonth = Object.prototype.hasOwnProperty.call(
@@ -140,11 +148,21 @@ export default function ScheduledLeaveDatePicker({
     visibleMonthKey,
   );
   const allLoadedScheduledDates = useMemo(
-    () => Object.values(scheduleCache).flat(),
+    () => Object.values(scheduleCache).flatMap((item) => item.scheduledDates || []),
     [scheduleCache],
   );
+  const allLoadedSelectableDates = useMemo(() => {
+    if (selectableMode !== "sick") return allLoadedScheduledDates;
+    return Object.values(scheduleCache).flatMap((item) => [
+      ...(item.scheduledDates || []),
+      ...(item.absentDates || []),
+    ]);
+  }, [allLoadedScheduledDates, scheduleCache, selectableMode]);
   const isLoading = loadingMonthKeys.includes(visibleMonthKey);
-  const hasNoScheduledDates = hasLoadedVisibleMonth && !isLoading && scheduledSet.size === 0;
+  const selectableCount = selectableMode === "sick"
+    ? scheduledSet.size + absentSet.size
+    : scheduledSet.size;
+  const hasNoSelectableDates = hasLoadedVisibleMonth && !isLoading && selectableCount === 0;
 
   const hasLoadedDateRange = useCallback((startDate, endDate) => (
     getMonthKeysBetween(startDate, endDate).every((monthKey) => (
@@ -198,7 +216,10 @@ export default function ScheduledLeaveDatePicker({
     if (maxDate && compareDateKeys(dateKey, maxDate) > 0) {
       return "after-maximum";
     }
-    if (!scheduledSet.has(dateKey)) {
+    const isSelectableDate = selectableMode === "sick"
+      ? scheduledSet.has(dateKey) || absentSet.has(dateKey)
+      : scheduledSet.has(dateKey);
+    if (!isSelectableDate) {
       return "not-scheduled";
     }
     if (
@@ -211,7 +232,7 @@ export default function ScheduledLeaveDatePicker({
     if (
       rangeStartDate
       && compareDateKeys(dateKey, rangeStartDate) >= 0
-      && !isDateRangeScheduled(rangeStartDate, dateKey, allLoadedScheduledDates)
+      && !isDateRangeScheduled(rangeStartDate, dateKey, allLoadedSelectableDates)
     ) {
       return "range-has-off-day";
     }
@@ -246,9 +267,11 @@ export default function ScheduledLeaveDatePicker({
             <Text style={styles.loadingText}>Loading scheduled dates...</Text>
           </View>
         ) : null}
-        {hasNoScheduledDates ? (
+        {hasNoSelectableDates ? (
           <Text style={styles.emptyText}>
-            No scheduled shift days were found for this month.
+            {selectableMode === "sick"
+              ? "No sick leave eligible dates were found for this month."
+              : "No scheduled shift days were found for this month."}
           </Text>
         ) : null}
 
@@ -303,7 +326,9 @@ export default function ScheduledLeaveDatePicker({
         <View style={styles.legend}>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: PrismColors.navy }]} />
-            <Text style={styles.legendText}>Scheduled shift day</Text>
+            <Text style={styles.legendText}>
+              {selectableMode === "sick" ? "Sick leave eligible day" : "Scheduled shift day"}
+            </Text>
           </View>
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: "#cbd5e1" }]} />
