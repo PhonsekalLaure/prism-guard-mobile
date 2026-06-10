@@ -28,13 +28,36 @@ async function requestEarnings(path, options = {}) {
   });
   const json = await res.json();
   if (res.status === 404 && notFoundAsNull) return null;
-  if (!res.ok) throw new Error(json.message || fallbackMessage);
+  if (!res.ok) throw new Error(json.message || json.error || fallbackMessage);
   return json.data;
 }
 
 export const fetchCurrentPayroll = async () => {
   return requestEarnings('/payroll/current', {
     fallbackMessage: 'Failed to load payroll.',
+    notFoundAsNull: true,
+  });
+};
+
+export const fetchPayrollHistory = async ({ page = 1, limit = 3 } = {}) => {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  const result = await requestEarnings(`/payroll/history?${params.toString()}`, {
+    fallbackMessage: 'Failed to load payroll history.',
+  });
+  return {
+    history: result?.history || [],
+    totalCount: result?.totalCount || 0,
+    page: result?.page || page,
+    limit: result?.limit || limit,
+  };
+};
+
+export const fetchPayrollRecord = async (recordId) => {
+  return requestEarnings(`/payroll/${encodeURIComponent(recordId)}`, {
+    fallbackMessage: 'Failed to load payroll record.',
     notFoundAsNull: true,
   });
 };

@@ -24,7 +24,7 @@ export default function ScreenWrapper({ children, activeTabKey = "home" }) {
     : activeTabKey;
   const accessLoaded = !profileLoading && !deploymentLoading;
   const canAccessDeploymentTabs = accessLoaded && Boolean(deployment);
-  const guardedTabs = ["schedule", "earnings"];
+  const guardedTabs = ["schedule"];
   const canAccessReport = canAccessDeploymentTabs;
 
   useFocusEffect(
