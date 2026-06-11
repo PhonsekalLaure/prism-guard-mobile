@@ -19,7 +19,7 @@ import {
   PrismSpacing,
   PrismTypography,
 } from "@/constants/prismTheme";
-import { fetchAnnouncements } from "@/services/announcementsService";
+import { fetchAllAnnouncements } from "@/services/announcementsService";
 
 export default function AnnouncementsScreen() {
   const router = useRouter();
@@ -33,7 +33,7 @@ export default function AnnouncementsScreen() {
     setError(null);
 
     try {
-      const data = await fetchAnnouncements();
+      const data = await fetchAllAnnouncements();
       setAnnouncements(data);
     } catch (err) {
       setError(err.message || "Could not load announcements.");
