@@ -53,6 +53,7 @@ export default function MyDocuments({ onDocPress }) {
   const [documents,   setDocuments]   = useState([]);
   const [loading,     setLoading]     = useState(true);
   const [viewerUri,   setViewerUri]   = useState(null);
+  const [expanded,    setExpanded]    = useState(false);
 
   useEffect(() => {
     documentsService
@@ -83,13 +84,32 @@ export default function MyDocuments({ onDocPress }) {
         <ActivityIndicator color={NAVY} style={{ paddingVertical: 20 }} />
       ) : documents.length === 0 ? (
         <Text style={styles.emptyText}>No documents found.</Text>
-      ) : (
-        documents.map((doc, i) => (
+      ) : expanded ? (
+        <>
+          {documents.map((doc, i) => (
           <React.Fragment key={doc.id}>
             {i > 0 && <View style={styles.divider} />}
             <DocItem {...doc} onPress={() => handleDocPress(doc)} />
           </React.Fragment>
-        ))
+          ))}
+          <TouchableOpacity
+            style={styles.toggleButton}
+            onPress={() => setExpanded(false)}
+            activeOpacity={0.75}
+          >
+            <Ionicons name="chevron-up" size={15} color={NAVY} />
+            <Text style={styles.toggleText}>Hide Documents</Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <TouchableOpacity
+          style={styles.toggleButton}
+          onPress={() => setExpanded(true)}
+          activeOpacity={0.75}
+        >
+          <Ionicons name="documents-outline" size={15} color={NAVY} />
+          <Text style={styles.toggleText}>See All Documents</Text>
+        </TouchableOpacity>
       )}
 
       <DocumentViewer
@@ -126,6 +146,24 @@ const styles = StyleSheet.create({
   countText:  { fontSize: 11, color: NAVY, fontWeight: "600" },
   divider:    { height: 1, backgroundColor: "#f0f0f0", marginVertical: 2 },
   emptyText:  { color: "#999", fontSize: 12, textAlign: "center", paddingVertical: 20 },
+  toggleButton: {
+    borderWidth: 1,
+    borderColor: "#dbe4f3",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
+    backgroundColor: "#f8fbff",
+  },
+  toggleText: {
+    color: NAVY,
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
   docRow:     { flexDirection: "row", alignItems: "center", paddingVertical: 10 },
   docIconWrap: {
     width:           34,
