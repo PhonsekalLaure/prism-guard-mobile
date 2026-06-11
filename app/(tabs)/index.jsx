@@ -24,7 +24,7 @@ import {
   clockOut,
   fetchActiveAttendance,
 } from "@/services/attendanceService";
-import { fetchAnnouncements } from "@/services/announcementsService";
+import { fetchAllAnnouncements } from "@/services/announcementsService";
 import { fetchNotificationStats } from "@/services/notificationService";
 import { fetchMonthlySchedule } from "@/services/scheduleService";
 import { validateGuardLocation } from "@/utils/geofence";
@@ -342,7 +342,7 @@ export default function DashboardScreen() {
       try {
         setAnnouncementsLoading(true);
         setAnnouncementsError(null);
-        const data = await fetchAnnouncements();
+        const data = await fetchAllAnnouncements();
         setAnnouncements(data);
       } catch (err) {
         setAnnouncementsError(err.message);
@@ -401,7 +401,7 @@ export default function DashboardScreen() {
 
       const loadAnnouncements = async () => {
         try {
-          const data = await fetchAnnouncements();
+          const data = await fetchAllAnnouncements();
           if (isMounted) {
             setAnnouncements(data);
             setAnnouncementsLoading(false);
