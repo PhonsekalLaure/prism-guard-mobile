@@ -149,9 +149,9 @@ const styles = StyleSheet.create({
     marginTop: -24,
   },
   fab: {
-    width: 72,
-    height: 58,
-    borderRadius: 18,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: PrismColors.navy,
     alignItems: "center",
     justifyContent: "center",
