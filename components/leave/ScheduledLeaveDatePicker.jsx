@@ -94,6 +94,8 @@ export default function ScheduledLeaveDatePicker({
   const loadMonth = useCallback(async (monthKey) => {
     if (
       !visible
+      || selectableMode === "any"
+      || selectableMode === "weekday"
       || scheduleCache[monthKey]
     ) {
       return;
@@ -116,7 +118,7 @@ export default function ScheduledLeaveDatePicker({
     } finally {
       setLoadingMonthKeys((prev) => prev.filter((key) => key !== monthKey));
     }
-  }, [scheduleCache, visible]);
+  }, [scheduleCache, selectableMode, visible]);
 
   useEffect(() => {
     loadMonth(visibleMonthKey);
@@ -159,7 +161,9 @@ export default function ScheduledLeaveDatePicker({
     ]);
   }, [allLoadedScheduledDates, scheduleCache, selectableMode]);
   const isLoading = loadingMonthKeys.includes(visibleMonthKey);
-  const selectableCount = selectableMode === "sick"
+  const selectableCount = selectableMode === "any" || selectableMode === "weekday"
+    ? 1
+    : selectableMode === "sick"
     ? scheduledSet.size + absentSet.size
     : scheduledSet.size;
   const hasNoSelectableDates = hasLoadedVisibleMonth && !isLoading && selectableCount === 0;
@@ -216,6 +220,13 @@ export default function ScheduledLeaveDatePicker({
     if (maxDate && compareDateKeys(dateKey, maxDate) > 0) {
       return "after-maximum";
     }
+    if (selectableMode === "any") {
+      return null;
+    }
+    if (selectableMode === "weekday") {
+      const day = parseDateKey(dateKey)?.getDay();
+      return day === 0 || day === 6 ? "weekend" : null;
+    }
     const isSelectableDate = selectableMode === "sick"
       ? scheduledSet.has(dateKey) || absentSet.has(dateKey)
       : scheduledSet.has(dateKey);
@@ -271,6 +282,8 @@ export default function ScheduledLeaveDatePicker({
           <Text style={styles.emptyText}>
             {selectableMode === "sick"
               ? "No sick leave eligible dates were found for this month."
+              : selectableMode === "weekday"
+              ? "No weekday dates were found for this month."
               : "No scheduled shift days were found for this month."}
           </Text>
         ) : null}
@@ -327,7 +340,13 @@ export default function ScheduledLeaveDatePicker({
           <View style={styles.legendItem}>
             <View style={[styles.legendDot, { backgroundColor: PrismColors.navy }]} />
             <Text style={styles.legendText}>
-              {selectableMode === "sick" ? "Sick leave eligible day" : "Scheduled shift day"}
+              {selectableMode === "weekday"
+                ? "Weekday"
+                : selectableMode === "any"
+                ? "Available day"
+                : selectableMode === "sick"
+                ? "Sick leave eligible day"
+                : "Scheduled shift day"}
             </Text>
           </View>
           <View style={styles.legendItem}>

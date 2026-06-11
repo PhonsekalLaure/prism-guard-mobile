@@ -74,17 +74,28 @@ export const submitLeaveRequest = async ({
   endDate,
   reason,
   supportingDocument,
+  deliveryDate,
+  childBirthDate,
 }) => {
-  if (!supportingDocument) {
-    throw new Error("Supporting document is required");
-  }
+  const apiLeaveType = ["maternity", "paternity"].includes(leaveType)
+    ? "maternity_paternity"
+    : leaveType;
+  const metadataLines = [
+    leaveType === "maternity" && deliveryDate ? `Expected delivery date: ${deliveryDate}` : null,
+    leaveType === "paternity" && childBirthDate ? `Child birth date: ${childBirthDate}` : null,
+  ].filter(Boolean);
+  const reasonWithMetadata = metadataLines.length > 0
+    ? `${metadataLines.join("\n")}\n\n${reason}`
+    : reason;
 
   const formData = new FormData();
-  formData.append("leaveType", leaveType);
+  formData.append("leaveType", apiLeaveType);
   formData.append("startDate", startDate);
   formData.append("endDate", endDate);
-  formData.append("reason", reason);
-  formData.append("supportingDocument", supportingDocument);
+  formData.append("reason", reasonWithMetadata);
+  if (supportingDocument) {
+    formData.append("supportingDocument", supportingDocument);
+  }
 
   return request("/requests", {
     method: "POST",

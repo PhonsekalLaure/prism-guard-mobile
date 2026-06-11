@@ -9,6 +9,24 @@ import {
 } from "react-native";
 import { LEAVE_OPTIONS } from "@/constants/leaveTypes";
 
+function getCreditRemaining(credit) {
+  return credit?.remainingDays ?? credit?.remainingRequests;
+}
+
+function getPickerMetaText(option, credit) {
+  if (option.pickerMeta) return option.pickerMeta;
+
+  if (typeof credit?.remainingDays === "number") {
+    return `${credit.remainingDays} day${credit.remainingDays === 1 ? "" : "s"} left`;
+  }
+
+  if (typeof credit?.remainingRequests === "number") {
+    return `${credit.remainingRequests} request${credit.remainingRequests === 1 ? "" : "s"} left`;
+  }
+
+  return null;
+}
+
 /**
  * LeavePicker
  * Props:
@@ -39,11 +57,9 @@ const LeavePicker = ({
 
       {LEAVE_OPTIONS.map((opt) => {
         const active = selected === opt.value;
-        const credit = leaveCreditsByType[opt.value];
-        const remaining = credit?.remainingDays ?? credit?.remainingRequests;
-        const remainingUnit = credit?.remainingDays !== null && credit?.remainingDays !== undefined
-          ? "days"
-          : "left";
+        const credit = leaveCreditsByType[opt.creditType || opt.value];
+        const remaining = getCreditRemaining(credit);
+        const metaText = getPickerMetaText(opt, credit);
         const disabled = remaining === 0 || credit?.remainingRequests === 0;
         return (
           <TouchableOpacity
@@ -71,9 +87,9 @@ const LeavePicker = ({
             >
               {opt.label}
             </Text>
-            {typeof remaining === "number" && (
-              <Text style={styles.remainingText}>{remaining} {remainingUnit}</Text>
-            )}
+            {metaText ? (
+              <Text style={styles.remainingText}>{metaText}</Text>
+            ) : null}
             {active && (
               <Feather name="check-circle" size={16} color="#093269" />
             )}

@@ -17,6 +17,7 @@ import {
   parseDateKey,
   addDaysToDateKey,
   countInclusiveDays,
+  getDateRange,
 } from "../../utils/leaveDates";
 
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
@@ -36,39 +37,62 @@ import LeaveRequestHistory from "../../components/leave/LeaveRequestHistory";
 import ReviewLeaveModal from "../../components/leave/ReviewLeaveModal";
 
 const LEAVE_HISTORY_PAGE_SIZE = 3;
+const WEEKDAY_ONLY_LEAVE_TYPES = new Set(["service_incentive"]);
+
+function getLeaveCreditType(leaveType) {
+  return ["maternity", "paternity"].includes(leaveType)
+    ? "maternity_paternity"
+    : leaveType;
+}
+
+function isWeekendDate(dateKey) {
+  const date = parseDateKey(dateKey);
+  if (!date) return false;
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
+function hasWeekendInRange(startDate, endDate) {
+  return getDateRange(startDate, endDate).some(isWeekendDate);
+}
+
+function isSupportingDocumentRequired(formData) {
+  const daysRequested = countInclusiveDays(formData.startDate, formData.endDate);
+  return (
+    ["emergency", "bereavement"].includes(formData.leaveType)
+    || (formData.leaveType === "sick" && daysRequested >= 3)
+  );
+}
 
 function getLeaveStartDateError(leaveType, startDate) {
   const today = getTodayDateKey();
   if (!startDate) return null;
 
+  if (leaveType === "sick" && startDate !== today) {
+    return "Sick leave must start today.";
+  }
+
+  if (leaveType === "emergency" && startDate !== today) {
+    return "Emergency leave must start today.";
+  }
+
+  if (leaveType === "bereavement") {
+    const latestStart = addDaysToDateKey(today, 2);
+    if (startDate < today || startDate > latestStart) {
+      return `Bereavement leave must start from today through ${formatLeaveDate(latestStart)}.`;
+    }
+  }
+
   if (startDate < today) {
-    if (leaveType !== "sick") {
+    if (!["sick", "paternity"].includes(leaveType)) {
       return "Cannot request leave in the past";
     }
   }
 
-  if (leaveType === "sick") {
-    if (startDate > today) {
-      return "Sick leave can only be requested for past absences or today";
-    }
-  }
-
-  if (leaveType === "emergency" && startDate !== today) {
-    return "Emergency leave must be for today only";
-  }
-
-  if (leaveType === "maternity_paternity") {
-    const earliest = addDaysToDateKey(today, 30);
-    if (startDate < earliest) {
-      return `Maternity leave requires at least 30 days notice (earliest: ${formatLeaveDate(earliest)})`;
-    }
-  }
-
   if (leaveType === "service_incentive") {
-    const earliest = addDaysToDateKey(today, 7);
-    const latest = addDaysToDateKey(today, 14);
-    if (startDate < earliest || startDate > latest) {
-      return "Service incentive leave must be requested 7 to 14 days in advance";
+    const earliest = addDaysToDateKey(today, 60);
+    if (startDate < earliest) {
+      return `Service incentive leave requires at least 60 days advance notice (earliest: ${formatLeaveDate(earliest)})`;
     }
   }
 
@@ -84,17 +108,28 @@ function getLeaveEndDateError(leaveType, startDate, endDate) {
   }
 
   if (endDate < today) {
-    if (leaveType !== "sick") {
+    if (!["sick", "paternity"].includes(leaveType)) {
       return "Cannot request leave in the past";
     }
   }
 
-  if (leaveType === "sick" && endDate > today) {
-    return "Sick leave can only be requested for past absences or today";
+  if (leaveType === "sick" && startDate !== today) {
+    return "Sick leave must start today.";
   }
 
-  if (leaveType === "emergency" && endDate !== today) {
-    return "Emergency leave must be for today only";
+  if (leaveType === "emergency") {
+    const latestEnd = addDaysToDateKey(today, 4);
+    if (startDate !== today || endDate > latestEnd) {
+      return `Emergency leave must start today and last 1 to 5 days, ending no later than ${formatLeaveDate(latestEnd)}.`;
+    }
+  }
+
+  if (leaveType === "bereavement") {
+    const minEndDate = addDaysToDateKey(startDate, 2);
+    const maxEndDate = addDaysToDateKey(startDate, 4);
+    if (endDate < minEndDate || endDate > maxEndDate) {
+      return `Bereavement leave must last 3 to 5 consecutive days, ending from ${formatLeaveDate(minEndDate)} to ${formatLeaveDate(maxEndDate)}.`;
+    }
   }
 
   return null;
@@ -117,24 +152,6 @@ function getMonthKeysBetween(startDate, endDate) {
   return keys;
 }
 
-function getDateRange(startDate, endDate) {
-  const start = parseDateKey(startDate);
-  const end = parseDateKey(endDate);
-  if (!start || !end || end < start) return [];
-
-  const dates = [];
-  const cursor = new Date(start);
-  while (cursor <= end) {
-    const year = cursor.getFullYear();
-    const month = String(cursor.getMonth() + 1).padStart(2, "0");
-    const day = String(cursor.getDate()).padStart(2, "0");
-    dates.push(`${year}-${month}-${day}`);
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  return dates;
-}
-
 async function loadScheduledDatesForMonth(monthKey) {
   const [year, monthString] = monthKey.split("-").map(Number);
   const result = await fetchMonthlySchedule({ year, month: monthString - 1 });
@@ -145,6 +162,17 @@ async function loadScheduledDatesForMonth(monthKey) {
 }
 
 async function validateLeaveDates(leaveType, startDate, endDate) {
+  if (WEEKDAY_ONLY_LEAVE_TYPES.has(leaveType) && hasWeekendInRange(startDate, endDate)) {
+    return "This leave type cannot include Saturdays or Sundays.";
+  }
+
+  if (
+    WEEKDAY_ONLY_LEAVE_TYPES.has(leaveType)
+    || ["sick", "maternity", "paternity", "emergency", "bereavement"].includes(leaveType)
+  ) {
+    return null;
+  }
+
   const monthKeys = getMonthKeysBetween(startDate, endDate);
   if (monthKeys.length === 0) return null;
 
@@ -176,6 +204,43 @@ function getLeaveFormError(formData) {
   const endDateError = getLeaveEndDateError(formData.leaveType, formData.startDate, formData.endDate);
   if (endDateError) return endDateError;
 
+  const daysRequested = countInclusiveDays(formData.startDate, formData.endDate);
+
+  if (WEEKDAY_ONLY_LEAVE_TYPES.has(formData.leaveType) && hasWeekendInRange(formData.startDate, formData.endDate)) {
+    return "This leave type cannot include Saturdays or Sundays.";
+  }
+
+  if (formData.leaveType === "sick" && daysRequested >= 3 && !formData.supportingDocument) {
+    return "A medical certificate is required for sick leave of 3 days or more.";
+  }
+
+  if (formData.leaveType === "maternity") {
+    if (!formData.deliveryDate) return "Expected delivery date is required for maternity leave.";
+    const earliestStart = addDaysToDateKey(formData.deliveryDate, -60);
+    const latestEnd = addDaysToDateKey(formData.deliveryDate, 45);
+    if (formData.startDate < earliestStart || formData.endDate > latestEnd) {
+      return `Maternity leave must be within ${formatLeaveDate(earliestStart)} to ${formatLeaveDate(latestEnd)}.`;
+    }
+  }
+
+  if (formData.leaveType === "paternity") {
+    if (!formData.childBirthDate) return "Child birth date is required for paternity leave.";
+    const latestEnd = addDaysToDateKey(formData.childBirthDate, 60);
+    if (formData.startDate < formData.childBirthDate || formData.endDate > latestEnd) {
+      return `Paternity leave must be within 60 days of the child's birth (${formatLeaveDate(formData.childBirthDate)} to ${formatLeaveDate(latestEnd)}).`;
+    }
+  }
+
+  if (formData.leaveType === "bereavement" && (daysRequested < 3 || daysRequested > 5)) {
+    return "Bereavement leave must be 3 to 5 consecutive days.";
+  }
+
+  if (["emergency", "bereavement"].includes(formData.leaveType) && !formData.supportingDocument) {
+    return formData.leaveType === "emergency"
+      ? "Proof document is required for emergency leave."
+      : "Death certificate is required for bereavement leave.";
+  }
+
   return null;
 }
 
@@ -190,6 +255,8 @@ export default function LeaveScreen() {
     endDate: "",
     reason: "",
     supportingDocument: null,
+    deliveryDate: "",
+    childBirthDate: "",
   });
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -319,14 +386,19 @@ export default function LeaveScreen() {
     || !formData.startDate
     || !formData.endDate
     || !formData.reason
-    || !formData.supportingDocument
+    || (isSupportingDocumentRequired(formData) && !formData.supportingDocument)
     || Boolean(validationError)
   );
 
   const handleOpenReview = async () => {
     const { leaveType, startDate, endDate, reason, supportingDocument } = formData;
-    if (!leaveType || !startDate || !endDate || !reason || !supportingDocument) {
+    if (!leaveType || !startDate || !endDate || !reason) {
       Alert.alert("Incomplete Form", "Please fill in all required fields.");
+      return;
+    }
+
+    if (isSupportingDocumentRequired(formData) && !supportingDocument) {
+      Alert.alert("Incomplete Form", getLeaveFormError(formData) || "Please attach the required supporting document.");
       return;
     }
 
@@ -343,7 +415,7 @@ export default function LeaveScreen() {
     }
 
     const selectedCredit = credits.byType.find(
-      (item) => item.leaveType === leaveType,
+      (item) => item.leaveType === getLeaveCreditType(leaveType),
     );
     const daysRequested = countInclusiveDays(startDate, endDate);
 

@@ -15,12 +15,25 @@ import { addDaysToDateKey, formatLeaveDate, getTodayDateKey } from "@/utils/leav
 import LeavePicker from "./LeavePicker";
 import ScheduledLeaveDatePicker from "./ScheduledLeaveDatePicker";
 
-function getStartDateBounds(leaveType) {
+function getStartDateBounds(formData) {
   const today = getTodayDateKey();
+  const { leaveType } = formData;
 
   if (leaveType === "sick") {
+    return { minDate: today, maxDate: today };
+  }
+
+  if (leaveType === "maternity" && formData.deliveryDate) {
     return {
-      maxDate: today,
+      minDate: addDaysToDateKey(formData.deliveryDate, -60),
+      maxDate: addDaysToDateKey(formData.deliveryDate, 45),
+    };
+  }
+
+  if (leaveType === "paternity" && formData.childBirthDate) {
+    return {
+      minDate: formData.childBirthDate,
+      maxDate: addDaysToDateKey(formData.childBirthDate, 60),
     };
   }
 
@@ -28,29 +41,58 @@ function getStartDateBounds(leaveType) {
     return { minDate: today, maxDate: today };
   }
 
-  if (leaveType === "maternity_paternity") {
-    return { minDate: addDaysToDateKey(today, 30) };
+  if (leaveType === "bereavement") {
+    return { minDate: today, maxDate: addDaysToDateKey(today, 2) };
   }
 
   if (leaveType === "service_incentive") {
     return {
-      minDate: addDaysToDateKey(today, 7),
-      maxDate: addDaysToDateKey(today, 14),
+      minDate: addDaysToDateKey(today, 60),
     };
   }
 
   return { minDate: today };
 }
 
+function getSelectableMode(leaveType) {
+  if (leaveType === "service_incentive") return "weekday";
+  if (["sick", "maternity", "paternity", "emergency", "bereavement"].includes(leaveType)) return "any";
+  return "scheduled";
+}
+
+function getDocumentPlaceholder(leaveType) {
+  if (leaveType === "sick") return "Attach med cert for 3+ days";
+  if (leaveType === "emergency") return "Attach proof document";
+  if (leaveType === "bereavement") return "Attach death certificate";
+  return "Attach PDF or image";
+}
+
 const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, submitDisabled }) => {
   const [showLeavePicker, setShowLeavePicker] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
+  const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
+  const [showBirthPicker, setShowBirthPicker] = useState(false);
   const leaveCreditsByType = Object.fromEntries(
     (leaveCredits?.byType || []).map((item) => [item.leaveType, item]),
   );
-  const startDateBounds = getStartDateBounds(formData.leaveType);
+  const startDateBounds = getStartDateBounds(formData);
   const todayDateKey = getTodayDateKey();
+  const selectableMode = getSelectableMode(formData.leaveType);
+  const endDateBounds = formData.leaveType === "paternity" && formData.childBirthDate
+    ? { maxDate: addDaysToDateKey(formData.childBirthDate, 60) }
+    : formData.leaveType === "maternity" && formData.deliveryDate
+    ? { maxDate: addDaysToDateKey(formData.deliveryDate, 45) }
+    : formData.leaveType === "sick" && formData.startDate
+    ? { maxDate: undefined }
+    : formData.leaveType === "emergency"
+    ? { maxDate: addDaysToDateKey(todayDateKey, 4) }
+    : formData.leaveType === "bereavement" && formData.startDate
+    ? {
+      minDate: addDaysToDateKey(formData.startDate, 2),
+      maxDate: addDaysToDateKey(formData.startDate, 4),
+    }
+    : {};
 
   const handlePickDocument = async () => {
     try {
@@ -150,7 +192,7 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
             selectedDate={formData.startDate}
             minDate={startDateBounds.minDate}
             maxDate={startDateBounds.maxDate}
-            selectableMode={formData.leaveType === "sick" ? "sick" : "scheduled"}
+            selectableMode={selectableMode}
             onSelect={(dateKey) => {
               onChange("startDate", dateKey);
               if (formData.endDate && formData.endDate < dateKey) {
@@ -196,15 +238,69 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
             visible={showEndPicker}
             title="Select End Date"
             selectedDate={formData.endDate}
-            minDate={formData.startDate || getTodayDateKey()}
-            maxDate={["emergency", "sick"].includes(formData.leaveType) ? getTodayDateKey() : undefined}
-            selectableMode={formData.leaveType === "sick" ? "sick" : "scheduled"}
+            minDate={endDateBounds.minDate || formData.startDate || getTodayDateKey()}
+            maxDate={endDateBounds.maxDate}
+            selectableMode={selectableMode}
             rangeStartDate={formData.startDate}
             onSelect={(dateKey) => onChange("endDate", dateKey)}
             onClose={() => setShowEndPicker(false)}
           />
         )}
       </View>
+
+      {formData.leaveType === "maternity" ? (
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Expected Delivery Date</Text>
+          <TouchableOpacity
+            style={styles.inputRow}
+            onPress={() => setShowDeliveryPicker(true)}
+            activeOpacity={0.75}
+          >
+            <Feather name="calendar" size={14} color="#8A94A6" style={styles.icon} />
+            <Text style={[styles.inputText, !formData.deliveryDate && styles.placeholder]}>
+              {formatLeaveDate(formData.deliveryDate, "mm / dd / yyyy")}
+            </Text>
+          </TouchableOpacity>
+          {showDeliveryPicker && (
+            <ScheduledLeaveDatePicker
+              visible={showDeliveryPicker}
+              title="Select Delivery Date"
+              selectedDate={formData.deliveryDate}
+              minDate={todayDateKey}
+              selectableMode="any"
+              onSelect={(dateKey) => onChange("deliveryDate", dateKey)}
+              onClose={() => setShowDeliveryPicker(false)}
+            />
+          )}
+        </View>
+      ) : null}
+
+      {formData.leaveType === "paternity" ? (
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>Child Birth Date</Text>
+          <TouchableOpacity
+            style={styles.inputRow}
+            onPress={() => setShowBirthPicker(true)}
+            activeOpacity={0.75}
+          >
+            <Feather name="calendar" size={14} color="#8A94A6" style={styles.icon} />
+            <Text style={[styles.inputText, !formData.childBirthDate && styles.placeholder]}>
+              {formatLeaveDate(formData.childBirthDate, "mm / dd / yyyy")}
+            </Text>
+          </TouchableOpacity>
+          {showBirthPicker && (
+            <ScheduledLeaveDatePicker
+              visible={showBirthPicker}
+              title="Select Birth Date"
+              selectedDate={formData.childBirthDate}
+              maxDate={todayDateKey}
+              selectableMode="any"
+              onSelect={(dateKey) => onChange("childBirthDate", dateKey)}
+              onClose={() => setShowBirthPicker(false)}
+            />
+          )}
+        </View>
+      ) : null}
 
       {errorMessage ? (
         <View style={styles.errorContainer}>
@@ -214,7 +310,7 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
 
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Reason</Text>
-        <View style={[styles.inputRow, styles.textAreaRow]}>
+        <View style={[styles.inputRow, styles.activeInputRow, styles.textAreaRow]}>
           <Feather
             name="edit-2"
             size={14}
@@ -237,7 +333,7 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Supporting Document</Text>
         <TouchableOpacity
-          style={styles.inputRow}
+          style={[styles.inputRow, styles.activeInputRow]}
           onPress={handlePickDocument}
           activeOpacity={0.75}
         >
@@ -254,7 +350,7 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
             ]}
             numberOfLines={1}
           >
-            {formData.supportingDocument?.name || "Attach PDF or image"}
+            {formData.supportingDocument?.name || getDocumentPlaceholder(formData.leaveType)}
           </Text>
           {formData.supportingDocument ? (
             <Pressable
@@ -288,6 +384,8 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
           onChange("leaveType", val);
           onChange("startDate", "");
           onChange("endDate", "");
+          onChange("deliveryDate", "");
+          onChange("childBirthDate", "");
           setShowLeavePicker(false);
         }}
         onClose={() => setShowLeavePicker(false)}
@@ -330,6 +428,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 14,
     backgroundColor: "#FAFBFD",
+  },
+  activeInputRow: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#CBD5E1",
   },
   textAreaRow: {
     alignItems: "flex-start",
