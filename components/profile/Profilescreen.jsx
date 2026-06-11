@@ -54,7 +54,7 @@ export default function ProfileScreen({ navigation }) {
         {/* ── Profile Card ── */}
         <ProfileCard
           name="Juan Cruz"
-          rank="SECURITY OFFICER I"
+          rank="SECURITY GUARD"
           employeeId="PRISM-2024-001"
           onEditAvatar={() => showToast("camera-outline", "Edit Photo", "Feature coming soon.")}
         />

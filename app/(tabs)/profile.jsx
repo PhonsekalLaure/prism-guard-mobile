@@ -122,7 +122,7 @@ export default function ProfileScreen() {
         {/* ── Profile Card ── */}
         <ProfileCard
           name={fullName}
-          rank={profile?.position || "SECURITY OFFICER"}
+          rank={profile?.position || "SECURITY GUARD"}
           employeeId={displayId}
           avatarUri={profile?.avatar_url}
           editable={editMode}

@@ -96,7 +96,7 @@ export default function ProfileCard({
       </View>
       <Text style={styles.name}>{name || "Officer"}</Text>
       <View style={styles.rankBadge}>
-        <Text style={styles.rankText}>{rank || "SECURITY OFFICER"}</Text>
+        <Text style={styles.rankText}>{rank || "SECURITY GUARD"}</Text>
       </View>
       <Text style={styles.employeeId}>
         ID: {employeeId || "PRISM-2024-001"}
