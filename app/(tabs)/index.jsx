@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import * as Notifications from "expo-notifications";
 
 import CheckInMap from "@/components/check-in/CheckInMap";
@@ -551,12 +551,24 @@ export default function DashboardScreen() {
           setActiveAttendanceLog(attendanceLog);
           setIsOnDuty(true);
         } else {
-          showToast({
-            icon: "!",
-            title: "Outside Geofence",
-            message: "You must be inside your assigned site to clock in.",
-            type: "error",
-          });
+          try {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: "Outside Geofence",
+                body: "You must be inside your assigned site to clock in.",
+                data: {
+                  type: "geofence_time_in_blocked",
+                  checkType: "shift_start",
+                },
+              },
+              trigger: null,
+            });
+          } catch (notificationError) {
+            console.warn(
+              "Local notification failed:",
+              notificationError.message || notificationError,
+            );
+          }
         }
 
         // Always show map — inside or outside

@@ -1,6 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
 import { useEffect, useRef } from "react";
-import { Alert, AppState } from "react-native";
+import { AppState } from "react-native";
 import { validateGuardLocation } from "@/utils/geofence";
 import { saveLocationPing } from "@/utils/locationPing";
 
@@ -43,12 +44,18 @@ export function useGeofenceMonitor(
       ]);
     };
 
-    const showOutsideWarning = (siteName, outsideMinutes) => {
-      Alert.alert(
-        "Outside Geofence",
-        `You have been outside the assigned geofence area for about ${outsideMinutes} minutes. Please return within the assigned radius for ${siteName}.`,
-        [{ text: "OK" }],
-      );
+    const showOutsideWarning = async (siteName, outsideMinutes) => {
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "Outside Geofence",
+          body: `You have been outside the assigned geofence area for about ${outsideMinutes} minutes. Please return within the assigned radius for ${siteName}.`,
+          data: {
+            type: "geofence_warning",
+            attendanceLogId,
+          },
+        },
+        trigger: null,
+      });
     };
 
     const getViolationStage = (outsideDurationMs, hasOutsideStart) => {
@@ -102,7 +109,7 @@ export function useGeofenceMonitor(
         if (mounted && outsideDurationMs >= NOTIFY_AFTER_MS && !wasNotified) {
           const siteName = site.site_name || "your assigned site";
           const outsideMinutes = Math.max(5, Math.round(outsideDurationMs / 60000));
-          showOutsideWarning(siteName, outsideMinutes);
+          await showOutsideWarning(siteName, outsideMinutes);
           await AsyncStorage.setItem(notifiedKey, "true");
         }
 

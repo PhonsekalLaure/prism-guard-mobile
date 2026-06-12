@@ -1,7 +1,7 @@
 // app/(tabs)/profile.jsx
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Modal,
   ScrollView,
@@ -15,7 +15,6 @@ import {
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import LogoutModal from "@/components/profile/LogoutModal";
 import MyDocuments from "@/components/profile/MyDocuments";
-import PasswordModal from "@/components/profile/PasswordModal";
 import PersonalDetails from "@/components/profile/PersonalDetails";
 import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileToast from "@/components/profile/ProfileToast";
@@ -23,9 +22,204 @@ import SecurityAccount from "@/components/profile/SecurityAccount";
 import { useProfile } from "@/hooks/useProfile";
 import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
 import { PrismColors } from "@/constants/prismTheme";
+import {
+  PASSWORD_POLICY_MESSAGE,
+  isStrongPassword,
+} from "@/utils/passwordPolicy";
 import authService from "@/services/authService";
 
 const NAVY = PrismColors.navy;
+
+function PasswordResetModal({ visible, identifier, onClose, onSuccess }) {
+  const [code, setCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [codeSent, setCodeSent] = useState(false);
+
+  const resetState = () => {
+    setCode("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setStatus("");
+    setError("");
+    setLoading(false);
+    setCodeSent(false);
+  };
+
+  const handleClose = () => {
+    resetState();
+    onClose();
+  };
+
+  const sendCode = useCallback(async () => {
+    const target = String(identifier || "").trim();
+    if (!target) {
+      setError("No email or employee ID found for this account.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      setStatus("");
+      const result = await authService.forgotPassword(target);
+      setCodeSent(true);
+      setStatus(
+        result.message ||
+          "If an account exists, a password reset code has been sent.",
+      );
+    } catch (err) {
+      setError(err?.message || "Unable to send reset code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [identifier]);
+
+  useEffect(() => {
+    if (visible && !codeSent && !loading) {
+      sendCode();
+    }
+  }, [visible, codeSent, loading, sendCode]);
+
+  const handleReset = async () => {
+    const target = String(identifier || "").trim();
+    if (!target || !code.trim() || !newPassword || !confirmPassword) {
+      setError("Please enter your code and new password.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    if (!isStrongPassword(newPassword)) {
+      setError(PASSWORD_POLICY_MESSAGE);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+      setStatus("");
+      const result = await authService.resetPasswordWithCode(
+        target,
+        code.trim(),
+        newPassword,
+      );
+      onSuccess(result.message || "Password updated successfully.");
+      handleClose();
+    } catch (err) {
+      setError(err?.message || "Unable to reset password. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Modal transparent visible={visible} animationType="fade" onRequestClose={handleClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Change Password</Text>
+          <Text style={styles.modalText}>
+            Enter the reset code sent to your registered email, then create a new password.
+          </Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Reset code"
+            placeholderTextColor="#999"
+            value={code}
+            onChangeText={setCode}
+            keyboardType="number-pad"
+            maxLength={6}
+          />
+
+          <View style={styles.passwordInputRow}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              placeholder="New password"
+              placeholderTextColor="#999"
+              value={newPassword}
+              onChangeText={setNewPassword}
+              secureTextEntry={!showNewPassword}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.eyeBtn}
+              onPress={() => setShowNewPassword((value) => !value)}
+            >
+              <Ionicons
+                name={showNewPassword ? "eye-outline" : "eye-off-outline"}
+                size={20}
+                color="#777"
+              />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.passwordInputRow}>
+            <TextInput
+              style={[styles.input, styles.passwordInput]}
+              placeholder="Confirm password"
+              placeholderTextColor="#999"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry={!showConfirmPassword}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.eyeBtn}
+              onPress={() => setShowConfirmPassword((value) => !value)}
+            >
+              <Ionicons
+                name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
+                size={20}
+                color="#777"
+              />
+            </TouchableOpacity>
+          </View>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+          {status ? <Text style={styles.successText}>{status}</Text> : null}
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={styles.secondaryBtn}
+              onPress={handleClose}
+              disabled={loading}
+            >
+              <Text style={styles.secondaryBtnText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.primaryBtn, loading && { opacity: 0.7 }]}
+              onPress={handleReset}
+              disabled={loading}
+            >
+              <Text style={styles.primaryBtnText}>
+                {loading ? "Please wait..." : "Update Password"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.resendBtn}
+            onPress={sendCode}
+            disabled={loading}
+          >
+            <Text style={styles.resendText}>Resend code</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -213,6 +407,19 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
+      <PasswordResetModal
+        visible={showPassModal}
+        identifier={email || displayId}
+        onClose={() => setShowPassModal(false)}
+        onSuccess={(message) =>
+          showToast(
+            "checkmark-circle",
+            "Password Updated",
+            message || "Your password has been updated.",
+          )
+        }
+      />
+
       {/* ── Modals ── */}
       <LogoutModal
         visible={showLogout}
@@ -314,6 +521,29 @@ const styles = StyleSheet.create({
     color: "#c62828",
     fontSize: 13,
   },
+  successText: {
+    marginBottom: 10,
+    color: "#0f8a3a",
+    fontSize: 13,
+    textAlign: "center",
+    lineHeight: 18,
+  },
+  passwordInputRow: {
+    position: "relative",
+    width: "100%",
+  },
+  passwordInput: {
+    paddingRight: 46,
+  },
+  eyeBtn: {
+    position: "absolute",
+    right: 12,
+    top: 9,
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   modalActions: {
     flexDirection: "row",
     justifyContent: "flex-end",
@@ -339,5 +569,17 @@ const styles = StyleSheet.create({
   primaryBtnText: {
     color: "#fff",
     fontWeight: "700",
+  },
+  resendBtn: {
+    alignSelf: "center",
+    marginTop: 14,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  resendText: {
+    color: NAVY,
+    fontSize: 13,
+    fontWeight: "700",
+    textDecorationLine: "underline",
   },
 });
