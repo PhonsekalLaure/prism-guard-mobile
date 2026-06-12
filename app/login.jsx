@@ -217,7 +217,11 @@ const ForgotPasswordModal = ({ visible, onClose }) => {
           {error ? <Text style={styles.errorText}>{error}</Text> : null}
           {status ? <Text style={styles.successText}>{status}</Text> : null}
           <TouchableOpacity
-            style={[styles.primaryBtn, sending && { opacity: 0.7 }]}
+            style={[
+              styles.primaryBtn,
+              styles.modalPrimaryBtn,
+              sending && { opacity: 0.7 },
+            ]}
             onPress={step === "request" ? handleSend : handleReset}
             disabled={sending}
           >
@@ -270,7 +274,7 @@ export default function LoginScreen() {
       setShowSuccess(true);
       try {
         await refreshAccess();
-      } catch (e) {
+      } catch (_err) {
         // ignore refresh errors here; we'll still navigate
       }
       setTimeout(() => {
@@ -468,6 +472,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginTop: PrismSpacing.md,
     ...PrismShadows.button,
+  },
+  modalPrimaryBtn: {
+    width: "100%",
+    borderWidth: 1,
+    borderColor: PrismColors.goldLight,
   },
   primaryBtnText: {
     fontSize: PrismTypography.base,
