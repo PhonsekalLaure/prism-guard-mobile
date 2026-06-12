@@ -109,7 +109,12 @@ export function useGeofenceMonitor(
         if (mounted && outsideDurationMs >= NOTIFY_AFTER_MS && !wasNotified) {
           const siteName = site.site_name || "your assigned site";
           const outsideMinutes = Math.max(5, Math.round(outsideDurationMs / 60000));
-          await showOutsideWarning(siteName, outsideMinutes);
+          await showOutsideWarning(siteName, outsideMinutes).catch((notificationError) => {
+            console.warn(
+              "Geofence notification failed:",
+              notificationError.message || notificationError,
+            );
+          });
           await AsyncStorage.setItem(notifiedKey, "true");
         }
 

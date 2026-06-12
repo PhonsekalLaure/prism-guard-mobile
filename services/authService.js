@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
+import * as Notifications from "expo-notifications";
 import { registerPushToken } from "@/utils/pushNotifications";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
@@ -15,8 +16,25 @@ async function parseJsonResponse(response) {
   }
 }
 
+async function clearRuntimeSessionState() {
+  const keys = await AsyncStorage.getAllKeys();
+  const geofenceKeys = keys.filter((key) => key.startsWith("geofence_"));
+
+  await AsyncStorage.multiRemove([
+    "active_deployment",
+    ...geofenceKeys,
+  ]);
+
+  await Promise.all([
+    Notifications.cancelAllScheduledNotificationsAsync().catch(() => null),
+    Notifications.dismissAllNotificationsAsync().catch(() => null),
+  ]);
+}
+
 const authService = {
   async login(email, password) {
+    await clearRuntimeSessionState();
+
     const response = await fetch(`${BASE_URL}/api/mobile/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -29,7 +47,6 @@ const authService = {
       throw new Error(data.error || "Login failed");
     }
 
-    await AsyncStorage.removeItem("active_deployment");
     await AsyncStorage.setItem("access_token", data.session.access_token);
     await AsyncStorage.setItem("refresh_token", data.session.refresh_token);
     await AsyncStorage.setItem("profile", JSON.stringify(data.profile));
@@ -88,11 +105,11 @@ const authService = {
   },
 
   async logout() {
+    await clearRuntimeSessionState();
     await AsyncStorage.removeItem("access_token");
     await AsyncStorage.removeItem("refresh_token");
     await AsyncStorage.removeItem("profile");
     await AsyncStorage.removeItem("user_email");
-    await AsyncStorage.removeItem("active_deployment");
   },
 
   async getToken() {
