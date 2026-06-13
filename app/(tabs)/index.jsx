@@ -18,7 +18,6 @@ import {
   PrismTypography,
 } from "@/constants/prismTheme";
 import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
-import { useGeofenceMonitor } from "@/hooks/useGeofenceMonitor";
 import {
   clockIn,
   clockOut,
@@ -29,7 +28,6 @@ import { fetchNotificationStats } from "@/services/notificationService";
 import { fetchMonthlySchedule } from "@/services/scheduleService";
 import { validateGuardLocation } from "@/utils/geofence";
 import { getDateKey, getTodayParts } from "@/utils/scheduleDates";
-import { useIsFocused } from "@react-navigation/native";
 import { useFocusEffect, useRouter } from "expo-router";
 
 const CHECK_TYPE_LABELS = {
@@ -319,13 +317,6 @@ export default function DashboardScreen() {
     profile,
   } = useActiveDeploymentAccess();
   const router = useRouter();
-  const isFocused = useIsFocused();
-
-  useGeofenceMonitor(deployment, {
-    attendanceLogId: activeAttendanceLog?.id,
-    enabled: Boolean(profile?.id && isFocused && isOnDuty),
-  });
-
   useEffect(() => {
     const updateClock = () => {
       setNow(new Date());
@@ -498,21 +489,12 @@ export default function DashboardScreen() {
   const handleMainAction = async () => {
     if (!isOnDuty) {
       if (noShiftToday) {
-        const title = "No scheduled shift today";
-        const body = "You don't have a scheduled shift for today. Contact your supervisor.";
-
-        try {
-          await Notifications.scheduleNotificationAsync({
-            content: {
-              title,
-              body,
-              data: { type: "noShiftToday" },
-            },
-            trigger: null,
-          });
-        } catch (err) {
-          console.warn("Local notification failed:", err.message || err);
-        }
+        showToast({
+          icon: "!",
+          title: "No Shift Today",
+          message: "You do not have a scheduled shift today. Contact your supervisor if this is incorrect.",
+          type: "error",
+        });
         return;
       }
 
@@ -575,8 +557,8 @@ export default function DashboardScreen() {
       } catch (err) {
         showToast({
           icon: "⚠️",
-          title: "Error",
-          message: "Something went wrong. Please try again.",
+          title: "Unable to Time In",
+          message: err.message || "Something went wrong. Please try again.",
           type: "error",
         });
         console.error(err);
@@ -707,6 +689,7 @@ export default function DashboardScreen() {
           hasDeployment={Boolean(deployment)}
           isCheckingDeployment={deploymentAccessLoading}
           clockInTime={clockInTime}
+          clockInStatus={activeAttendanceLog?.status}
           dutyTimingLabel={shiftTiming.dashboardLabel}
           hasRemainingTime={shiftTiming.hasRemainingTime}
         />

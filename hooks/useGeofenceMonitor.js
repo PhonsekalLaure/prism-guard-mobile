@@ -5,12 +5,10 @@ import { AppState } from "react-native";
 import { validateGuardLocation } from "@/utils/geofence";
 import { saveLocationPing } from "@/utils/locationPing";
 
-const CHECK_INTERVAL_MS = 2 * 60 * 1000;
+const CHECK_INTERVAL_MS = 3 * 60 * 60 * 1000;
 const NOTIFY_AFTER_MS = 5 * 60 * 1000;
 const REVIEW_AFTER_MS = 15 * 60 * 1000;
-const OUTSIDE_SINCE_KEY = "geofence_outside_since";
 const NOTIFIED_KEY = "geofence_guard_notified";
-const REVIEW_FLAGGED_KEY = "geofence_review_flagged";
 
 function getStateKey(prefix, attendanceLogId) {
   return `${prefix}:${attendanceLogId}`;
@@ -31,17 +29,17 @@ export function useGeofenceMonitor(
 
     let mounted = true;
     let intervalId = null;
+    let warningTimerId = null;
+    let reviewTimerId = null;
 
-    const outsideSinceKey = getStateKey(OUTSIDE_SINCE_KEY, attendanceLogId);
     const notifiedKey = getStateKey(NOTIFIED_KEY, attendanceLogId);
-    const reviewFlaggedKey = getStateKey(REVIEW_FLAGGED_KEY, attendanceLogId);
 
     const clearOutsideState = async () => {
-      await AsyncStorage.multiRemove([
-        outsideSinceKey,
-        notifiedKey,
-        reviewFlaggedKey,
-      ]);
+      if (warningTimerId) clearTimeout(warningTimerId);
+      if (reviewTimerId) clearTimeout(reviewTimerId);
+      warningTimerId = null;
+      reviewTimerId = null;
+      await AsyncStorage.removeItem(notifiedKey);
     };
 
     const showOutsideWarning = async (siteName, outsideMinutes) => {
@@ -58,57 +56,45 @@ export function useGeofenceMonitor(
       });
     };
 
-    const getViolationStage = (outsideDurationMs, hasOutsideStart) => {
-      if (!hasOutsideStart) return "warning_ping";
-      if (outsideDurationMs >= REVIEW_AFTER_MS) return "review_required";
-      if (outsideDurationMs >= NOTIFY_AFTER_MS) return "guard_notified";
-      return "warning_ping";
-    };
-
     const checkGeofence = async () => {
       if (checkInProgressRef.current) return;
 
       checkInProgressRef.current = true;
       try {
-        const now = Date.now();
         const result = await validateGuardLocation(site);
-        const outsideSinceRaw = await AsyncStorage.getItem(outsideSinceKey);
-        const outsideSince = Number(outsideSinceRaw || 0);
 
         if (result.isInside) {
           await saveLocationPing({
             attendanceLogId,
             latitude: result.coords.latitude,
             longitude: result.coords.longitude,
-            isWithinGeofence: true,
-            violationStage: "inside",
           });
           await clearOutsideState();
           return;
         }
 
-        const outsideStartedAt = Number.isFinite(outsideSince) && outsideSince > 0
-          ? outsideSince
-          : now;
-        const outsideDurationMs = now - outsideStartedAt;
-        const stage = getViolationStage(outsideDurationMs, Boolean(outsideSinceRaw));
-
-        if (!outsideSinceRaw) {
-          await AsyncStorage.setItem(outsideSinceKey, String(outsideStartedAt));
-        }
-
-        await saveLocationPing({
+        const response = await saveLocationPing({
           attendanceLogId,
           latitude: result.coords.latitude,
           longitude: result.coords.longitude,
-          isWithinGeofence: false,
-          violationStage: stage,
         });
+        const stage = response?.ping?.violationStage || "warning_ping";
+        const outsideDurationMs = Number(response?.ping?.outsideDurationMs) || 0;
 
         const wasNotified = await AsyncStorage.getItem(notifiedKey);
-        if (mounted && outsideDurationMs >= NOTIFY_AFTER_MS && !wasNotified) {
+        if (
+          mounted
+          && (stage === "guard_notified" || stage === "review_required")
+          && !wasNotified
+        ) {
           const siteName = site.site_name || "your assigned site";
-          const outsideMinutes = Math.max(5, Math.round(outsideDurationMs / 60000));
+          const outsideSince = response?.ping?.outsideSince
+            ? new Date(response.ping.outsideSince).getTime()
+            : Date.now() - NOTIFY_AFTER_MS;
+          const outsideMinutes = Math.max(
+            5,
+            Math.round((Date.now() - outsideSince) / 60000),
+          );
           await showOutsideWarning(siteName, outsideMinutes).catch((notificationError) => {
             console.warn(
               "Geofence notification failed:",
@@ -118,9 +104,20 @@ export function useGeofenceMonitor(
           await AsyncStorage.setItem(notifiedKey, "true");
         }
 
-        const wasFlaggedForReview = await AsyncStorage.getItem(reviewFlaggedKey);
-        if (outsideDurationMs >= REVIEW_AFTER_MS && !wasFlaggedForReview) {
-          await AsyncStorage.setItem(reviewFlaggedKey, "true");
+        if (stage === "warning_ping" && !warningTimerId) {
+          const warningDelayMs = Math.max(1000, NOTIFY_AFTER_MS - outsideDurationMs);
+          warningTimerId = setTimeout(() => {
+            warningTimerId = null;
+            checkGeofence();
+          }, warningDelayMs);
+        }
+
+        if (stage !== "review_required" && !reviewTimerId) {
+          const reviewDelayMs = Math.max(1000, REVIEW_AFTER_MS - outsideDurationMs);
+          reviewTimerId = setTimeout(() => {
+            reviewTimerId = null;
+            checkGeofence();
+          }, reviewDelayMs);
         }
       } catch (err) {
         console.warn("Geofence monitor check failed:", err.message || err);
@@ -147,6 +144,8 @@ export function useGeofenceMonitor(
     return () => {
       mounted = false;
       if (intervalId) clearInterval(intervalId);
+      if (warningTimerId) clearTimeout(warningTimerId);
+      if (reviewTimerId) clearTimeout(reviewTimerId);
       appStateSubscription?.remove?.();
     };
   }, [attendanceLogId, deployment, enabled]);

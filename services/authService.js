@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import * as Notifications from "expo-notifications";
 import { registerPushToken } from "@/utils/pushNotifications";
+import { stopAttendanceBackgroundTracking } from "@/utils/backgroundAttendanceLocation";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -17,6 +18,7 @@ async function parseJsonResponse(response) {
 }
 
 async function clearRuntimeSessionState() {
+  await stopAttendanceBackgroundTracking().catch(() => null);
   const keys = await AsyncStorage.getAllKeys();
   const geofenceKeys = keys.filter((key) => key.startsWith("geofence_"));
 

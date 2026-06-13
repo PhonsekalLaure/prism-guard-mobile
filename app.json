@@ -53,7 +53,11 @@
       [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Prism Guard uses your location to verify that time-in, time-out, and duty checks happen within your assigned post geofence."
+          "locationWhenInUsePermission": "Prism Guard uses your location to verify that time-in, time-out, and duty checks happen within your assigned post geofence.",
+          "locationAlwaysAndWhenInUsePermission": "Prism Guard uses your location while you are on duty, including when the app is minimized, to verify whether you remain within your assigned post geofence.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
         }
       ],
       [

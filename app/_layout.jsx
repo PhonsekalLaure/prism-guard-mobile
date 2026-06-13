@@ -6,6 +6,7 @@ import {
   registerStoredProfilePushToken,
 } from "@/utils/pushNotifications";
 import { ActiveDeploymentAccessProvider } from "@/hooks/useActiveDeploymentAccess";
+import AttendanceGeofenceMonitor from "@/components/attendance/AttendanceGeofenceMonitor";
 
 export default function Layout() {
   useEffect(() => {
@@ -30,6 +31,7 @@ export default function Layout() {
 
   return (
     <ActiveDeploymentAccessProvider>
+      <AttendanceGeofenceMonitor />
       <Stack screenOptions={{ headerShown: false, animation: "none" }}>
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />

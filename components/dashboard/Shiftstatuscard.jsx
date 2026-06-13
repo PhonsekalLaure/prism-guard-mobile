@@ -17,9 +17,12 @@ const ShiftStatusCard = ({
   hasDeployment = true,
   isCheckingDeployment = false,
   clockInTime = null,
+  clockInStatus = null,
   dutyTimingLabel = null,
   hasRemainingTime = false,
 }) => {
+  const isLateClockIn = clockInStatus === "late";
+
   if (isCheckingDeployment) {
     return (
       <View style={[styles.container, styles.emptyContainer]}>
@@ -84,6 +87,9 @@ const ShiftStatusCard = ({
           <View style={styles.dutySummaryItem}>
             <Text style={styles.dutySummaryLabel}>On duty since</Text>
             <Text style={styles.dutySummaryValue}>{clockInTime || shiftStart}</Text>
+            {isLateClockIn ? (
+              <Text style={styles.lateClockInText}>Late clock-in</Text>
+            ) : null}
           </View>
           <View style={styles.dutySummaryDivider} />
           <View style={styles.dutySummaryItem}>
@@ -201,6 +207,12 @@ const styles = StyleSheet.create({
     fontSize: PrismTypography.sm,
     fontWeight: PrismTypography.bold,
     color: PrismColors.textPrimary,
+  },
+  lateClockInText: {
+    marginTop: 2,
+    fontSize: PrismTypography.xs,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.danger,
   },
   dutySummaryDivider: {
     width: 1,
