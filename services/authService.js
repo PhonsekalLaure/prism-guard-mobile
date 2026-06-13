@@ -92,6 +92,24 @@ const authService = {
     return data;
   },
 
+  async changePassword(currentPassword, newPassword, confirmPassword) {
+    const response = await this.authenticatedFetch(
+      `${BASE_URL}/api/mobile/auth/change-password`,
+      {
+        method: "POST",
+        body: JSON.stringify({ currentPassword, newPassword, confirmPassword }),
+      }
+    );
+
+    const data = await parseJsonResponse(response);
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to change password");
+    }
+
+    return data;
+  },
+
   async getMe() {
     const response = await this.authenticatedFetch(`${BASE_URL}/api/mobile/auth/me`, {
       method: "GET",

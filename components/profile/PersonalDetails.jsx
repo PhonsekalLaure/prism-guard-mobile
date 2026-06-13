@@ -67,7 +67,7 @@ export default function PersonalDetails({
 
   const handleToggle = () => {
     if (editMode && onSave) {
-      onSave({ email, phone, address, emergencyName, emergencyNum });
+      onSave({ phone, address, emergencyName, emergencyNum });
     }
     onEditModeChange?.(!editMode);
   };
@@ -89,7 +89,7 @@ export default function PersonalDetails({
         icon="mail-outline"
         label="Email"
         value={email}
-        editable={editMode}
+        editable={false}
         onChangeText={setEmail}
       />
       <InfoRow

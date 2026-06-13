@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -68,6 +69,31 @@ const titleCase = (value) =>
 
 const HISTORY_PAGE_SIZE = 3;
 
+const SubmittedModal = ({ visible, reportId, onDone }) => (
+  <Modal transparent animationType="fade" visible={visible} onRequestClose={onDone}>
+    <View style={styles.submittedOverlay}>
+      <View style={styles.submittedCard}>
+        <View style={styles.submittedIconWrap}>
+          <Ionicons name="checkmark-circle" size={34} color={PrismColors.success} />
+        </View>
+        <Text style={styles.submittedTitle}>Report Submitted</Text>
+        <Text style={styles.submittedMessage}>
+          Your incident report has been sent to operations for review.
+        </Text>
+        {reportId ? (
+          <View style={styles.submittedReference}>
+            <Text style={styles.submittedReferenceLabel}>Reference</Text>
+            <Text style={styles.submittedReferenceValue}>#{reportId.slice(0, 8)}</Text>
+          </View>
+        ) : null}
+        <TouchableOpacity style={styles.submittedDoneBtn} onPress={onDone} activeOpacity={0.85}>
+          <Text style={styles.submittedDoneText}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
+
 export default function ReportScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
@@ -81,6 +107,7 @@ export default function ReportScreen() {
   const [historyTotalCount, setHistoryTotalCount] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(null);
+  const [submittedReportId, setSubmittedReportId] = useState(null);
   const accessDeniedAlertShownRef = useRef(false);
 
   const locationLabel = deployment?.client_sites?.site_name || "Current assigned site";
@@ -178,11 +205,7 @@ export default function ReportScreen() {
         occurredAt: occurredAt.toISOString(),
       });
       setModalVisible(false);
-      Alert.alert(
-        "Report Submitted",
-        `Report ${incident?.id ? `#${incident.id.slice(0, 8)}` : ""} submitted for operations review.`,
-        [{ text: "OK", onPress: () => setNarrative("") }],
-      );
+      setSubmittedReportId(incident?.id || "");
       await loadIncidentHistory({ quiet: true, page: 1 });
     } catch (err) {
       Alert.alert(
@@ -336,6 +359,15 @@ export default function ReportScreen() {
         submitting={submitting}
         onEdit={() => !submitting && setModalVisible(false)}
         onConfirm={handleConfirm}
+      />
+
+      <SubmittedModal
+        visible={submittedReportId !== null}
+        reportId={submittedReportId}
+        onDone={() => {
+          setSubmittedReportId(null);
+          setNarrative("");
+        }}
       />
     </ScreenWrapper>
   );
@@ -505,5 +537,80 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  submittedOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(13, 31, 60, 0.48)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: PrismSpacing.lg,
+  },
+  submittedCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: PrismColors.white,
+    borderRadius: 18,
+    padding: PrismSpacing.lg,
+    alignItems: "center",
+    ...PrismShadows.header,
+  },
+  submittedIconWrap: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: PrismColors.success + "18",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: PrismSpacing.md,
+  },
+  submittedTitle: {
+    fontSize: PrismTypography.lg,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.navy,
+    textAlign: "center",
+  },
+  submittedMessage: {
+    marginTop: PrismSpacing.xs,
+    fontSize: PrismTypography.sm,
+    color: PrismColors.textSecondary,
+    lineHeight: 19,
+    textAlign: "center",
+  },
+  submittedReference: {
+    width: "100%",
+    marginTop: PrismSpacing.md,
+    paddingVertical: PrismSpacing.sm,
+    paddingHorizontal: PrismSpacing.md,
+    borderRadius: 12,
+    backgroundColor: PrismColors.offWhite,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  submittedReferenceLabel: {
+    fontSize: PrismTypography.xs,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.textSecondary,
+    textTransform: "uppercase",
+  },
+  submittedReferenceValue: {
+    fontSize: PrismTypography.base,
+    fontWeight: PrismTypography.extraBold,
+    color: PrismColors.navy,
+  },
+  submittedDoneBtn: {
+    width: "100%",
+    marginTop: PrismSpacing.lg,
+    borderRadius: 12,
+    backgroundColor: PrismColors.gold,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    ...PrismShadows.button,
+  },
+  submittedDoneText: {
+    fontSize: PrismTypography.base,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.navy,
   },
 });

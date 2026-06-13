@@ -1,4 +1,5 @@
 // components/dashboard/NotificationToast.jsx
+import { Ionicons } from "@expo/vector-icons";
 import {
   PrismColors,
   PrismRadius,
@@ -9,9 +10,32 @@ import {
 import React, { useEffect, useRef } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
+const TYPE_CONFIG = {
+  success: {
+    color: PrismColors.success,
+    icon: "checkmark-circle-outline",
+  },
+  error: {
+    color: PrismColors.danger,
+    icon: "alert-circle-outline",
+  },
+  warning: {
+    color: PrismColors.warning,
+    icon: "warning-outline",
+  },
+};
+
+const normalizeIconName = (icon, type) => {
+  if (!icon || icon === "!" || icon.length <= 2) {
+    return TYPE_CONFIG[type]?.icon || TYPE_CONFIG.success.icon;
+  }
+
+  return icon;
+};
+
 const NotificationToast = ({
   visible = false,
-  icon = "📍",
+  icon,
   title = "Notification",
   message = "",
   type = "success",
@@ -50,31 +74,27 @@ const NotificationToast = ({
     }
   }, [opacity, translateY, visible]);
 
-  const accentColor =
-    type === "success"
-      ? PrismColors.success
-      : type === "error"
-        ? PrismColors.danger
-        : PrismColors.warning;
+  const config = TYPE_CONFIG[type] || TYPE_CONFIG.success;
+  const accentColor = config.color;
+  const iconName = normalizeIconName(icon, type);
 
   return (
     <Animated.View
       style={[styles.toast, { transform: [{ translateY }], opacity }]}
       pointerEvents="none"
     >
-      <View
-        style={[
-          styles.iconBox,
-          { backgroundColor: accentColor + "22", borderColor: accentColor },
-        ]}
-      >
-        <Text style={styles.iconText}>{icon}</Text>
+      <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
+      <View style={[styles.iconBox, { backgroundColor: accentColor + "22" }]}>
+        <Ionicons name={iconName} size={22} color={accentColor} />
       </View>
       <View style={styles.content}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.message}>{message}</Text>
+        <Text style={styles.title} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.message} numberOfLines={2}>
+          {message}
+        </Text>
       </View>
-      <View style={[styles.accentBar, { backgroundColor: accentColor }]} />
     </Animated.View>
   );
 };
@@ -85,8 +105,8 @@ const styles = StyleSheet.create({
     top: 56,
     left: PrismSpacing.base,
     right: PrismSpacing.base,
-    backgroundColor: PrismColors.cardBg,
-    borderRadius: PrismRadius.lg,
+    backgroundColor: PrismColors.white,
+    borderRadius: PrismRadius.md,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: PrismSpacing.md,
@@ -96,38 +116,34 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     ...PrismShadows.card,
   },
-  iconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: PrismRadius.sm,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconText: {
-    fontSize: 18,
-  },
-  content: {
-    flex: 1,
-  },
-  title: {
-    fontSize: PrismTypography.sm,
-    fontWeight: PrismTypography.bold,
-    color: PrismColors.textPrimary,
-  },
-  message: {
-    fontSize: PrismTypography.xs,
-    color: PrismColors.textSecondary,
-    marginTop: 2,
-  },
   accentBar: {
     position: "absolute",
     left: 0,
     top: 0,
     bottom: 0,
     width: 4,
-    borderTopLeftRadius: PrismRadius.lg,
-    borderBottomLeftRadius: PrismRadius.lg,
+  },
+  iconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: PrismRadius.full,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  content: {
+    flex: 1,
+    minWidth: 0,
+  },
+  title: {
+    fontSize: PrismTypography.base,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.textPrimary,
+  },
+  message: {
+    fontSize: PrismTypography.sm,
+    color: PrismColors.textSecondary,
+    marginTop: 3,
+    lineHeight: 17,
   },
 });
 

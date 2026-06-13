@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   Modal,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -16,210 +17,16 @@ import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
 import LogoutModal from "@/components/profile/LogoutModal";
 import MyDocuments from "@/components/profile/MyDocuments";
 import PersonalDetails from "@/components/profile/PersonalDetails";
+import PasswordModal from "@/components/profile/PasswordModal";
 import ProfileCard from "@/components/profile/ProfileCard";
 import ProfileToast from "@/components/profile/ProfileToast";
 import SecurityAccount from "@/components/profile/SecurityAccount";
 import { useProfile } from "@/hooks/useProfile";
 import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
 import { PrismColors } from "@/constants/prismTheme";
-import {
-  PASSWORD_POLICY_MESSAGE,
-  isStrongPassword,
-} from "@/utils/passwordPolicy";
 import authService from "@/services/authService";
 
 const NAVY = PrismColors.navy;
-
-function PasswordResetModal({ visible, identifier, onClose, onSuccess }) {
-  const [code, setCode] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [status, setStatus] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
-
-  const resetState = () => {
-    setCode("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setShowNewPassword(false);
-    setShowConfirmPassword(false);
-    setStatus("");
-    setError("");
-    setLoading(false);
-    setCodeSent(false);
-  };
-
-  const handleClose = () => {
-    resetState();
-    onClose();
-  };
-
-  const sendCode = useCallback(async () => {
-    const target = String(identifier || "").trim();
-    if (!target) {
-      setError("No email or employee ID found for this account.");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError("");
-      setStatus("");
-      const result = await authService.forgotPassword(target);
-      setCodeSent(true);
-      setStatus(
-        result.message ||
-          "If an account exists, a password reset code has been sent.",
-      );
-    } catch (err) {
-      setError(err?.message || "Unable to send reset code. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [identifier]);
-
-  useEffect(() => {
-    if (visible && !codeSent && !loading) {
-      sendCode();
-    }
-  }, [visible, codeSent, loading, sendCode]);
-
-  const handleReset = async () => {
-    const target = String(identifier || "").trim();
-    if (!target || !code.trim() || !newPassword || !confirmPassword) {
-      setError("Please enter your code and new password.");
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
-    }
-
-    if (!isStrongPassword(newPassword)) {
-      setError(PASSWORD_POLICY_MESSAGE);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError("");
-      setStatus("");
-      const result = await authService.resetPasswordWithCode(
-        target,
-        code.trim(),
-        newPassword,
-      );
-      onSuccess(result.message || "Password updated successfully.");
-      handleClose();
-    } catch (err) {
-      setError(err?.message || "Unable to reset password. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <Modal transparent visible={visible} animationType="fade" onRequestClose={handleClose}>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalCard}>
-          <Text style={styles.modalTitle}>Change Password</Text>
-          <Text style={styles.modalText}>
-            Enter the reset code sent to your registered email, then create a new password.
-          </Text>
-
-          <TextInput
-            style={styles.input}
-            placeholder="Reset code"
-            placeholderTextColor="#999"
-            value={code}
-            onChangeText={setCode}
-            keyboardType="number-pad"
-            maxLength={6}
-          />
-
-          <View style={styles.passwordInputRow}>
-            <TextInput
-              style={[styles.input, styles.passwordInput]}
-              placeholder="New password"
-              placeholderTextColor="#999"
-              value={newPassword}
-              onChangeText={setNewPassword}
-              secureTextEntry={!showNewPassword}
-              autoCapitalize="none"
-            />
-            <TouchableOpacity
-              style={styles.eyeBtn}
-              onPress={() => setShowNewPassword((value) => !value)}
-            >
-              <Ionicons
-                name={showNewPassword ? "eye-outline" : "eye-off-outline"}
-                size={20}
-                color="#777"
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.passwordInputRow}>
-            <TextInput
-              style={[styles.input, styles.passwordInput]}
-              placeholder="Confirm password"
-              placeholderTextColor="#999"
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              secureTextEntry={!showConfirmPassword}
-              autoCapitalize="none"
-            />
-            <TouchableOpacity
-              style={styles.eyeBtn}
-              onPress={() => setShowConfirmPassword((value) => !value)}
-            >
-              <Ionicons
-                name={showConfirmPassword ? "eye-outline" : "eye-off-outline"}
-                size={20}
-                color="#777"
-              />
-            </TouchableOpacity>
-          </View>
-
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-          {status ? <Text style={styles.successText}>{status}</Text> : null}
-
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={styles.secondaryBtn}
-              onPress={handleClose}
-              disabled={loading}
-            >
-              <Text style={styles.secondaryBtnText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.primaryBtn, loading && { opacity: 0.7 }]}
-              onPress={handleReset}
-              disabled={loading}
-            >
-              <Text style={styles.primaryBtnText}>
-                {loading ? "Please wait..." : "Update Password"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={styles.resendBtn}
-            onPress={sendCode}
-            disabled={loading}
-          >
-            <Text style={styles.resendText}>Resend code</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -345,8 +152,9 @@ export default function ProfileScreen() {
     <ScreenWrapper activeTabKey="profile">
       {/* ── Header ── */}
       <View style={styles.header}>
+        <View style={styles.headerSpacer} />
         <Text style={styles.headerTitle}>Profile</Text>
-        <View style={{ width: 36 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView
@@ -483,11 +291,16 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      <PasswordResetModal
+      <PasswordModal
         visible={showPassModal}
-        identifier={email || displayId}
         onClose={() => setShowPassModal(false)}
-        onSuccess={async () => {
+        onSave={async ({ currentPassword, newPassword, confirmPassword }) => {
+          await authService.changePassword(currentPassword, newPassword, confirmPassword);
+          showToast(
+            "checkmark-circle",
+            "Password Updated",
+            "Please log in again with your new password.",
+          );
           await logoutToLogin();
         }}
       />
@@ -522,6 +335,9 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: "700",
     letterSpacing: 0.5,
+  },
+  headerSpacer: {
+    width: 36,
   },
   scroll: { flex: 1, backgroundColor: "#f0f2f5" },
   scrollContent: { paddingBottom: 40 },

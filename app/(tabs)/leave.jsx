@@ -4,12 +4,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
     Alert,
     KeyboardAvoidingView,
+    Modal,
     Platform,
     ScrollView,
     StyleSheet,
     Text,
+    TouchableOpacity,
     View
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import {
   formatLeaveDate,
@@ -35,9 +38,38 @@ import LeaveForm from "../../components/leave/LeaveForm";
 import LeaveHeader from "../../components/leave/LeaveHeader";
 import LeaveRequestHistory from "../../components/leave/LeaveRequestHistory";
 import ReviewLeaveModal from "../../components/leave/ReviewLeaveModal";
+import {
+  PrismColors,
+  PrismShadows,
+  PrismSpacing,
+  PrismTypography,
+} from "@/constants/prismTheme";
 
 const LEAVE_HISTORY_PAGE_SIZE = 3;
 const WEEKDAY_ONLY_LEAVE_TYPES = new Set(["service_incentive"]);
+
+const LeaveSubmittedModal = ({ visible, onDone }) => (
+  <Modal transparent animationType="fade" visible={visible} onRequestClose={onDone}>
+    <View style={styles.submittedOverlay}>
+      <View style={styles.submittedCard}>
+        <View style={styles.submittedIconWrap}>
+          <Ionicons name="time" size={34} color={PrismColors.warning} />
+        </View>
+        <Text style={styles.submittedTitle}>Request Submitted</Text>
+        <Text style={styles.submittedMessage}>
+          Your leave request has been sent for approval.
+        </Text>
+        <View style={styles.submittedSummary}>
+          <Text style={styles.submittedSummaryLabel}>Status</Text>
+          <Text style={styles.submittedSummaryValue}>Pending Approval</Text>
+        </View>
+        <TouchableOpacity style={styles.submittedDoneBtn} onPress={onDone} activeOpacity={0.85}>
+          <Text style={styles.submittedDoneText}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
 
 function getLeaveCreditType(leaveType) {
   return ["maternity", "paternity"].includes(leaveType)
@@ -273,6 +305,7 @@ export default function LeaveScreen() {
   const [requestsLoading, setRequestsLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
   const [scheduleValidationError, setScheduleValidationError] = useState("");
+  const [submittedVisible, setSubmittedVisible] = useState(false);
   const scheduleValidationSeq = useRef(0);
   const accessDeniedAlertShownRef = useRef(false);
 
@@ -453,11 +486,7 @@ export default function LeaveScreen() {
       await submitLeaveRequest(formData);
       await loadLeaveData();
       setModalVisible(false);
-      Alert.alert(
-        "Request Submitted",
-        "Your leave request has been sent for approval.",
-        [{ text: "OK", onPress: navigateBackToSchedule }],
-      );
+      setSubmittedVisible(true);
     } catch (error) {
       Alert.alert(
         "Submission Failed",
@@ -577,6 +606,13 @@ export default function LeaveScreen() {
         onEdit={() => setModalVisible(false)}
         onConfirm={handleConfirmSubmit}
       />
+      <LeaveSubmittedModal
+        visible={submittedVisible}
+        onDone={() => {
+          setSubmittedVisible(false);
+          navigateBackToSchedule();
+        }}
+      />
     </ScreenWrapper>
   );
 }
@@ -605,5 +641,80 @@ const styles = StyleSheet.create({
     color: "#b91c1c",
     fontSize: 12,
     lineHeight: 17,
+  },
+  submittedOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(13, 31, 60, 0.48)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: PrismSpacing.lg,
+  },
+  submittedCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: PrismColors.white,
+    borderRadius: 18,
+    padding: PrismSpacing.lg,
+    alignItems: "center",
+    ...PrismShadows.header,
+  },
+  submittedIconWrap: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: PrismColors.warning + "18",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: PrismSpacing.md,
+  },
+  submittedTitle: {
+    fontSize: PrismTypography.lg,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.navy,
+    textAlign: "center",
+  },
+  submittedMessage: {
+    marginTop: PrismSpacing.xs,
+    fontSize: PrismTypography.sm,
+    color: PrismColors.textSecondary,
+    lineHeight: 19,
+    textAlign: "center",
+  },
+  submittedSummary: {
+    width: "100%",
+    marginTop: PrismSpacing.md,
+    paddingVertical: PrismSpacing.sm,
+    paddingHorizontal: PrismSpacing.md,
+    borderRadius: 12,
+    backgroundColor: PrismColors.offWhite,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  submittedSummaryLabel: {
+    fontSize: PrismTypography.xs,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.textSecondary,
+    textTransform: "uppercase",
+  },
+  submittedSummaryValue: {
+    fontSize: PrismTypography.base,
+    fontWeight: PrismTypography.extraBold,
+    color: PrismColors.navy,
+  },
+  submittedDoneBtn: {
+    width: "100%",
+    marginTop: PrismSpacing.lg,
+    borderRadius: 12,
+    backgroundColor: PrismColors.gold,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    ...PrismShadows.button,
+  },
+  submittedDoneText: {
+    fontSize: PrismTypography.base,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.navy,
   },
 });

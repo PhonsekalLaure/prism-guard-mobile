@@ -3,7 +3,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useRef } from "react";
 import { Animated, Platform, StyleSheet, Text, View } from "react-native";
 
-const NAVY = "#0d2550";
+import { PrismColors } from "@/constants/prismTheme";
+
+const NAVY = PrismColors.navy;
 const GOLD = "#c9a84c";
 
 export default function ProfileToast({ visible, icon, title, message }) {
@@ -46,7 +48,7 @@ const styles = StyleSheet.create({
     top: Platform.OS === "ios" ? 56 : 70,
     left: 16,
     right: 16,
-    backgroundColor: NAVY,
+    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 14,
     flexDirection: "row",
@@ -68,6 +70,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  toastTitle: { color: "#fff", fontWeight: "700", fontSize: 13 },
-  toastMsg: { color: "rgba(255,255,255,0.65)", fontSize: 11, marginTop: 1 },
+  toastTitle: { color: NAVY, fontWeight: "700", fontSize: 13 },
+  toastMsg: { color: "#6f7785", fontSize: 11, marginTop: 1 },
 });

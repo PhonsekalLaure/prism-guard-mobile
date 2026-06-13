@@ -10,6 +10,7 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
 } from 'react-native';
 import { router } from 'expo-router';
@@ -76,6 +77,31 @@ const STATUS_META = {
   settled: { label: 'Settled', color: C.muted, icon: 'receipt-outline' },
 };
 
+const RequestSubmittedModal = ({ visible, amountLabel, onDone }) => (
+  <Modal transparent animationType="fade" visible={visible} onRequestClose={onDone}>
+    <View style={styles.submittedOverlay}>
+      <View style={styles.submittedCard}>
+        <View style={styles.submittedIconWrap}>
+          <Ionicons name="time" size={34} color={C.warning} />
+        </View>
+        <Text style={styles.submittedTitle}>Request Submitted</Text>
+        <Text style={styles.submittedMessage}>
+          Your cash advance request is now pending approval.
+        </Text>
+        {amountLabel ? (
+          <View style={styles.submittedSummary}>
+            <Text style={styles.submittedSummaryLabel}>Amount Requested</Text>
+            <Text style={styles.submittedSummaryValue}>{amountLabel}</Text>
+          </View>
+        ) : null}
+        <TouchableOpacity style={styles.submittedDoneBtn} onPress={onDone} activeOpacity={0.85}>
+          <Text style={styles.submittedDoneText}>Done</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
+
 // ─── screen ───────────────────────────────────────────────────────
 
 export default function CashAdvanceScreen() {
@@ -92,6 +118,7 @@ export default function CashAdvanceScreen() {
   const [historyTotalCount, setHistoryTotalCount] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState(null);
+  const [submittedAmount, setSubmittedAmount] = useState(null);
 
   const loadLimit = useCallback(async () => {
     try {
@@ -175,16 +202,14 @@ export default function CashAdvanceScreen() {
           onPress: async () => {
             setSubmitting(true);
             try {
+              const requestedAmount = parsed;
               await submitCashAdvanceRequest({ amount: parsed, reason });
               setAmount('');
               setReason('');
               setDropdownOpen(false);
               setLimitLoading(true);
               await Promise.all([loadLimit(), loadHistory(1)]);
-              Alert.alert(
-                'Request Submitted',
-                'Your cash advance request is now pending approval.'
-              );
+              setSubmittedAmount(requestedAmount);
             } catch (err) {
               Alert.alert('Error', err.message);
             } finally {
@@ -420,6 +445,12 @@ export default function CashAdvanceScreen() {
           ) : null}
         </View>
       </ScrollView>
+
+      <RequestSubmittedModal
+        visible={submittedAmount !== null}
+        amountLabel={submittedAmount !== null ? toCurrency(submittedAmount) : ''}
+        onDone={() => setSubmittedAmount(null)}
+      />
     </View>
     </ScreenWrapper>
   );
@@ -613,5 +644,88 @@ const styles = StyleSheet.create({
     color:      C.muted,
     fontSize:   12,
     fontWeight: '700',
+  },
+  submittedOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(13, 31, 60, 0.48)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  submittedCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: C.card,
+    borderRadius: 18,
+    padding: 22,
+    alignItems: 'center',
+    shadowColor: '#093269',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 10,
+  },
+  submittedIconWrap: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: `${C.warning}18`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  submittedTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: C.primary,
+    textAlign: 'center',
+  },
+  submittedMessage: {
+    marginTop: 6,
+    fontSize: 13,
+    color: C.muted,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  submittedSummary: {
+    width: '100%',
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#F5F7FA',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  submittedSummaryLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: C.muted,
+    textTransform: 'uppercase',
+  },
+  submittedSummaryValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: C.primary,
+  },
+  submittedDoneBtn: {
+    width: '100%',
+    marginTop: 20,
+    borderRadius: 12,
+    backgroundColor: C.accent,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: C.accent,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  submittedDoneText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: C.primary,
   },
 });

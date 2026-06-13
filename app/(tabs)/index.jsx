@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import * as Notifications from "expo-notifications";
 
 import CheckInMap from "@/components/check-in/CheckInMap";
 import AnnouncementList from "@/components/dashboard/AnnouncementList";
@@ -303,7 +302,7 @@ export default function DashboardScreen() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [toast, setToast] = useState({
     visible: false,
-    icon: "📍",
+    icon: "location-outline",
     title: "",
     message: "",
     type: "success",
@@ -362,7 +361,7 @@ export default function DashboardScreen() {
     setUnreadNotifications(0);
     setToast({
       visible: false,
-      icon: "📍",
+      icon: "location-outline",
       title: "",
       message: "",
       type: "success",
@@ -490,7 +489,7 @@ export default function DashboardScreen() {
     if (!isOnDuty) {
       if (noShiftToday) {
         showToast({
-          icon: "!",
+          icon: "calendar-clear-outline",
           title: "No Shift Today",
           message: "You do not have a scheduled shift today. Contact your supervisor if this is incorrect.",
           type: "error",
@@ -503,7 +502,7 @@ export default function DashboardScreen() {
 
         if (!deployment?.client_sites) {
           showToast({
-            icon: "⚠️",
+            icon: "business-outline",
             title: "No Active Deployment",
             message: "You have no active site assignment.",
             type: "error",
@@ -533,30 +532,18 @@ export default function DashboardScreen() {
           setActiveAttendanceLog(attendanceLog);
           setIsOnDuty(true);
         } else {
-          try {
-            await Notifications.scheduleNotificationAsync({
-              content: {
-                title: "Outside Geofence",
-                body: "You must be inside your assigned site to clock in.",
-                data: {
-                  type: "geofence_time_in_blocked",
-                  checkType: "shift_start",
-                },
-              },
-              trigger: null,
-            });
-          } catch (notificationError) {
-            console.warn(
-              "Local notification failed:",
-              notificationError.message || notificationError,
-            );
-          }
+          showToast({
+            icon: "navigate-circle-outline",
+            title: "Outside Geofence",
+            message: "You must be inside your assigned site to clock in.",
+            type: "error",
+          });
         }
 
         // Always show map — inside or outside
       } catch (err) {
         showToast({
-          icon: "⚠️",
+          icon: "alert-circle-outline",
           title: "Unable to Time In",
           message: err.message || "Something went wrong. Please try again.",
           type: "error",
@@ -607,7 +594,7 @@ export default function DashboardScreen() {
       console.error("Clock-out failed:", err);
       setIsOnDuty(Boolean(activeAttendanceLog));
       showToast({
-        icon: "!",
+        icon: "alert-circle-outline",
         title: "Clock-out Failed",
         message: err.message || "Could not clock out. Please try again.",
         type: "error",
