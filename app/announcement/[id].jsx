@@ -34,6 +34,28 @@ function formatAnnouncementDate(value) {
   }).format(date);
 }
 
+const URGENCY_META = {
+  normal: {
+    label: "Normal",
+    badgeStyle: "urgencyBadgeNormal",
+    textStyle: "urgencyTextNormal",
+  },
+  important: {
+    label: "Important",
+    badgeStyle: "urgencyBadgeImportant",
+    textStyle: "urgencyTextImportant",
+  },
+  urgent: {
+    label: "Urgent",
+    badgeStyle: "urgencyBadgeUrgent",
+    textStyle: "urgencyTextUrgent",
+  },
+};
+
+function getUrgencyMeta(priority) {
+  return URGENCY_META[priority] || URGENCY_META.normal;
+}
+
 export default function AnnouncementDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
@@ -59,6 +81,8 @@ export default function AnnouncementDetailScreen() {
   useEffect(() => {
     loadAnnouncement();
   }, [loadAnnouncement]);
+
+  const urgency = announcement ? getUrgencyMeta(announcement.priority) : URGENCY_META.normal;
 
   return (
     <ScreenWrapper activeTabKey="home">
@@ -86,7 +110,14 @@ export default function AnnouncementDetailScreen() {
       ) : (
         <ScrollView contentContainerStyle={styles.content}>
           <View style={styles.card}>
-            <Text style={styles.title}>{announcement.title}</Text>
+            <View style={styles.titleRow}>
+              <Text style={styles.title}>{announcement.title}</Text>
+              <View style={[styles.urgencyBadge, styles[urgency.badgeStyle]]}>
+                <Text style={[styles.urgencyText, styles[urgency.textStyle]]}>
+                  {urgency.label}
+                </Text>
+              </View>
+            </View>
             {!!announcement.createdAt && (
               <Text style={styles.date}>
                 {formatAnnouncementDate(announcement.createdAt)}
@@ -134,11 +165,49 @@ const styles = StyleSheet.create({
     padding: PrismSpacing.lg,
     ...PrismShadows.card,
   },
+  titleRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: PrismSpacing.sm,
+    marginBottom: PrismSpacing.sm,
+  },
   title: {
+    flex: 1,
     color: PrismColors.textPrimary,
     fontSize: PrismTypography.xl,
     fontWeight: PrismTypography.bold,
-    marginBottom: PrismSpacing.sm,
+  },
+  urgencyBadge: {
+    borderRadius: PrismRadius.full,
+    paddingHorizontal: PrismSpacing.sm,
+    paddingVertical: 4,
+    borderWidth: 1,
+    marginTop: 2,
+  },
+  urgencyBadgeNormal: {
+    backgroundColor: PrismColors.offWhite,
+    borderColor: PrismColors.border,
+  },
+  urgencyBadgeImportant: {
+    backgroundColor: "rgba(243, 156, 18, 0.12)",
+    borderColor: "rgba(243, 156, 18, 0.35)",
+  },
+  urgencyBadgeUrgent: {
+    backgroundColor: "rgba(231, 76, 60, 0.12)",
+    borderColor: "rgba(231, 76, 60, 0.35)",
+  },
+  urgencyText: {
+    fontSize: PrismTypography.xs,
+    fontWeight: PrismTypography.bold,
+  },
+  urgencyTextNormal: {
+    color: PrismColors.textSecondary,
+  },
+  urgencyTextImportant: {
+    color: PrismColors.warning,
+  },
+  urgencyTextUrgent: {
+    color: PrismColors.danger,
   },
   date: {
     color: PrismColors.textSecondary,

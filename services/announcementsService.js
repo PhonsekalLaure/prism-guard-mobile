@@ -16,6 +16,13 @@ const getPreview = (announcement) => {
   return preview.length > 120 ? `${preview.slice(0, 117)}...` : preview;
 };
 
+const normalizePriority = (value) => {
+  const priority = String(value || "normal").trim().toLowerCase();
+  return ["normal", "important", "urgent"].includes(priority)
+    ? priority
+    : "normal";
+};
+
 const normalizeAnnouncement = (announcement, index) => ({
   id: String(announcement.id || announcement.announcement_id || index),
   title:
@@ -32,6 +39,8 @@ const normalizeAnnouncement = (announcement, index) => ({
     null,
   source: announcement.source || "prism",
   company: announcement.company || null,
+  priority: normalizePriority(announcement.priority || announcement.urgency),
+  expiresAt: announcement.expires_at || announcement.expiresAt || null,
   raw: announcement,
 });
 

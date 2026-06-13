@@ -9,22 +9,55 @@ import {
 import React from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-export const AnnouncementItem = ({ title, preview, onPress }) => (
-  <TouchableOpacity style={styles.item} onPress={onPress} activeOpacity={0.75}>
-    <View style={styles.iconWrapper}>
-      <Text style={styles.itemIcon}>ℹ</Text>
-    </View>
-    <View style={styles.itemContent}>
-      <Text style={styles.itemTitle} numberOfLines={1}>
-        {title}
-      </Text>
-      <Text style={styles.itemPreview} numberOfLines={1}>
-        {preview}
-      </Text>
-    </View>
-    <Text style={styles.chevron}>›</Text>
-  </TouchableOpacity>
-);
+const URGENCY_META = {
+  normal: {
+    label: "Normal",
+    badgeStyle: "urgencyBadgeNormal",
+    textStyle: "urgencyTextNormal",
+  },
+  important: {
+    label: "Important",
+    badgeStyle: "urgencyBadgeImportant",
+    textStyle: "urgencyTextImportant",
+  },
+  urgent: {
+    label: "Urgent",
+    badgeStyle: "urgencyBadgeUrgent",
+    textStyle: "urgencyTextUrgent",
+  },
+};
+
+function getUrgencyMeta(priority) {
+  return URGENCY_META[priority] || URGENCY_META.normal;
+}
+
+export const AnnouncementItem = ({ title, preview, priority = "normal", onPress }) => {
+  const urgency = getUrgencyMeta(priority);
+
+  return (
+    <TouchableOpacity style={styles.item} onPress={onPress} activeOpacity={0.75}>
+      <View style={styles.iconWrapper}>
+        <Text style={styles.itemIcon}>ℹ</Text>
+      </View>
+      <View style={styles.itemContent}>
+        <View style={styles.itemTitleRow}>
+          <Text style={styles.itemTitle} numberOfLines={1}>
+            {title}
+          </Text>
+          <View style={[styles.urgencyBadge, styles[urgency.badgeStyle]]}>
+            <Text style={[styles.urgencyText, styles[urgency.textStyle]]}>
+              {urgency.label}
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.itemPreview} numberOfLines={1}>
+          {preview}
+        </Text>
+      </View>
+      <Text style={styles.chevron}>›</Text>
+    </TouchableOpacity>
+  );
+};
 
 const AnnouncementList = ({
   announcements = [],
@@ -57,6 +90,7 @@ const AnnouncementList = ({
             key={item.id}
             title={item.title}
             preview={item.preview}
+            priority={item.priority}
             onPress={() => onItemPress?.(item)}
           />
         ))}
@@ -120,12 +154,50 @@ const styles = StyleSheet.create({
   },
   itemContent: {
     flex: 1,
+    minWidth: 0,
+  },
+  itemTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: PrismSpacing.sm,
+    marginBottom: 2,
   },
   itemTitle: {
+    flex: 1,
     fontSize: PrismTypography.sm,
     fontWeight: PrismTypography.bold,
     color: PrismColors.textPrimary,
-    marginBottom: 2,
+  },
+  urgencyBadge: {
+    borderRadius: PrismRadius.full,
+    paddingHorizontal: PrismSpacing.sm,
+    paddingVertical: 3,
+    borderWidth: 1,
+  },
+  urgencyBadgeNormal: {
+    backgroundColor: PrismColors.offWhite,
+    borderColor: PrismColors.border,
+  },
+  urgencyBadgeImportant: {
+    backgroundColor: "rgba(243, 156, 18, 0.12)",
+    borderColor: "rgba(243, 156, 18, 0.35)",
+  },
+  urgencyBadgeUrgent: {
+    backgroundColor: "rgba(231, 76, 60, 0.12)",
+    borderColor: "rgba(231, 76, 60, 0.35)",
+  },
+  urgencyText: {
+    fontSize: PrismTypography.xs,
+    fontWeight: PrismTypography.bold,
+  },
+  urgencyTextNormal: {
+    color: PrismColors.textSecondary,
+  },
+  urgencyTextImportant: {
+    color: PrismColors.warning,
+  },
+  urgencyTextUrgent: {
+    color: PrismColors.danger,
   },
   itemPreview: {
     fontSize: PrismTypography.xs,

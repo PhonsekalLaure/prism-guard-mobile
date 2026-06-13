@@ -93,6 +93,7 @@ export default function AnnouncementsScreen() {
             <AnnouncementItem
               title={item.title}
               preview={item.preview}
+              priority={item.priority}
               onPress={() => router.push(`/announcement/${item.id}`)}
             />
           )}
