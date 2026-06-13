@@ -240,7 +240,10 @@ export default function ProfileScreen() {
   const [showPassModal, setShowPassModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [newEmail, setNewEmail] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [emailStep, setEmailStep] = useState("request");
   const [emailError, setEmailError] = useState("");
+  const [emailStatus, setEmailStatus] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [toast, setToast] = useState({
@@ -258,9 +261,18 @@ export default function ProfileScreen() {
   useEffect(() => {
     if (showEmailModal) {
       setNewEmail(email || "");
+      setEmailCode("");
+      setEmailStep("request");
       setEmailError("");
+      setEmailStatus("");
     }
   }, [showEmailModal, email]);
+
+  const logoutToLogin = async () => {
+    await authService.logout();
+    await refreshAccess();
+    router.replace("/login");
+  };
 
   const handleRequestEmailChange = async () => {
     const trimmedEmail = String(newEmail || "").trim();
@@ -271,16 +283,45 @@ export default function ProfileScreen() {
 
     try {
       setEmailError("");
+      setEmailStatus("");
       setEmailLoading(true);
       const result = await authService.changeEmail(trimmedEmail);
-      setShowEmailModal(false);
-      showToast(
-        "mail",
-        "Email change requested",
-        result.message || "Please confirm your new email address.",
+      if (result.alreadyConfirmed) {
+        setShowEmailModal(false);
+        showToast(
+          "mail",
+          "Email unchanged",
+          result.message || "Email address is already confirmed.",
+        );
+        return;
+      }
+
+      setEmailStep("confirm");
+      setEmailStatus(
+        result.message || "Enter the code sent to your new email address.",
       );
     } catch (err) {
       setEmailError(err?.message || "Could not request email change.");
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleConfirmEmailChange = async () => {
+    if (!emailCode.trim()) {
+      setEmailError("Please enter the confirmation code.");
+      return;
+    }
+
+    try {
+      setEmailError("");
+      setEmailStatus("");
+      setEmailLoading(true);
+      await authService.confirmEmailChange(emailCode.trim());
+      setShowEmailModal(false);
+      await logoutToLogin();
+    } catch (err) {
+      setEmailError(err?.message || "Could not confirm email change.");
     } finally {
       setEmailLoading(false);
     }
@@ -372,19 +413,37 @@ export default function ProfileScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Change Email</Text>
             <Text style={styles.modalText}>
-              Enter your new email address to request an email change. Your current email will remain active until you confirm the new one.
+              {emailStep === "request"
+                ? "Enter your new email address. We'll send a confirmation code there."
+                : "Enter the confirmation code sent to your new email address. After confirmation, you'll be logged out."}
             </Text>
-            <TextInput
-              style={styles.input}
-              placeholder="New email address"
-              placeholderTextColor="#999"
-              value={newEmail}
-              onChangeText={setNewEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
+            {emailStep === "request" ? (
+              <TextInput
+                style={styles.input}
+                placeholder="New email address"
+                placeholderTextColor="#999"
+                value={newEmail}
+                onChangeText={setNewEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            ) : (
+              <>
+                <Text style={styles.pendingEmailText}>{newEmail}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirmation code"
+                  placeholderTextColor="#999"
+                  value={emailCode}
+                  onChangeText={setEmailCode}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+              </>
+            )}
             {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+            {emailStatus ? <Text style={styles.successText}>{emailStatus}</Text> : null}
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.secondaryBtn}
@@ -395,14 +454,31 @@ export default function ProfileScreen() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.primaryBtn, emailLoading && { opacity: 0.7 }]}
-                onPress={handleRequestEmailChange}
+                onPress={
+                  emailStep === "request"
+                    ? handleRequestEmailChange
+                    : handleConfirmEmailChange
+                }
                 disabled={emailLoading}
               >
                 <Text style={styles.primaryBtnText}>
-                  {emailLoading ? "Requesting..." : "Request Email Change"}
+                  {emailLoading
+                    ? "Please wait..."
+                    : emailStep === "request"
+                      ? "Send Code"
+                      : "Confirm Email"}
                 </Text>
               </TouchableOpacity>
             </View>
+            {emailStep === "confirm" ? (
+              <TouchableOpacity
+                style={styles.resendBtn}
+                onPress={handleRequestEmailChange}
+                disabled={emailLoading}
+              >
+                <Text style={styles.resendText}>Resend code</Text>
+              </TouchableOpacity>
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -411,13 +487,9 @@ export default function ProfileScreen() {
         visible={showPassModal}
         identifier={email || displayId}
         onClose={() => setShowPassModal(false)}
-        onSuccess={(message) =>
-          showToast(
-            "checkmark-circle",
-            "Password Updated",
-            message || "Your password has been updated.",
-          )
-        }
+        onSuccess={async () => {
+          await logoutToLogin();
+        }}
       />
 
       {/* ── Modals ── */}
@@ -426,9 +498,7 @@ export default function ProfileScreen() {
         onCancel={() => setShowLogout(false)}
         onConfirm={async () => {
           setShowLogout(false);
-          await authService.logout();
-          await refreshAccess();
-          router.replace("/login");
+          await logoutToLogin();
         }}
       />
 
@@ -527,6 +597,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: "center",
     lineHeight: 18,
+  },
+  pendingEmailText: {
+    color: NAVY,
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 10,
   },
   passwordInputRow: {
     position: "relative",

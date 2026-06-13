@@ -202,7 +202,7 @@ const authService = {
     }
 
     const apiResponse = await this.authenticatedFetch(
-      `${BASE_URL}/api/web/profile/change-email`,
+      `${BASE_URL}/api/mobile/auth/change-email`,
       {
         method: 'POST',
         body: JSON.stringify({ email: email.trim() }),
@@ -211,6 +211,20 @@ const authService = {
 
     const data = await parseJsonResponse(apiResponse);
     if (!apiResponse.ok) throw new Error(data.error || 'Failed to request email change');
+    return data;
+  },
+
+  async confirmEmailChange(code) {
+    const apiResponse = await this.authenticatedFetch(
+      `${BASE_URL}/api/mobile/auth/confirm-email-change`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ code: String(code || '').trim() }),
+      }
+    );
+
+    const data = await parseJsonResponse(apiResponse);
+    if (!apiResponse.ok) throw new Error(data.error || 'Failed to confirm email change');
     return data;
   },
 };
