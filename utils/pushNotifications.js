@@ -182,10 +182,7 @@ export function addNotificationResponseListener() {
 
       await saveLocationPing({
         attendanceLogId,
-        latitude: result.coords.latitude,
-        longitude: result.coords.longitude,
-        isWithinGeofence: result.isInside,
-        violationStage: result.isInside ? "inside" : "warning_ping",
+        locationEvidence: result.locationEvidence,
       });
 
       console.log(`Checkpoint ping saved for ${checkType}`);

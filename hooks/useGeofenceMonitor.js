@@ -66,8 +66,7 @@ export function useGeofenceMonitor(
         if (result.isInside) {
           await saveLocationPing({
             attendanceLogId,
-            latitude: result.coords.latitude,
-            longitude: result.coords.longitude,
+            locationEvidence: result.locationEvidence,
           });
           await clearOutsideState();
           return;
@@ -75,8 +74,7 @@ export function useGeofenceMonitor(
 
         const response = await saveLocationPing({
           attendanceLogId,
-          latitude: result.coords.latitude,
-          longitude: result.coords.longitude,
+          locationEvidence: result.locationEvidence,
         });
         const stage = response?.ping?.violationStage || "warning_ping";
         const outsideDurationMs = Number(response?.ping?.outsideDurationMs) || 0;

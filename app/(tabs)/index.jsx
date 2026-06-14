@@ -525,8 +525,7 @@ export default function DashboardScreen() {
         if (result.isInside) {
           const { attendanceLog } = await clockIn({
             siteId: deployment.site_id || deployment.client_sites.id,
-            latitude: result.coords.latitude,
-            longitude: result.coords.longitude,
+            locationEvidence: result.locationEvidence,
           });
 
           setActiveAttendanceLog(attendanceLog);
@@ -576,8 +575,7 @@ export default function DashboardScreen() {
 
       await clockOut({
         attendanceLogId: activeAttendanceLog.id,
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
+        locationEvidence: position.locationEvidence,
       });
 
       setActiveAttendanceLog(null);

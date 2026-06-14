@@ -44,6 +44,33 @@ function getDistanceMeters(coord1, coord2) {
   return earthRadiusMeters * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function getSampleSpreadMeters(samples) {
+  let maximumDistance = 0;
+  for (let firstIndex = 0; firstIndex < samples.length; firstIndex += 1) {
+    for (let secondIndex = firstIndex + 1; secondIndex < samples.length; secondIndex += 1) {
+      maximumDistance = Math.max(
+        maximumDistance,
+        getDistanceMeters(samples[firstIndex].coords, samples[secondIndex].coords),
+      );
+    }
+  }
+  return Math.round(maximumDistance);
+}
+
+export function buildLocationEvidence(position, options = {}) {
+  const coords = position?.coords || {};
+  return {
+    latitude: coords.latitude,
+    longitude: coords.longitude,
+    accuracyMeters: coords.accuracy,
+    capturedAt: new Date(position?.timestamp || Date.now()).toISOString(),
+    mocked: position?.mocked === true,
+    sampleCount: options.sampleCount || 1,
+    sampleSpreadMeters: options.sampleSpreadMeters || 0,
+    platform: Platform.OS,
+  };
+}
+
 function withTimeout(promise, timeoutMs) {
   let timeoutId;
   const timeout = new Promise((_, reject) => {
@@ -72,10 +99,8 @@ async function getAccurateCurrentPosition() {
     await Location.enableNetworkProviderAsync().catch(() => undefined);
   }
 
-  let bestPosition = await Location.getLastKnownPositionAsync({
-    maxAge: 15000,
-    requiredAccuracy: 100,
-  }).catch(() => null);
+  let bestPosition = null;
+  const samples = [];
 
   for (let attempt = 0; attempt < LOCATION_ATTEMPT_COUNT; attempt += 1) {
     try {
@@ -87,12 +112,17 @@ async function getAccurateCurrentPosition() {
         LOCATION_TIMEOUT_MS,
       );
 
+      samples.push(position);
       if (isBetterPosition(position, bestPosition)) {
         bestPosition = position;
       }
 
       const accuracy = Number(bestPosition?.coords?.accuracy);
-      if (Number.isFinite(accuracy) && accuracy <= MAX_ACCEPTABLE_ACCURACY_METERS) {
+      if (
+        samples.length >= 2
+        && Number.isFinite(accuracy)
+        && accuracy <= MAX_ACCEPTABLE_ACCURACY_METERS
+      ) {
         break;
       }
     } catch (err) {
@@ -106,7 +136,10 @@ async function getAccurateCurrentPosition() {
     throw new Error("Could not get your current location");
   }
 
-  return bestPosition;
+  return {
+    bestPosition,
+    samples,
+  };
 }
 
 export async function validateGuardLocation(site) {
@@ -120,9 +153,15 @@ export async function validateGuardLocation(site) {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== "granted") throw new Error("Location permission denied");
 
-  const position = await getAccurateCurrentPosition();
+  const { bestPosition: position, samples } = await getAccurateCurrentPosition();
 
   const { latitude, longitude, accuracy } = position.coords;
+  const mocked = samples.some((sample) => sample?.mocked === true);
+  if (mocked) {
+    const error = new Error("Mock location detected. Disable fake GPS and try again.");
+    error.code = "MOCK_LOCATION_DETECTED";
+    throw error;
+  }
 
   const distance = getDistanceMeters(
     { latitude, longitude },
@@ -135,5 +174,9 @@ export async function validateGuardLocation(site) {
     post: normalizedSite,
     coords: { latitude, longitude, accuracy },
     timestamp: position.timestamp,
+    locationEvidence: buildLocationEvidence(position, {
+      sampleCount: samples.length,
+      sampleSpreadMeters: getSampleSpreadMeters(samples),
+    }),
   };
 }

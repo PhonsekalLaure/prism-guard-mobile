@@ -35,7 +35,9 @@ async function request(path, options = {}) {
 
   if (!response.ok) {
     const message = (data && (data.error || data.message)) || response.statusText || 'Attendance request failed';
-    throw new Error(message);
+    const error = new Error(message);
+    error.code = data?.code;
+    throw error;
   }
 
   return data;
@@ -46,32 +48,57 @@ export const fetchActiveAttendance = async () => {
   return data.attendanceLog;
 };
 
+export const createLocationChallenge = async ({
+  action,
+  siteId,
+  attendanceLogId,
+  scheduleId,
+}) =>
+  request("/location-challenge", {
+    method: "POST",
+    body: JSON.stringify({
+      action,
+      siteId,
+      attendanceLogId,
+      scheduleId,
+    }),
+  });
+
 export const clockIn = async ({
   siteId,
   scheduleId,
-  latitude,
-  longitude,
-}) =>
-  request("/clock-in", {
+  locationEvidence,
+}) => {
+  const { challengeId } = await createLocationChallenge({
+    action: "clock_in",
+    siteId,
+    scheduleId,
+  });
+  return request("/clock-in", {
     method: "POST",
     body: JSON.stringify({
       siteId,
       scheduleId,
-      latitude,
-      longitude,
+      challengeId,
+      locationEvidence,
     }),
   });
+};
 
 export const clockOut = async ({
   attendanceLogId,
-  latitude,
-  longitude,
-}) =>
-  request("/clock-out", {
+  locationEvidence,
+}) => {
+  const { challengeId } = await createLocationChallenge({
+    action: "clock_out",
+    attendanceLogId,
+  });
+  return request("/clock-out", {
     method: "POST",
     body: JSON.stringify({
       attendanceLogId,
-      latitude,
-      longitude,
+      challengeId,
+      locationEvidence,
     }),
   });
+};

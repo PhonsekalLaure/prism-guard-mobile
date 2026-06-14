@@ -3,6 +3,7 @@ import * as Location from "expo-location";
 import * as Notifications from "expo-notifications";
 import * as TaskManager from "expo-task-manager";
 import { saveLocationPing } from "@/utils/locationPing";
+import { buildLocationEvidence } from "@/utils/geofence";
 
 export const ATTENDANCE_LOCATION_TASK = "prism-guard-attendance-location";
 
@@ -113,8 +114,7 @@ async function processBackgroundLocation(location) {
 
   const response = await saveLocationPing({
     attendanceLogId: context.attendanceLogId,
-    latitude: coords.latitude,
-    longitude: coords.longitude,
+    locationEvidence: buildLocationEvidence(location),
   });
   const ping = response?.ping;
 

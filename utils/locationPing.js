@@ -47,15 +47,41 @@ async function postLocationPing(token, body) {
   });
 }
 
+async function postLocationPingChallenge(token, attendanceLogId) {
+  return fetch(`${BASE_URL}/api/mobile/location-pings/challenge`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ attendanceLogId }),
+  });
+}
+
 export async function saveLocationPing({
   attendanceLogId,
-  latitude,
-  longitude,
+  locationEvidence,
 }) {
   let token = await AsyncStorage.getItem("access_token");
   if (!token) throw new Error("No session found");
 
-  const body = { attendanceLogId, latitude, longitude };
+  let challengeResponse = await postLocationPingChallenge(token, attendanceLogId);
+  if (challengeResponse.status === 401) {
+    token = await refreshAccessToken();
+    challengeResponse = await postLocationPingChallenge(token, attendanceLogId);
+  }
+  const challenge = await parseResponse(challengeResponse);
+  if (!challengeResponse.ok) {
+    const error = new Error(challenge.error || "Failed to create location challenge");
+    error.code = challenge.code;
+    throw error;
+  }
+
+  const body = {
+    attendanceLogId,
+    challengeId: challenge.challengeId,
+    locationEvidence,
+  };
   let response = await postLocationPing(token, body);
   if (response.status === 401) {
     token = await refreshAccessToken();
