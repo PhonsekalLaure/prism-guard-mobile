@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Notifications from "expo-notifications";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import CheckInMap from "@/components/check-in/CheckInMap";
@@ -33,6 +35,11 @@ const CHECK_TYPE_LABELS = {
   shift_start: "Time In",
   logout: "Time Out",
 };
+const SHIFT_END_REMINDER_PREFIX = "shift_end_reminders";
+const SHIFT_END_REMINDERS = [
+  { minutesBeforeEnd: 60, title: "Shift ending in 1 hour" },
+  { minutesBeforeEnd: 30, title: "Shift ending in 30 minutes" },
+];
 
 const formatDate = () => {
   const now = new Date();
@@ -102,6 +109,66 @@ const formatAttendanceTime = (value) => {
     hour: "numeric",
     minute: "2-digit",
   });
+};
+
+const getShiftEndReminderKey = (attendanceLogId) => (
+  `${SHIFT_END_REMINDER_PREFIX}:${attendanceLogId}`
+);
+
+const cancelStoredShiftEndReminders = async (attendanceLogId) => {
+  if (!attendanceLogId) return;
+
+  const key = getShiftEndReminderKey(attendanceLogId);
+  const storedValue = await AsyncStorage.getItem(key);
+  if (storedValue) {
+    try {
+      const identifiers = JSON.parse(storedValue);
+      await Promise.all((Array.isArray(identifiers) ? identifiers : []).map((identifier) => (
+        Notifications.cancelScheduledNotificationAsync(identifier).catch(() => null)
+      )));
+    } catch {
+      // Ignore malformed reminder state and replace it below.
+    }
+  }
+  await AsyncStorage.removeItem(key);
+};
+
+const scheduleShiftEndReminders = async ({ attendanceLogId, endAt, siteName }) => {
+  if (!attendanceLogId || !endAt || Number.isNaN(endAt.getTime())) return;
+
+  await cancelStoredShiftEndReminders(attendanceLogId);
+
+  const now = Date.now();
+  const identifiers = [];
+  for (const reminder of SHIFT_END_REMINDERS) {
+    const reminderAt = new Date(endAt.getTime() - (reminder.minutesBeforeEnd * 60 * 1000));
+    if (reminderAt.getTime() <= now) continue;
+
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title: reminder.title,
+        body: `Your duty at ${siteName || "your assigned site"} is about to end. Prepare to clock out on time.`,
+        data: {
+          type: "shift_end_reminder",
+          attendanceLogId,
+          minutesBeforeEnd: reminder.minutesBeforeEnd,
+          screen: "home",
+        },
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: reminderAt,
+      },
+    });
+    identifiers.push(identifier);
+  }
+
+  if (identifiers.length) {
+    await AsyncStorage.setItem(
+      getShiftEndReminderKey(attendanceLogId),
+      JSON.stringify(identifiers),
+    );
+  }
 };
 
 const formatVerificationTimestamp = (value) => {
@@ -607,6 +674,19 @@ export default function DashboardScreen() {
   const todayShift = todaySchedule?.scheduleDays?.find((item) => item.date === todayDateKey)
     || (todaySchedule?.selectedDate === todayDateKey ? todaySchedule?.selectedShift : null)
     || null;
+  const activeAttendanceShift = activeAttendanceLog?.scheduleId
+    ? todaySchedule?.scheduleDays?.find((item) => (
+      item.scheduleId === activeAttendanceLog.scheduleId
+      && (!activeAttendanceLog.logDate || item.date === activeAttendanceLog.logDate)
+    ))
+    : null;
+  const activeAttendanceFallbackShift = activeAttendanceLog?.shiftStart && activeAttendanceLog?.shiftEnd
+    ? {
+      date: activeAttendanceLog.logDate,
+      shiftStart: activeAttendanceLog.shiftStart,
+      shiftEnd: activeAttendanceLog.shiftEnd,
+    }
+    : null;
   const scheduleLoaded = !todayScheduleLoading && todaySchedule !== null;
   const noShiftToday = scheduleLoaded && !todayShift && !isOnDuty;
   // If there's no shift for today, try to pick a sensible fallback from the schedule:
@@ -635,23 +715,60 @@ export default function DashboardScreen() {
   }
   const deploymentShiftStart = deployment?.shift_start || deployment?.shiftStart || deployment?.start_time;
   const deploymentShiftEnd = deployment?.shift_end || deployment?.shiftEnd || deployment?.end_time;
-  const displayShiftStart = todayShift?.shiftStart || fallbackShift?.shiftStart || deploymentShiftStart || "--";
-  const displayShiftEnd = todayShift?.shiftEnd || fallbackShift?.shiftEnd || deploymentShiftEnd || "--";
+  const displayShift = isOnDuty && (activeAttendanceShift || activeAttendanceFallbackShift)
+    ? (activeAttendanceShift || activeAttendanceFallbackShift)
+    : (todayShift || fallbackShift);
+  const displayShiftDateKey = displayShift?.date || activeAttendanceLog?.logDate || todayDateKey;
+  const displayShiftStart = displayShift?.shiftStart || deploymentShiftStart || "--";
+  const displayShiftEnd = displayShift?.shiftEnd || deploymentShiftEnd || "--";
   const formatShiftDisplay = (dateKey, value) => {
     if (!value || value === "--") return "--";
     const dt = parseShiftDateTime(dateKey, value);
     if (!dt) return String(value);
     return dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   };
-  const displayShiftStartFormatted = formatShiftDisplay(todayDateKey, displayShiftStart);
-  const displayShiftEndFormatted = formatShiftDisplay(todayDateKey, displayShiftEnd);
+  const displayShiftStartFormatted = formatShiftDisplay(displayShiftDateKey, displayShiftStart);
+  const displayShiftEndFormatted = formatShiftDisplay(displayShiftDateKey, displayShiftEnd);
   const shiftTiming = getShiftTiming({
-    dateKey: todayDateKey,
+    dateKey: displayShiftDateKey,
     shiftStart: displayShiftStart,
     shiftEnd: displayShiftEnd,
     now,
   });
   const clockInTime = formatAttendanceTime(activeAttendanceLog?.clockIn);
+
+  useEffect(() => {
+    const attendanceLogId = activeAttendanceLog?.id;
+    if (!attendanceLogId || !isOnDuty) return undefined;
+
+    const startAt = parseShiftDateTime(displayShiftDateKey, displayShiftStart);
+    const endAt = parseShiftDateTime(displayShiftDateKey, displayShiftEnd);
+    if (!startAt || !endAt) return undefined;
+
+    const normalizedEndAt = new Date(endAt);
+    if (normalizedEndAt <= startAt) {
+      normalizedEndAt.setDate(normalizedEndAt.getDate() + 1);
+    }
+
+    scheduleShiftEndReminders({
+      attendanceLogId,
+      endAt: normalizedEndAt,
+      siteName: deployment?.client_sites?.site_name,
+    }).catch((err) => {
+      console.warn("Could not schedule shift end reminders:", err.message || err);
+    });
+
+    return () => {
+      cancelStoredShiftEndReminders(attendanceLogId).catch(() => null);
+    };
+  }, [
+    activeAttendanceLog?.id,
+    deployment?.client_sites?.site_name,
+    displayShiftDateKey,
+    displayShiftEnd,
+    displayShiftStart,
+    isOnDuty,
+  ]);
 
   return (
     <ScreenWrapper activeTabKey="home">
