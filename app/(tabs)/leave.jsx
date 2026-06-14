@@ -17,10 +17,7 @@ import * as WebBrowser from "expo-web-browser";
 import {
   formatLeaveDate,
   getTodayDateKey,
-  parseDateKey,
   addDaysToDateKey,
-  countInclusiveDays,
-  getDateRange,
 } from "../../utils/leaveDates";
 
 import ScreenWrapper from "@/components/dashboard/ScreenWrapper";
@@ -46,7 +43,6 @@ import {
 } from "@/constants/prismTheme";
 
 const LEAVE_HISTORY_PAGE_SIZE = 3;
-const WEEKDAY_ONLY_LEAVE_TYPES = new Set(["service_incentive"]);
 
 const LeaveSubmittedModal = ({ visible, onDone }) => (
   <Modal transparent animationType="fade" visible={visible} onRequestClose={onDone}>
@@ -72,205 +68,101 @@ const LeaveSubmittedModal = ({ visible, onDone }) => (
 );
 
 function getLeaveCreditType(leaveType) {
-  return ["maternity", "paternity"].includes(leaveType)
-    ? "maternity_paternity"
-    : leaveType;
-}
-
-function isWeekendDate(dateKey) {
-  const date = parseDateKey(dateKey);
-  if (!date) return false;
-  const day = date.getDay();
-  return day === 0 || day === 6;
-}
-
-function hasWeekendInRange(startDate, endDate) {
-  return getDateRange(startDate, endDate).some(isWeekendDate);
+  return leaveType;
 }
 
 function isSupportingDocumentRequired(formData) {
-  const daysRequested = countInclusiveDays(formData.startDate, formData.endDate);
-  return (
-    ["emergency", "bereavement"].includes(formData.leaveType)
-    || (formData.leaveType === "sick" && daysRequested >= 3)
-  );
-}
-
-function getLeaveStartDateError(leaveType, startDate) {
-  const today = getTodayDateKey();
-  if (!startDate) return null;
-
-  if (leaveType === "sick" && startDate !== today) {
-    return "Sick leave must start today.";
-  }
-
-  if (leaveType === "emergency" && startDate !== today) {
-    return "Emergency leave must start today.";
-  }
-
-  if (leaveType === "bereavement") {
-    const latestStart = addDaysToDateKey(today, 2);
-    if (startDate < today || startDate > latestStart) {
-      return `Bereavement leave must start from today through ${formatLeaveDate(latestStart)}.`;
-    }
-  }
-
-  if (startDate < today) {
-    if (!["sick", "paternity"].includes(leaveType)) {
-      return "Cannot request leave in the past";
-    }
-  }
-
-  if (leaveType === "service_incentive") {
-    const earliest = addDaysToDateKey(today, 60);
-    if (startDate < earliest) {
-      return `Service incentive leave requires at least 60 days advance notice (earliest: ${formatLeaveDate(earliest)})`;
-    }
-  }
-
-  return null;
-}
-
-function getLeaveEndDateError(leaveType, startDate, endDate) {
-  const today = getTodayDateKey();
-  if (!startDate || !endDate) return null;
-
-  if (endDate < startDate) {
-    return "End date cannot be before the start date";
-  }
-
-  if (endDate < today) {
-    if (!["sick", "paternity"].includes(leaveType)) {
-      return "Cannot request leave in the past";
-    }
-  }
-
-  if (leaveType === "sick" && startDate !== today) {
-    return "Sick leave must start today.";
-  }
-
-  if (leaveType === "emergency") {
-    const latestEnd = addDaysToDateKey(today, 4);
-    if (startDate !== today || endDate > latestEnd) {
-      return `Emergency leave must start today and last 1 to 5 days, ending no later than ${formatLeaveDate(latestEnd)}.`;
-    }
-  }
-
-  if (leaveType === "bereavement") {
-    const minEndDate = addDaysToDateKey(startDate, 2);
-    const maxEndDate = addDaysToDateKey(startDate, 4);
-    if (endDate < minEndDate || endDate > maxEndDate) {
-      return `Bereavement leave must last 3 to 5 consecutive days, ending from ${formatLeaveDate(minEndDate)} to ${formatLeaveDate(maxEndDate)}.`;
-    }
-  }
-
-  return null;
-}
-
-function getMonthKeysBetween(startDate, endDate) {
-  const start = parseDateKey(startDate);
-  const end = parseDateKey(endDate);
-  if (!start || !end || end < start) return [];
-
-  const keys = [];
-  const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-  const final = new Date(end.getFullYear(), end.getMonth(), 1);
-
-  while (cursor <= final) {
-    keys.push(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, "0")}`);
-    cursor.setMonth(cursor.getMonth() + 1);
-  }
-
-  return keys;
-}
-
-async function loadScheduledDatesForMonth(monthKey) {
-  const [year, monthString] = monthKey.split("-").map(Number);
-  const result = await fetchMonthlySchedule({ year, month: monthString - 1 });
-  return {
-    scheduledDates: result.scheduledDates || [],
-    absentDates: result.absentDates || [],
-  };
-}
-
-async function validateLeaveDates(leaveType, startDate, endDate) {
-  if (WEEKDAY_ONLY_LEAVE_TYPES.has(leaveType) && hasWeekendInRange(startDate, endDate)) {
-    return "This leave type cannot include Saturdays or Sundays.";
-  }
-
-  if (
-    WEEKDAY_ONLY_LEAVE_TYPES.has(leaveType)
-    || ["sick", "maternity", "paternity", "emergency", "bereavement"].includes(leaveType)
-  ) {
-    return null;
-  }
-
-  const monthKeys = getMonthKeysBetween(startDate, endDate);
-  if (monthKeys.length === 0) return null;
-
-  const scheduleMonths = await Promise.all(monthKeys.map(loadScheduledDatesForMonth));
-  const scheduledSet = new Set(scheduleMonths.flatMap((item) => item.scheduledDates));
-  const absentSet = new Set(scheduleMonths.flatMap((item) => item.absentDates));
-  const requestedDates = getDateRange(startDate, endDate);
-
-  if (leaveType === "sick") {
-    const today = getTodayDateKey();
-    const isValidSickDate = (date) => (
-      (date < today && absentSet.has(date))
-      || (date === today && scheduledSet.has(date))
-    );
-    if (requestedDates.every(isValidSickDate)) return null;
-
-    return "Sick leave can only be filed for past absent shift days or today's scheduled shift";
-  }
-
-  if (requestedDates.every((date) => scheduledSet.has(date))) return null;
-
-  return "You can only request leave on scheduled shift days";
+  return Boolean(formData.leaveType && formData.leaveType !== "service_incentive");
 }
 
 function getLeaveFormError(formData) {
-  const startDateError = getLeaveStartDateError(formData.leaveType, formData.startDate);
-  if (startDateError) return startDateError;
+  const today = getTodayDateKey();
+  const dates = formData.requestedDates || [];
+  if (!formData.leaveType || dates.length === 0) return null;
 
-  const endDateError = getLeaveEndDateError(formData.leaveType, formData.startDate, formData.endDate);
-  if (endDateError) return endDateError;
-
-  const daysRequested = countInclusiveDays(formData.startDate, formData.endDate);
-
-  if (WEEKDAY_ONLY_LEAVE_TYPES.has(formData.leaveType) && hasWeekendInRange(formData.startDate, formData.endDate)) {
-    return "This leave type cannot include Saturdays or Sundays.";
+  if (isSupportingDocumentRequired(formData) && !formData.supportingDocument) {
+    return "A supporting document is required for this leave type.";
   }
 
-  if (formData.leaveType === "sick" && daysRequested >= 3 && !formData.supportingDocument) {
-    return "A medical certificate is required for sick leave of 3 days or more.";
+  if (formData.leaveType === "emergency") {
+    if (dates[0] !== today) return "Emergency leave must start today.";
+    if (dates.length > 5) return "Emergency leave can include at most 5 working days.";
   }
 
   if (formData.leaveType === "maternity") {
     if (!formData.deliveryDate) return "Expected delivery date is required for maternity leave.";
-    const earliestStart = addDaysToDateKey(formData.deliveryDate, -60);
-    const latestEnd = addDaysToDateKey(formData.deliveryDate, 45);
-    if (formData.startDate < earliestStart || formData.endDate > latestEnd) {
-      return `Maternity leave must be within ${formatLeaveDate(earliestStart)} to ${formatLeaveDate(latestEnd)}.`;
-    }
+    if (dates.length !== 105) return "Maternity leave must cover exactly 105 consecutive days.";
   }
 
   if (formData.leaveType === "paternity") {
     if (!formData.childBirthDate) return "Child birth date is required for paternity leave.";
     const latestEnd = addDaysToDateKey(formData.childBirthDate, 60);
-    if (formData.startDate < formData.childBirthDate || formData.endDate > latestEnd) {
+    if (dates.length > 7) return "Paternity leave may include at most 7 calendar days.";
+    if (dates.some((date) => date < formData.childBirthDate || date > latestEnd)) {
       return `Paternity leave must be within 60 days of the child's birth (${formatLeaveDate(formData.childBirthDate)} to ${formatLeaveDate(latestEnd)}).`;
     }
   }
 
-  if (formData.leaveType === "bereavement" && (daysRequested < 3 || daysRequested > 5)) {
-    return "Bereavement leave must be 3 to 5 consecutive days.";
+  if (
+    formData.leaveType === "service_incentive"
+    && formData.silPurpose !== "sick_substitution"
+    && dates.some((date) => date < today)
+  ) {
+    return "Standard Service Incentive Leave cannot be filed in the past.";
   }
 
-  if (["emergency", "bereavement"].includes(formData.leaveType) && !formData.supportingDocument) {
-    return formData.leaveType === "emergency"
-      ? "Proof document is required for emergency leave."
-      : "Death certificate is required for bereavement leave.";
+  return null;
+}
+
+function getMonthKeysForDates(dates) {
+  return [...new Set(dates.map((date) => date.slice(0, 7)))];
+}
+
+async function validateLeaveDates(leaveType, silPurpose, requestedDates) {
+  if (leaveType === "maternity") return null;
+  const scheduleMonths = await Promise.all(
+    getMonthKeysForDates(requestedDates).map(async (monthKey) => {
+      const [year, monthString] = monthKey.split("-").map(Number);
+      return fetchMonthlySchedule({ year, month: monthString - 1 });
+    }),
+  );
+  const scheduledSet = new Set(scheduleMonths.flatMap((item) => item.scheduledDates || []));
+  const absentSet = new Set(scheduleMonths.flatMap((item) => item.absentDates || []));
+  const today = getTodayDateKey();
+  const sickMode = leaveType === "sick"
+    || (leaveType === "service_incentive" && silPurpose === "sick_substitution");
+
+  if (sickMode) {
+    const valid = requestedDates.every((date) => (
+      (date < today && absentSet.has(date))
+      || (date === today && scheduledSet.has(date))
+    ));
+    return valid
+      ? null
+      : "Sick-related leave can only use past absent shifts or today's scheduled shift.";
+  }
+
+  if (!requestedDates.every((date) => scheduledSet.has(date))) {
+    return "You can only request leave on scheduled working days.";
+  }
+
+  if (leaveType === "emergency") {
+    const [startDate] = requestedDates;
+    const endDate = requestedDates[requestedDates.length - 1];
+    const expectedDates = [];
+    for (
+      let cursor = startDate;
+      cursor <= endDate;
+      cursor = addDaysToDateKey(cursor, 1)
+    ) {
+      if (scheduledSet.has(cursor)) expectedDates.push(cursor);
+    }
+    if (
+      expectedDates.length !== requestedDates.length
+      || expectedDates.some((date, index) => date !== requestedDates[index])
+    ) {
+      return "Emergency leave must cover consecutive scheduled shifts.";
+    }
   }
 
   return null;
@@ -285,10 +177,12 @@ export default function LeaveScreen() {
     leaveType: "",
     startDate: "",
     endDate: "",
+    requestedDates: [],
     reason: "",
     supportingDocument: null,
     deliveryDate: "",
     childBirthDate: "",
+    silPurpose: "standard",
   });
 
   const [modalVisible, setModalVisible] = useState(false);
@@ -390,7 +284,7 @@ export default function LeaveScreen() {
     scheduleValidationSeq.current = requestId;
 
     async function validate() {
-      if (!formData.leaveType || !formData.startDate || !formData.endDate) {
+      if (!formData.leaveType || formData.requestedDates.length === 0) {
         setScheduleValidationError("");
         return;
       }
@@ -398,8 +292,8 @@ export default function LeaveScreen() {
       try {
         const error = await validateLeaveDates(
           formData.leaveType,
-          formData.startDate,
-          formData.endDate,
+          formData.silPurpose,
+          formData.requestedDates,
         );
         if (!active || requestId !== scheduleValidationSeq.current) return;
         setScheduleValidationError(error || "");
@@ -411,21 +305,20 @@ export default function LeaveScreen() {
 
     validate();
     return () => { active = false; };
-  }, [formData.leaveType, formData.startDate, formData.endDate]);
+  }, [formData.leaveType, formData.requestedDates, formData.silPurpose]);
 
   const validationError = getLeaveFormError(formData) || scheduleValidationError;
   const isSubmitDisabled = (
     !formData.leaveType
-    || !formData.startDate
-    || !formData.endDate
+    || formData.requestedDates.length === 0
     || !formData.reason
     || (isSupportingDocumentRequired(formData) && !formData.supportingDocument)
     || Boolean(validationError)
   );
 
   const handleOpenReview = async () => {
-    const { leaveType, startDate, endDate, reason, supportingDocument } = formData;
-    if (!leaveType || !startDate || !endDate || !reason) {
+    const { leaveType, reason, supportingDocument, requestedDates, silPurpose } = formData;
+    if (!leaveType || requestedDates.length === 0 || !reason) {
       Alert.alert("Incomplete Form", "Please fill in all required fields.");
       return;
     }
@@ -440,7 +333,7 @@ export default function LeaveScreen() {
       return;
     }
 
-    const scheduleDutyError = await validateLeaveDates(leaveType, startDate, endDate);
+    const scheduleDutyError = await validateLeaveDates(leaveType, silPurpose, requestedDates);
     if (scheduleDutyError) {
       setScheduleValidationError(scheduleDutyError);
       Alert.alert("Invalid Duty Days", scheduleDutyError);
@@ -450,7 +343,7 @@ export default function LeaveScreen() {
     const selectedCredit = credits.byType.find(
       (item) => item.leaveType === getLeaveCreditType(leaveType),
     );
-    const daysRequested = countInclusiveDays(startDate, endDate);
+    const daysRequested = requestedDates.length;
 
     if (daysRequested <= 0) {
       Alert.alert("Invalid Dates", "End date cannot be before start date.");
@@ -458,7 +351,8 @@ export default function LeaveScreen() {
     }
 
     if (
-      selectedCredit?.remainingDays !== null
+      leaveType === "service_incentive"
+      && selectedCredit?.remainingDays !== null
       && selectedCredit?.remainingDays !== undefined
       && daysRequested > selectedCredit.remainingDays
     ) {
@@ -469,12 +363,26 @@ export default function LeaveScreen() {
       return;
     }
 
-    if (selectedCredit?.remainingRequests !== null && selectedCredit?.remainingRequests === 0) {
+    if (
+      selectedCredit?.remainingRequests !== null
+      && selectedCredit?.remainingRequests === 0
+    ) {
       Alert.alert(
         "Leave Limit Reached",
         `You have already used the maximum ${selectedCredit.leaveTypeLabel} requests.`,
       );
       return;
+    }
+
+    if (leaveType === "service_incentive" && silPurpose === "sick_substitution") {
+      const sickCredit = credits.byType.find((item) => item.leaveType === "sick");
+      if ((sickCredit?.remainingRequests ?? 1) > 0) {
+        Alert.alert(
+          "Sick Leave Still Available",
+          "SIL sick substitution is available only after both yearly sick leave requests are exhausted.",
+        );
+        return;
+      }
     }
 
     setModalVisible(true);

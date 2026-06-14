@@ -6,7 +6,6 @@ import MonthSelector from "@/components/schedule/MonthSelector";
 import RequestLeaveButton from "@/components/schedule/Requestleavebutton";
 import ScheduleHeader from "@/components/schedule/Scheduleheader";
 import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
-import { fetchLeaveCredits } from "@/services/leaveService";
 import { fetchNotificationStats } from "@/services/notificationService";
 import { fetchMonthlySchedule } from "@/services/scheduleService";
 import {
@@ -18,10 +17,6 @@ import {
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, RefreshControl, ScrollView, StyleSheet, Text, View } from "react-native";
-
-function getAvailableLeaveCredits(credits) {
-  return typeof credits === "number" ? credits : credits?.availableCredits ?? 0;
-}
 
 export default function ScheduleScreen() {
   const router = useRouter();
@@ -35,25 +30,13 @@ export default function ScheduleScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const [leaveCreditsError, setLeaveCreditsError] = useState(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
-  const [availableLeaveCredits, setAvailableLeaveCredits] = useState(0);
   const scheduleRequestSeq = useRef(0);
   const selectedDayRef = useRef(today.day);
   const hasFocusedOnceRef = useRef(false);
 
   const clampedSelectedDay = getClampedDay(year, month, selectedDay);
   const selectedDate = getDateKey(year, month, clampedSelectedDay);
-
-  const loadLeaveCredits = useCallback(async () => {
-    try {
-      setLeaveCreditsError(null);
-      const credits = await fetchLeaveCredits();
-      setAvailableLeaveCredits(getAvailableLeaveCredits(credits));
-    } catch (err) {
-      setLeaveCreditsError(err.message || "Could not load leave credits.");
-    }
-  }, []);
 
   const loadSchedule = useCallback(async ({ refresh = false } = {}) => {
     const requestSeq = scheduleRequestSeq.current + 1;
@@ -126,12 +109,10 @@ export default function ScheduleScreen() {
       } else {
         hasFocusedOnceRef.current = true;
       }
-      loadLeaveCredits();
-
       return () => {
         isMounted = false;
       };
-    }, [accessLoading, loadLeaveCredits, loadSchedule]),
+    }, [accessLoading, loadSchedule]),
   );
 
   const handleMonthChange = (offset) => {
@@ -153,7 +134,6 @@ export default function ScheduleScreen() {
 
   const handleRefresh = () => {
     loadSchedule({ refresh: true });
-    loadLeaveCredits();
   };
 
   const handleRequestLeave = () => {
@@ -211,11 +191,6 @@ export default function ScheduleScreen() {
             <Text style={styles.errorText}>{error}</Text>
           </View>
         ) : null}
-        {leaveCreditsError ? (
-          <View style={styles.messageCard}>
-            <Text style={styles.errorText}>{leaveCreditsError}</Text>
-          </View>
-        ) : null}
         <CalendarGrid
           month={month}
           year={year}
@@ -237,7 +212,7 @@ export default function ScheduleScreen() {
         <KpiGrid
           absents={schedule?.kpis?.absents || 0}
           lates={schedule?.kpis?.lates || 0}
-          leaves={availableLeaveCredits}
+          leaves={schedule?.kpis?.leaves || 0}
           leavesLabel="LEAVES LEFT"
           hours={schedule?.kpis?.hours || 0}
         />

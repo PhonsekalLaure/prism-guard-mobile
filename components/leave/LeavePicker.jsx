@@ -16,6 +16,13 @@ function getCreditRemaining(credit) {
 function getPickerMetaText(option, credit) {
   if (option.pickerMeta) return option.pickerMeta;
 
+  if (
+    typeof credit?.remainingDays === "number"
+    && typeof credit?.remainingRequests === "number"
+  ) {
+    return `${credit.remainingRequests} request(s), ${credit.remainingDays} day(s) left`;
+  }
+
   if (typeof credit?.remainingDays === "number") {
     return `${credit.remainingDays} day${credit.remainingDays === 1 ? "" : "s"} left`;
   }

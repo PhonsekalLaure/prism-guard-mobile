@@ -14,6 +14,7 @@ import { fetchMonthlySchedule } from "@/services/scheduleService";
 import {
   getDateKey,
   getMonthKey,
+  getTodayDateKey,
   isDateRangeScheduled,
   parseDateKey,
 } from "@/utils/leaveDates";
@@ -66,6 +67,8 @@ export default function ScheduledLeaveDatePicker({
   visible,
   title,
   selectedDate,
+  selectedDates = [],
+  multiple = false,
   minDate,
   maxDate,
   selectableMode = "scheduled",
@@ -74,8 +77,8 @@ export default function ScheduledLeaveDatePicker({
   onClose,
 }) {
   const initialMonth = useMemo(
-    () => getInitialMonth(selectedDate, minDate),
-    [minDate, selectedDate],
+    () => getInitialMonth(selectedDate || selectedDates[0], minDate),
+    [minDate, selectedDate, selectedDates],
   );
   const [month, setMonth] = useState(initialMonth.month);
   const [year, setYear] = useState(initialMonth.year);
@@ -155,9 +158,10 @@ export default function ScheduledLeaveDatePicker({
   );
   const allLoadedSelectableDates = useMemo(() => {
     if (selectableMode !== "sick") return allLoadedScheduledDates;
+    const today = getTodayDateKey();
     return Object.values(scheduleCache).flatMap((item) => [
-      ...(item.scheduledDates || []),
-      ...(item.absentDates || []),
+      ...(item.scheduledDates || []).filter((date) => date === today),
+      ...(item.absentDates || []).filter((date) => date < today),
     ]);
   }, [allLoadedScheduledDates, scheduleCache, selectableMode]);
   const isLoading = loadingMonthKeys.includes(visibleMonthKey);
@@ -228,7 +232,10 @@ export default function ScheduledLeaveDatePicker({
       return day === 0 || day === 6 ? "weekend" : null;
     }
     const isSelectableDate = selectableMode === "sick"
-      ? scheduledSet.has(dateKey) || absentSet.has(dateKey)
+      ? (
+        (dateKey < getTodayDateKey() && absentSet.has(dateKey))
+        || (dateKey === getTodayDateKey() && scheduledSet.has(dateKey))
+      )
       : scheduledSet.has(dateKey);
     if (!isSelectableDate) {
       return "not-scheduled";
@@ -299,7 +306,9 @@ export default function ScheduledLeaveDatePicker({
             const dateKey = cell.current ? getDateKey(year, month, cell.day) : null;
             const disabledReason = dateKey ? getDisabledReason(dateKey) : "outside-month";
             const isDisabled = Boolean(disabledReason);
-            const isSelected = dateKey === selectedDate;
+            const isSelected = multiple
+              ? selectedDates.includes(dateKey)
+              : dateKey === selectedDate;
 
             return (
               <TouchableOpacity
@@ -309,7 +318,7 @@ export default function ScheduledLeaveDatePicker({
                 onPress={() => {
                   if (!dateKey || isDisabled) return;
                   onSelect?.(dateKey);
-                  onClose?.();
+                  if (!multiple) onClose?.();
                 }}
               >
                 <View
@@ -354,6 +363,14 @@ export default function ScheduledLeaveDatePicker({
             <Text style={styles.legendText}>No shift / unavailable</Text>
           </View>
         </View>
+
+        {multiple ? (
+          <TouchableOpacity style={styles.doneButton} onPress={onClose}>
+            <Text style={styles.doneButtonText}>
+              Done ({selectedDates.length} selected)
+            </Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </Modal>
   );
@@ -501,5 +518,16 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 11,
     color: "#64748b",
+  },
+  doneButton: {
+    backgroundColor: PrismColors.navy,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  doneButtonText: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "800",
   },
 });

@@ -76,23 +76,30 @@ export const submitLeaveRequest = async ({
   supportingDocument,
   deliveryDate,
   childBirthDate,
+  requestedDates = [],
+  silPurpose = "standard",
 }) => {
   const apiLeaveType = ["maternity", "paternity"].includes(leaveType)
     ? "maternity_paternity"
     : leaveType;
-  const metadataLines = [
-    leaveType === "maternity" && deliveryDate ? `Expected delivery date: ${deliveryDate}` : null,
-    leaveType === "paternity" && childBirthDate ? `Child birth date: ${childBirthDate}` : null,
-  ].filter(Boolean);
-  const reasonWithMetadata = metadataLines.length > 0
-    ? `${metadataLines.join("\n")}\n\n${reason}`
-    : reason;
+  const leaveSubtype = ["maternity", "paternity"].includes(leaveType)
+    ? leaveType
+    : "";
+  const qualifyingEventDate = leaveType === "maternity"
+    ? deliveryDate
+    : leaveType === "paternity"
+      ? childBirthDate
+      : "";
 
   const formData = new FormData();
   formData.append("leaveType", apiLeaveType);
+  if (leaveSubtype) formData.append("leaveSubtype", leaveSubtype);
+  if (qualifyingEventDate) formData.append("qualifyingEventDate", qualifyingEventDate);
+  if (apiLeaveType === "service_incentive") formData.append("silPurpose", silPurpose);
+  formData.append("requestedDates", JSON.stringify(requestedDates));
   formData.append("startDate", startDate);
   formData.append("endDate", endDate);
-  formData.append("reason", reasonWithMetadata);
+  formData.append("reason", reason);
   if (supportingDocument) {
     formData.append("supportingDocument", supportingDocument);
   }

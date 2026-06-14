@@ -46,6 +46,22 @@ const ReviewLeaveModal = ({
         />
         <DetailRow label="Start Date" value={formatLeaveDate(formData.startDate)} />
         <DetailRow label="End Date" value={formatLeaveDate(formData.endDate)} />
+        <DetailRow
+          label="Selected Days"
+          value={String(formData.requestedDates?.length || 0)}
+        />
+        {formData.leaveType === "maternity" ? (
+          <DetailRow label="Expected Delivery" value={formatLeaveDate(formData.deliveryDate)} />
+        ) : null}
+        {formData.leaveType === "paternity" ? (
+          <DetailRow label="Child Birth Date" value={formatLeaveDate(formData.childBirthDate)} />
+        ) : null}
+        {formData.leaveType === "service_incentive" ? (
+          <DetailRow
+            label="SIL Purpose"
+            value={formData.silPurpose === "sick_substitution" ? "Sick Substitute" : "Standard"}
+          />
+        ) : null}
         <DetailRow label="Reason" value={formData.reason || "-"} />
         <DetailRow
           label="Supporting Document"

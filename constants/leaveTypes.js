@@ -4,7 +4,6 @@ export const LEAVE_TYPE_LABELS = {
   maternity: "Maternity Leave",
   paternity: "Paternity Leave",
   maternity_paternity: "Maternity / Paternity Leave",
-  bereavement: "Bereavement Leave",
   service_incentive: "Service Incentive Leave",
 };
 
@@ -13,7 +12,7 @@ export const LEAVE_OPTIONS = [
     value: "sick",
     label: LEAVE_TYPE_LABELS.sick,
     icon: "thermometer",
-    pickerMeta: "Today start",
+    pickerMeta: "Past absences or today",
   },
   {
     value: "emergency",
@@ -25,21 +24,13 @@ export const LEAVE_OPTIONS = [
     value: "maternity",
     label: LEAVE_TYPE_LABELS.maternity,
     icon: "heart",
-    creditType: "maternity_paternity",
     pickerMeta: "Delivery window",
   },
   {
     value: "paternity",
     label: LEAVE_TYPE_LABELS.paternity,
     icon: "heart",
-    creditType: "maternity_paternity",
     pickerMeta: "60-day window",
-  },
-  {
-    value: "bereavement",
-    label: LEAVE_TYPE_LABELS.bereavement,
-    icon: "file-text",
-    pickerMeta: "3-5 days",
   },
   {
     value: "service_incentive",

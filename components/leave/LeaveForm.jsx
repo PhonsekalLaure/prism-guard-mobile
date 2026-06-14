@@ -11,7 +11,12 @@ import {
     View,
 } from "react-native";
 import { LEAVE_TYPE_LABELS } from "@/constants/leaveTypes";
-import { addDaysToDateKey, formatLeaveDate, getTodayDateKey } from "@/utils/leaveDates";
+import {
+  addDaysToDateKey,
+  formatLeaveDate,
+  getDateRange,
+  getTodayDateKey,
+} from "@/utils/leaveDates";
 import LeavePicker from "./LeavePicker";
 import ScheduledLeaveDatePicker from "./ScheduledLeaveDatePicker";
 
@@ -20,14 +25,7 @@ function getStartDateBounds(formData) {
   const { leaveType } = formData;
 
   if (leaveType === "sick") {
-    return { minDate: today, maxDate: today };
-  }
-
-  if (leaveType === "maternity" && formData.deliveryDate) {
-    return {
-      minDate: addDaysToDateKey(formData.deliveryDate, -60),
-      maxDate: addDaysToDateKey(formData.deliveryDate, 45),
-    };
+    return { maxDate: today };
   }
 
   if (leaveType === "paternity" && formData.childBirthDate) {
@@ -41,36 +39,33 @@ function getStartDateBounds(formData) {
     return { minDate: today, maxDate: today };
   }
 
-  if (leaveType === "bereavement") {
-    return { minDate: today, maxDate: addDaysToDateKey(today, 2) };
-  }
-
   if (leaveType === "service_incentive") {
-    return {
-      minDate: addDaysToDateKey(today, 60),
-    };
+    return formData.silPurpose === "sick_substitution"
+      ? { maxDate: today }
+      : { minDate: today };
   }
 
   return { minDate: today };
 }
 
 function getSelectableMode(leaveType) {
-  if (leaveType === "service_incentive") return "weekday";
-  if (["sick", "maternity", "paternity", "emergency", "bereavement"].includes(leaveType)) return "any";
+  if (leaveType === "sick") return "sick";
+  if (leaveType === "service_incentive") return "scheduled";
+  if (leaveType === "maternity") return "any";
   return "scheduled";
 }
 
 function getDocumentPlaceholder(leaveType) {
-  if (leaveType === "sick") return "Attach med cert for 3+ days";
+  if (leaveType === "sick") return "Attach medical document";
   if (leaveType === "emergency") return "Attach proof document";
-  if (leaveType === "bereavement") return "Attach death certificate";
+  if (["maternity", "paternity"].includes(leaveType)) return "Attach supporting document";
+  if (leaveType === "service_incentive") return "Supporting document not required";
   return "Attach PDF or image";
 }
 
 const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, submitDisabled }) => {
   const [showLeavePicker, setShowLeavePicker] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
   const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
   const [showBirthPicker, setShowBirthPicker] = useState(false);
   const leaveCreditsByType = Object.fromEntries(
@@ -79,20 +74,21 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
   const startDateBounds = getStartDateBounds(formData);
   const todayDateKey = getTodayDateKey();
   const selectableMode = getSelectableMode(formData.leaveType);
-  const endDateBounds = formData.leaveType === "paternity" && formData.childBirthDate
-    ? { maxDate: addDaysToDateKey(formData.childBirthDate, 60) }
-    : formData.leaveType === "maternity" && formData.deliveryDate
-    ? { maxDate: addDaysToDateKey(formData.deliveryDate, 45) }
-    : formData.leaveType === "sick" && formData.startDate
-    ? { maxDate: undefined }
-    : formData.leaveType === "emergency"
-    ? { maxDate: addDaysToDateKey(todayDateKey, 4) }
-    : formData.leaveType === "bereavement" && formData.startDate
-    ? {
-      minDate: addDaysToDateKey(formData.startDate, 2),
-      maxDate: addDaysToDateKey(formData.startDate, 4),
-    }
-    : {};
+  const requestedDates = formData.requestedDates || [];
+
+  const updateRequestedDates = (dates) => {
+    const sorted = [...new Set(dates)].sort();
+    onChange("requestedDates", sorted);
+    onChange("startDate", sorted[0] || "");
+    onChange("endDate", sorted[sorted.length - 1] || "");
+  };
+
+  const toggleRequestedDate = (dateKey) => {
+    const next = requestedDates.includes(dateKey)
+      ? requestedDates.filter((date) => date !== dateKey)
+      : [...requestedDates, dateKey];
+    updateRequestedDates(next);
+  };
 
   const handlePickDocument = async () => {
     try {
@@ -130,6 +126,34 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
         </View>
       </View>
 
+      {formData.leaveType === "service_incentive" ? (
+        <View style={styles.fieldGroup}>
+          <Text style={styles.label}>SIL Purpose</Text>
+          <View style={styles.purposeRow}>
+            {[
+              { value: "standard", label: "Standard SIL" },
+              { value: "sick_substitution", label: "Sick Substitute" },
+            ].map((option) => {
+              const active = formData.silPurpose === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  style={[styles.purposeButton, active && styles.purposeButtonActive]}
+                  onPress={() => {
+                    onChange("silPurpose", option.value);
+                    updateRequestedDates([]);
+                  }}
+                >
+                  <Text style={[styles.purposeText, active && styles.purposeTextActive]}>
+                    {option.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
+
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>Leave Type</Text>
         <TouchableOpacity
@@ -158,12 +182,22 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
       </View>
 
       <View style={styles.fieldGroup}>
-        <Text style={styles.label}>Start Date</Text>
+        <Text style={styles.label}>
+          {formData.leaveType === "maternity" ? "Maternity Leave Start" : "Leave Dates"}
+        </Text>
         <TouchableOpacity
           style={styles.inputRow}
           onPress={() => {
             if (!formData.leaveType) {
               Alert.alert("Select Leave Type", "Please choose a leave type first.");
+              return;
+            }
+            if (formData.leaveType === "maternity" && !formData.deliveryDate) {
+              Alert.alert("Delivery Date Required", "Please choose the expected delivery date first.");
+              return;
+            }
+            if (formData.leaveType === "paternity" && !formData.childBirthDate) {
+              Alert.alert("Birth Date Required", "Please choose the child birth date first.");
               return;
             }
             setShowStartPicker(true);
@@ -179,10 +213,14 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
           <Text
             style={[
               styles.inputText,
-              !formData.startDate && styles.placeholder,
+              requestedDates.length === 0 && styles.placeholder,
             ]}
           >
-            {formatLeaveDate(formData.startDate, "mm / dd / yyyy")}
+            {requestedDates.length === 0
+              ? "Select leave date(s)"
+              : formData.leaveType === "maternity"
+                ? `${formatLeaveDate(requestedDates[0])} - ${formatLeaveDate(requestedDates[requestedDates.length - 1])}`
+                : `${requestedDates.length} date${requestedDates.length === 1 ? "" : "s"} selected`}
           </Text>
         </TouchableOpacity>
         {showStartPicker && (
@@ -190,60 +228,26 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
             visible={showStartPicker}
             title="Select Start Date"
             selectedDate={formData.startDate}
+            selectedDates={requestedDates}
             minDate={startDateBounds.minDate}
             maxDate={startDateBounds.maxDate}
-            selectableMode={selectableMode}
+            selectableMode={
+              formData.leaveType === "service_incentive"
+                && formData.silPurpose === "sick_substitution"
+                ? "sick"
+                : selectableMode
+            }
+            multiple={formData.leaveType !== "maternity"}
             onSelect={(dateKey) => {
-              onChange("startDate", dateKey);
-              if (formData.endDate && formData.endDate < dateKey) {
-                onChange("endDate", "");
+              if (formData.leaveType === "maternity") {
+                updateRequestedDates(
+                  getDateRange(dateKey, addDaysToDateKey(dateKey, 104)),
+                );
+              } else {
+                toggleRequestedDate(dateKey);
               }
             }}
             onClose={() => setShowStartPicker(false)}
-          />
-        )}
-      </View>
-
-      <View style={styles.fieldGroup}>
-        <Text style={styles.label}>End Date</Text>
-        <TouchableOpacity
-          style={styles.inputRow}
-          onPress={() => {
-            if (!formData.leaveType) {
-              Alert.alert("Select Leave Type", "Please choose a leave type first.");
-              return;
-            }
-            if (!formData.startDate) {
-              Alert.alert("Select Start Date", "Please choose the start date first.");
-              return;
-            }
-            setShowEndPicker(true);
-          }}
-          activeOpacity={0.75}
-        >
-          <Feather
-            name="calendar"
-            size={14}
-            color="#8A94A6"
-            style={styles.icon}
-          />
-          <Text
-            style={[styles.inputText, !formData.endDate && styles.placeholder]}
-          >
-            {formatLeaveDate(formData.endDate, "mm / dd / yyyy")}
-          </Text>
-        </TouchableOpacity>
-        {showEndPicker && (
-          <ScheduledLeaveDatePicker
-            visible={showEndPicker}
-            title="Select End Date"
-            selectedDate={formData.endDate}
-            minDate={endDateBounds.minDate || formData.startDate || getTodayDateKey()}
-            maxDate={endDateBounds.maxDate}
-            selectableMode={selectableMode}
-            rangeStartDate={formData.startDate}
-            onSelect={(dateKey) => onChange("endDate", dateKey)}
-            onClose={() => setShowEndPicker(false)}
           />
         )}
       </View>
@@ -266,9 +270,11 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
               visible={showDeliveryPicker}
               title="Select Delivery Date"
               selectedDate={formData.deliveryDate}
-              minDate={todayDateKey}
               selectableMode="any"
-              onSelect={(dateKey) => onChange("deliveryDate", dateKey)}
+              onSelect={(dateKey) => {
+                onChange("deliveryDate", dateKey);
+                updateRequestedDates([]);
+              }}
               onClose={() => setShowDeliveryPicker(false)}
             />
           )}
@@ -295,7 +301,10 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
               selectedDate={formData.childBirthDate}
               maxDate={todayDateKey}
               selectableMode="any"
-              onSelect={(dateKey) => onChange("childBirthDate", dateKey)}
+              onSelect={(dateKey) => {
+                onChange("childBirthDate", dateKey);
+                updateRequestedDates([]);
+              }}
               onClose={() => setShowBirthPicker(false)}
             />
           )}
@@ -382,6 +391,8 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
         selected={formData.leaveType}
         onSelect={(val) => {
           onChange("leaveType", val);
+          onChange("silPurpose", "standard");
+          onChange("requestedDates", []);
           onChange("startDate", "");
           onChange("endDate", "");
           onChange("deliveryDate", "");
@@ -411,6 +422,31 @@ const styles = StyleSheet.create({
   },
   fieldGroup: {
     gap: 8,
+  },
+  purposeRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  purposeButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
+  purposeButtonActive: {
+    borderColor: "#093269",
+    backgroundColor: "#EEF2FA",
+  },
+  purposeText: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  purposeTextActive: {
+    color: "#093269",
   },
   label: {
     fontSize: 11,
