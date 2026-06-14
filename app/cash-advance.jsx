@@ -70,12 +70,71 @@ const formatDate = (value) => {
 };
 
 const STATUS_META = {
-  pending: { label: 'Pending', color: C.warning, icon: 'time-outline' },
+  pending:  { label: 'Pending',  color: C.warning, icon: 'time-outline'             },
   approved: { label: 'Approved', color: C.primary, icon: 'checkmark-circle-outline' },
-  released: { label: 'Released', color: C.success, icon: 'cash-outline' },
-  rejected: { label: 'Rejected', color: C.danger, icon: 'close-circle-outline' },
-  settled: { label: 'Settled', color: C.muted, icon: 'receipt-outline' },
+  released: { label: 'Released', color: C.success, icon: 'cash-outline'             },
+  rejected: { label: 'Rejected', color: C.danger,  icon: 'close-circle-outline'     },
+  settled:  { label: 'Settled',  color: C.muted,   icon: 'receipt-outline'          },
 };
+
+// ─── ConfirmRequestModal ──────────────────────────────────────────
+
+const ConfirmRequestModal = ({ visible, amount, reason, submitting, onCancel, onConfirm }) => (
+  <Modal transparent animationType="fade" visible={visible} onRequestClose={onCancel}>
+    <View style={styles.submittedOverlay}>
+      <View style={styles.submittedCard}>
+
+        {/* Icon */}
+        <View style={[styles.submittedIconWrap, { backgroundColor: `${C.primary}18` }]}>
+          <Ionicons name="cash-outline" size={30} color={C.primary} />
+        </View>
+
+        <Text style={styles.submittedTitle}>Confirm Request</Text>
+        <Text style={styles.submittedMessage}>
+          Please review your cash advance details before submitting.
+        </Text>
+
+        {/* Summary rows */}
+        <View style={styles.submittedSummary}>
+          <Text style={styles.submittedSummaryLabel}>Amount</Text>
+          <Text style={styles.submittedSummaryValue}>{toCurrency(amount)}</Text>
+        </View>
+        <View style={[styles.submittedSummary, { marginTop: 8 }]}>
+          <Text style={styles.submittedSummaryLabel}>Reason</Text>
+          <Text style={[styles.submittedSummaryValue, { fontSize: 13, color: C.text, flexShrink: 1, textAlign: 'right' }]}>
+            {reason}
+          </Text>
+        </View>
+
+        {/* Buttons */}
+        <View style={styles.confirmBtnRow}>
+          <TouchableOpacity
+            style={[styles.confirmBtn, styles.confirmBtnCancel]}
+            onPress={onCancel}
+            activeOpacity={0.8}
+            disabled={submitting}
+          >
+            <Text style={styles.confirmBtnCancelText}>Cancel</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.confirmBtn, styles.confirmBtnSubmit, submitting && { opacity: 0.7 }]}
+            onPress={onConfirm}
+            activeOpacity={0.85}
+            disabled={submitting}
+          >
+            {submitting
+              ? <ActivityIndicator color={C.primary} size="small" />
+              : <Text style={styles.submittedDoneText}>Submit</Text>
+            }
+          </TouchableOpacity>
+        </View>
+
+      </View>
+    </View>
+  </Modal>
+);
+
+// ─── RequestSubmittedModal ────────────────────────────────────────
 
 const RequestSubmittedModal = ({ visible, amountLabel, onDone }) => (
   <Modal transparent animationType="fade" visible={visible} onRequestClose={onDone}>
@@ -119,6 +178,7 @@ export default function CashAdvanceScreen() {
   const [historyLoading, setHistoryLoading] = useState(true);
   const [historyError, setHistoryError] = useState(null);
   const [submittedAmount, setSubmittedAmount] = useState(null);
+  const [confirmVisible, setConfirmVisible]   = useState(false);   // ← new
 
   const loadLimit = useCallback(async () => {
     try {
@@ -155,7 +215,7 @@ export default function CashAdvanceScreen() {
     loadHistory(1);
   }, [loadLimit, loadHistory]);
 
-  // ── derived — inside component so they can access state ──────────
+  // ── derived ───────────────────────────────────────────────────────
   const available = limitData?.available_limit ?? 0;
   const minAmount = limitData?.min_amount ?? 0;
   const parsed    = parseFloat(amount) || 0;
@@ -190,35 +250,31 @@ export default function CashAdvanceScreen() {
     setAmount(next === 0 ? '' : String(next));
   };
 
+  // Opens the custom confirm modal instead of Alert
   const handleSubmit = () => {
     if (!canSubmit) return;
-    Alert.alert(
-      'Confirm Request',
-      `Submit a cash advance request for ${toCurrency(parsed)}?\n\nReason: ${reason}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Submit',
-          onPress: async () => {
-            setSubmitting(true);
-            try {
-              const requestedAmount = parsed;
-              await submitCashAdvanceRequest({ amount: parsed, reason });
-              setAmount('');
-              setReason('');
-              setDropdownOpen(false);
-              setLimitLoading(true);
-              await Promise.all([loadLimit(), loadHistory(1)]);
-              setSubmittedAmount(requestedAmount);
-            } catch (err) {
-              Alert.alert('Error', err.message);
-            } finally {
-              setSubmitting(false);
-            }
-          },
-        },
-      ]
-    );
+    setConfirmVisible(true);
+  };
+
+  // Called when user taps Submit inside the confirm modal
+  const handleConfirm = async () => {
+    setSubmitting(true);
+    try {
+      const requestedAmount = parsed;
+      await submitCashAdvanceRequest({ amount: parsed, reason });
+      setAmount('');
+      setReason('');
+      setDropdownOpen(false);
+      setConfirmVisible(false);
+      setLimitLoading(true);
+      await Promise.all([loadLimit(), loadHistory(1)]);
+      setSubmittedAmount(requestedAmount);
+    } catch (err) {
+      setConfirmVisible(false);
+      Alert.alert('Error', err.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   // ── render ───────────────────────────────────────────────────────
@@ -342,13 +398,11 @@ export default function CashAdvanceScreen() {
             disabled={!canSubmit}
             activeOpacity={0.85}
           >
-            {submitting
-              ? <ActivityIndicator color={C.primary} />
-              : <Text style={styles.submitBtnText}>Submit Request</Text>
-            }
+            <Text style={styles.submitBtnText}>Submit Request</Text>
           </TouchableOpacity>
         </View>
 
+        {/* History Card */}
         <View style={styles.historyCard}>
           <View style={styles.historyHeader}>
             <View>
@@ -356,9 +410,7 @@ export default function CashAdvanceScreen() {
               <Text style={styles.historySubtitle}>Track approval and release status</Text>
             </View>
             <TouchableOpacity
-              onPress={() => {
-                loadHistory(1);
-              }}
+              onPress={() => { loadHistory(1); }}
               hitSlop={HIT}
               disabled={historyLoading}
             >
@@ -446,6 +498,17 @@ export default function CashAdvanceScreen() {
         </View>
       </ScrollView>
 
+      {/* Confirm Modal */}
+      <ConfirmRequestModal
+        visible={confirmVisible}
+        amount={parsed}
+        reason={reason}
+        submitting={submitting}
+        onCancel={() => setConfirmVisible(false)}
+        onConfirm={handleConfirm}
+      />
+
+      {/* Success Modal */}
       <RequestSubmittedModal
         visible={submittedAmount !== null}
         amountLabel={submittedAmount !== null ? toCurrency(submittedAmount) : ''}
@@ -583,7 +646,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom:   12,
   },
-  historyTitle: { fontSize: 15, fontWeight: '700', color: C.text },
+  historyTitle:    { fontSize: 15, fontWeight: '700', color: C.text },
   historySubtitle: { fontSize: 11, color: C.muted, marginTop: 2 },
   historyState: {
     minHeight:      70,
@@ -618,7 +681,7 @@ const styles = StyleSheet.create({
   historyAmount: { fontSize: 14, fontWeight: '700', color: C.text },
   historyStatus: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
   historyReason: { fontSize: 12, color: C.text, marginTop: 3 },
-  historyDate: { fontSize: 11, color: C.muted, marginTop: 3 },
+  historyDate:   { fontSize: 11, color: C.muted, marginTop: 3 },
   pagination: {
     minHeight:      36,
     flexDirection:  'row',
@@ -645,87 +708,121 @@ const styles = StyleSheet.create({
     fontSize:   12,
     fontWeight: '700',
   },
+
+  // ── shared modal styles ──────────────────────────────────────────
   submittedOverlay: {
-    flex: 1,
+    flex:            1,
     backgroundColor: 'rgba(13, 31, 60, 0.48)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
+    alignItems:      'center',
+    justifyContent:  'center',
+    padding:         20,
   },
   submittedCard: {
-    width: '100%',
-    maxWidth: 360,
+    width:           '100%',
+    maxWidth:        360,
     backgroundColor: C.card,
-    borderRadius: 18,
-    padding: 22,
-    alignItems: 'center',
-    shadowColor: '#093269',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 10,
+    borderRadius:    18,
+    padding:         22,
+    alignItems:      'center',
+    shadowColor:     '#093269',
+    shadowOffset:    { width: 0, height: 8 },
+    shadowOpacity:   0.18,
+    shadowRadius:    18,
+    elevation:       10,
   },
   submittedIconWrap: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width:           62,
+    height:          62,
+    borderRadius:    31,
     backgroundColor: `${C.warning}18`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    14,
   },
   submittedTitle: {
-    fontSize: 18,
+    fontSize:   18,
     fontWeight: '800',
-    color: C.primary,
-    textAlign: 'center',
+    color:      C.primary,
+    textAlign:  'center',
   },
   submittedMessage: {
-    marginTop: 6,
-    fontSize: 13,
-    color: C.muted,
+    marginTop:  6,
+    fontSize:   13,
+    color:      C.muted,
     lineHeight: 19,
-    textAlign: 'center',
+    textAlign:  'center',
   },
   submittedSummary: {
-    width: '100%',
-    marginTop: 16,
-    paddingVertical: 12,
+    width:             '100%',
+    marginTop:         16,
+    paddingVertical:   12,
     paddingHorizontal: 14,
-    borderRadius: 12,
-    backgroundColor: '#F5F7FA',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    borderRadius:      12,
+    backgroundColor:   '#F5F7FA',
+    flexDirection:     'row',
+    alignItems:        'center',
+    justifyContent:    'space-between',
+    gap:               12,
   },
   submittedSummaryLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: C.muted,
+    fontSize:      10,
+    fontWeight:    '800',
+    color:         C.muted,
     textTransform: 'uppercase',
   },
   submittedSummaryValue: {
-    fontSize: 15,
+    fontSize:   15,
     fontWeight: '800',
-    color: C.primary,
+    color:      C.primary,
   },
   submittedDoneBtn: {
-    width: '100%',
-    marginTop: 20,
-    borderRadius: 12,
+    width:          '100%',
+    marginTop:      20,
+    borderRadius:   12,
     backgroundColor: C.accent,
     paddingVertical: 14,
-    alignItems: 'center',
+    alignItems:     'center',
     justifyContent: 'center',
-    shadowColor: C.accent,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 6,
+    shadowColor:    C.accent,
+    shadowOffset:   { width: 0, height: 6 },
+    shadowOpacity:  0.28,
+    shadowRadius:   14,
+    elevation:      6,
   },
   submittedDoneText: {
-    fontSize: 14,
+    fontSize:   14,
     fontWeight: '800',
-    color: C.primary,
+    color:      C.primary,
+  },
+
+  // ── confirm modal buttons ────────────────────────────────────────
+  confirmBtnRow: {
+    flexDirection: 'row',
+    gap:           10,
+    marginTop:     20,
+    width:         '100%',
+  },
+  confirmBtn: {
+    flex:           1,
+    borderRadius:   12,
+    paddingVertical: 14,
+    alignItems:     'center',
+    justifyContent: 'center',
+  },
+  confirmBtnCancel: {
+    backgroundColor: '#F0F2F5',
+  },
+  confirmBtnCancelText: {
+    fontSize:   14,
+    fontWeight: '700',
+    color:      C.text,
+  },
+  confirmBtnSubmit: {
+    backgroundColor: C.accent,
+    shadowColor:     C.accent,
+    shadowOffset:    { width: 0, height: 6 },
+    shadowOpacity:   0.28,
+    shadowRadius:    14,
+    elevation:       6,
   },
 });
