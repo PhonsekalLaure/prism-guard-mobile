@@ -65,9 +65,9 @@ const ClockOutModal = ({
             <Text style={styles.modalIcon}>🚪</Text>
           </View>
 
-          <Text style={styles.title}>End Shift?</Text>
+          <Text style={styles.title}>Confirm Time Out?</Text>
           <Text style={styles.body}>
-            Are you sure you want to clock out? This will end your current
+            Are you sure you want to time out? This will end your current
             session.
           </Text>
           {timingMessage ? (

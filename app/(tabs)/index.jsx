@@ -40,6 +40,7 @@ const SHIFT_END_REMINDERS = [
   { minutesBeforeEnd: 60, title: "Shift ending in 1 hour" },
   { minutesBeforeEnd: 30, title: "Shift ending in 30 minutes" },
 ];
+const CLOCK_OUT_UNLOCK_WINDOW_MS = 60 * 60 * 1000;
 
 const formatDate = () => {
   const now = new Date();
@@ -206,9 +207,10 @@ const getShiftTiming = ({ dateKey, shiftStart, shiftEnd, now }) => {
 
   if (!startAt || !endAt) {
     return {
+      canClockOut: false,
       hasRemainingTime: false,
       dashboardLabel: "Schedule time unavailable",
-      clockOutMessage: "No scheduled shift end is available. Confirm with your supervisor before clocking out.",
+      clockOutMessage: "No scheduled shift end is available. Contact your supervisor before timing out.",
     };
   }
 
@@ -218,19 +220,31 @@ const getShiftTiming = ({ dateKey, shiftStart, shiftEnd, now }) => {
   }
 
   const remainingMs = normalizedEndAt.getTime() - now.getTime();
+  if (remainingMs > CLOCK_OUT_UNLOCK_WINDOW_MS) {
+    const unlockLabel = formatDuration(remainingMs - CLOCK_OUT_UNLOCK_WINDOW_MS);
+    return {
+      canClockOut: false,
+      hasRemainingTime: true,
+      dashboardLabel: `Time out opens in ${unlockLabel}`,
+      clockOutMessage: "You can time out starting 1 hour before your scheduled shift ends.",
+    };
+  }
+
   if (remainingMs > 0) {
     const remainingLabel = formatDuration(remainingMs);
     return {
+      canClockOut: true,
       hasRemainingTime: true,
-      dashboardLabel: `${remainingLabel} before time out`,
-      clockOutMessage: `There is still ${remainingLabel} before your scheduled shift end. Do you still want to clock out?`,
+      dashboardLabel: `${remainingLabel} until shift end`,
+      clockOutMessage: `Your shift ends in ${remainingLabel}. You may time out now.`,
     };
   }
 
   return {
+    canClockOut: true,
     hasRemainingTime: false,
     dashboardLabel: "Shift end reached",
-    clockOutMessage: "Your scheduled shift end has been reached. Confirm to clock out.",
+    clockOutMessage: "Your scheduled shift end has been reached. Confirm to time out.",
   };
 };
 
@@ -618,6 +632,13 @@ export default function DashboardScreen() {
       } finally {
         setLoading(false);
       }
+    } else if (!shiftTiming.canClockOut) {
+      showToast({
+        icon: "time-outline",
+        title: "Time-out Locked",
+        message: shiftTiming.clockOutMessage,
+        type: "error",
+      });
     } else {
       setShowModal(true);
     }
@@ -628,6 +649,10 @@ export default function DashboardScreen() {
 
     try {
       setLoading(true);
+
+      if (!shiftTiming.canClockOut) {
+        throw new Error(shiftTiming.clockOutMessage);
+      }
 
       if (!deployment?.client_sites) {
         throw new Error("No active site assignment found.");
