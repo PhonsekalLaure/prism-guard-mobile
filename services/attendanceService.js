@@ -36,7 +36,9 @@ async function request(path, options = {}) {
   if (!response.ok) {
     const message = (data && (data.error || data.message)) || response.statusText || 'Attendance request failed';
     const error = new Error(message);
+    error.status = response.status;
     error.code = data?.code;
+    error.attendanceLog = data?.attendanceLog;
     throw error;
   }
 

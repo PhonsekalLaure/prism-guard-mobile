@@ -68,6 +68,51 @@ const titleCase = (value) =>
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
 const HISTORY_PAGE_SIZE = 3;
+const MIN_NARRATIVE_LENGTH = 10;
+
+const IncompleteReportModal = ({ visible, characterCount, minimumCount, onClose }) => (
+  <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
+    <View style={styles.incompleteOverlay}>
+      <View style={styles.incompleteSheet}>
+        <View style={styles.incompleteHandle} />
+        <View style={styles.incompleteIconWrap}>
+          <Ionicons name="document-text-outline" size={28} color={PrismColors.warning} />
+        </View>
+
+        <Text style={styles.incompleteTitle}>Report needs more detail</Text>
+        <Text style={styles.incompleteMessage}>
+          Add a short narrative before submitting so operations has enough context to review the incident.
+        </Text>
+
+        <View style={styles.incompleteRequirement}>
+          <View style={styles.incompleteRequirementIcon}>
+            <Ionicons name="text-outline" size={18} color={PrismColors.navy} />
+          </View>
+          <View style={styles.incompleteRequirementText}>
+            <Text style={styles.incompleteRequirementLabel}>Narrative length</Text>
+            <Text style={styles.incompleteRequirementValue}>
+              {characterCount}/{minimumCount} characters
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.incompleteProgressTrack}>
+          <View
+            style={[
+              styles.incompleteProgressFill,
+              { width: `${Math.min((characterCount / minimumCount) * 100, 100)}%` },
+            ]}
+          />
+        </View>
+
+        <TouchableOpacity style={styles.incompleteAction} onPress={onClose} activeOpacity={0.85}>
+          <Text style={styles.incompleteActionText}>Keep Writing</Text>
+          <Ionicons name="create-outline" size={18} color={PrismColors.navy} />
+        </TouchableOpacity>
+      </View>
+    </View>
+  </Modal>
+);
 
 const SubmittedModal = ({ visible, reportId, onDone }) => (
   <Modal transparent animationType="fade" visible={visible} onRequestClose={onDone}>
@@ -108,6 +153,7 @@ export default function ReportScreen() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState(null);
   const [submittedReportId, setSubmittedReportId] = useState(null);
+  const [incompleteModalVisible, setIncompleteModalVisible] = useState(false);
   const accessDeniedAlertShownRef = useRef(false);
 
   const locationLabel = deployment?.client_sites?.site_name || "Current assigned site";
@@ -182,11 +228,8 @@ export default function ReportScreen() {
   const handleSubmitPress = () => {
     if (submitting) return;
 
-    if (narrative.trim().length < 10) {
-      Alert.alert(
-        "Incomplete Report",
-        "Please enter at least 10 characters before submitting.",
-      );
+    if (narrative.trim().length < MIN_NARRATIVE_LENGTH) {
+      setIncompleteModalVisible(true);
       return;
     }
 
@@ -369,6 +412,13 @@ export default function ReportScreen() {
           setNarrative("");
         }}
       />
+
+      <IncompleteReportModal
+        visible={incompleteModalVisible}
+        characterCount={narrative.trim().length}
+        minimumCount={MIN_NARRATIVE_LENGTH}
+        onClose={() => setIncompleteModalVisible(false)}
+      />
     </ScreenWrapper>
   );
 }
@@ -537,6 +587,110 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+  },
+  incompleteOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(13, 31, 60, 0.55)",
+    justifyContent: "flex-end",
+  },
+  incompleteSheet: {
+    backgroundColor: PrismColors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: PrismSpacing.lg,
+    paddingTop: PrismSpacing.md,
+    paddingBottom: 34,
+    ...PrismShadows.header,
+  },
+  incompleteHandle: {
+    alignSelf: "center",
+    width: 44,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: PrismColors.border,
+    marginBottom: PrismSpacing.lg,
+  },
+  incompleteIconWrap: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: PrismColors.warning + "18",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: PrismSpacing.md,
+  },
+  incompleteTitle: {
+    fontSize: PrismTypography.xl,
+    fontWeight: PrismTypography.extraBold,
+    color: PrismColors.navy,
+  },
+  incompleteMessage: {
+    marginTop: PrismSpacing.xs,
+    fontSize: PrismTypography.base,
+    color: PrismColors.textSecondary,
+    lineHeight: 21,
+  },
+  incompleteRequirement: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: PrismSpacing.lg,
+    padding: PrismSpacing.md,
+    borderRadius: 14,
+    backgroundColor: PrismColors.offWhite,
+    borderWidth: 1,
+    borderColor: PrismColors.border,
+  },
+  incompleteRequirementIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: PrismColors.goldDim,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: PrismSpacing.md,
+  },
+  incompleteRequirementText: {
+    flex: 1,
+  },
+  incompleteRequirementLabel: {
+    fontSize: PrismTypography.xs,
+    color: PrismColors.textSecondary,
+    fontWeight: PrismTypography.bold,
+    textTransform: "uppercase",
+  },
+  incompleteRequirementValue: {
+    marginTop: 2,
+    fontSize: PrismTypography.base,
+    color: PrismColors.textPrimary,
+    fontWeight: PrismTypography.bold,
+  },
+  incompleteProgressTrack: {
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: PrismColors.border,
+    overflow: "hidden",
+    marginTop: PrismSpacing.md,
+  },
+  incompleteProgressFill: {
+    height: "100%",
+    borderRadius: 4,
+    backgroundColor: PrismColors.warning,
+  },
+  incompleteAction: {
+    marginTop: PrismSpacing.lg,
+    borderRadius: 14,
+    backgroundColor: PrismColors.gold,
+    paddingVertical: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: PrismSpacing.sm,
+    ...PrismShadows.button,
+  },
+  incompleteActionText: {
+    fontSize: PrismTypography.base,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.navy,
   },
   submittedOverlay: {
     flex: 1,

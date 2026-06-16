@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { AppState, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import CheckInMap from "@/components/check-in/CheckInMap";
 import AnnouncementList from "@/components/dashboard/AnnouncementList";
@@ -28,7 +28,7 @@ import { fetchAllAnnouncements } from "@/services/announcementsService";
 import { fetchNotificationStats } from "@/services/notificationService";
 import { fetchMonthlySchedule } from "@/services/scheduleService";
 import { validateGuardLocation } from "@/utils/geofence";
-import { getDateKey, getTodayParts } from "@/utils/scheduleDates";
+import { getBusinessDateKey, getDateKey, getTodayParts } from "@/utils/scheduleDates";
 import { useFocusEffect, useRouter } from "expo-router";
 
 const CHECK_TYPE_LABELS = {
@@ -41,6 +41,8 @@ const SHIFT_END_REMINDERS = [
   { minutesBeforeEnd: 30, title: "Shift ending in 30 minutes" },
 ];
 const CLOCK_OUT_UNLOCK_WINDOW_MS = 60 * 60 * 1000;
+const BUSINESS_TIME_ZONE = "Asia/Manila";
+const BUSINESS_UTC_OFFSET = "+08:00";
 
 const formatDate = () => {
   const now = new Date();
@@ -88,7 +90,9 @@ const parseShiftDateTime = (dateKey, timeValue) => {
   const [year, month, day] = dateKey.split("-").map(Number);
   if (!year || !month || !day) return null;
 
-  return new Date(year, month - 1, day, hour, minute, 0, 0);
+  return new Date(
+    `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00${BUSINESS_UTC_OFFSET}`,
+  );
 };
 
 const formatDuration = (milliseconds) => {
@@ -107,9 +111,53 @@ const formatAttendanceTime = (value) => {
   if (Number.isNaN(date.getTime())) return null;
 
   return date.toLocaleTimeString("en-US", {
+    timeZone: BUSINESS_TIME_ZONE,
     hour: "numeric",
     minute: "2-digit",
   });
+};
+
+const getShiftStartEnd = (dateKey, shiftStart, shiftEnd) => {
+  const startAt = parseShiftDateTime(dateKey, shiftStart);
+  const endAt = parseShiftDateTime(dateKey, shiftEnd);
+  if (!startAt || !endAt) return null;
+
+  const normalizedEndAt = new Date(endAt);
+  if (normalizedEndAt <= startAt) {
+    normalizedEndAt.setDate(normalizedEndAt.getDate() + 1);
+  }
+
+  return { startAt, endAt: normalizedEndAt };
+};
+
+const getActiveShiftDateKey = ({ logDate, clockIn, shiftStart, shiftEnd }) => {
+  const clockInDateKey = getBusinessDateKey(clockIn);
+  const fallbackDateKey = logDate || clockInDateKey;
+  if (!fallbackDateKey) return null;
+
+  const window = getShiftStartEnd(fallbackDateKey, shiftStart, shiftEnd);
+  if (!window || !clockIn) return fallbackDateKey;
+
+  const clockInAt = new Date(clockIn);
+  if (Number.isNaN(clockInAt.getTime())) return fallbackDateKey;
+
+  if (
+    clockInDateKey
+    && clockInDateKey !== fallbackDateKey
+    && clockInAt >= window.startAt
+    && clockInAt <= window.endAt
+  ) {
+    return fallbackDateKey;
+  }
+
+  const rawStartAt = parseShiftDateTime(fallbackDateKey, shiftStart);
+  const rawEndAt = parseShiftDateTime(fallbackDateKey, shiftEnd);
+  const isOvernightShift = rawStartAt && rawEndAt && rawEndAt <= rawStartAt;
+  if (clockInDateKey && isOvernightShift && clockInDateKey < fallbackDateKey) {
+    return clockInDateKey;
+  }
+
+  return fallbackDateKey;
 };
 
 const getShiftEndReminderKey = (attendanceLogId) => (
@@ -202,10 +250,8 @@ const formatDistanceMeters = (value) => {
 };
 
 const getShiftTiming = ({ dateKey, shiftStart, shiftEnd, now }) => {
-  const startAt = parseShiftDateTime(dateKey, shiftStart);
-  const endAt = parseShiftDateTime(dateKey, shiftEnd);
-
-  if (!startAt || !endAt) {
+  const window = getShiftStartEnd(dateKey, shiftStart, shiftEnd);
+  if (!window) {
     return {
       canClockOut: false,
       hasRemainingTime: false,
@@ -214,12 +260,7 @@ const getShiftTiming = ({ dateKey, shiftStart, shiftEnd, now }) => {
     };
   }
 
-  const normalizedEndAt = new Date(endAt);
-  if (normalizedEndAt <= startAt) {
-    normalizedEndAt.setDate(normalizedEndAt.getDate() + 1);
-  }
-
-  const remainingMs = normalizedEndAt.getTime() - now.getTime();
+  const remainingMs = window.endAt.getTime() - now.getTime();
   if (remainingMs > CLOCK_OUT_UNLOCK_WINDOW_MS) {
     const unlockLabel = formatDuration(remainingMs - CLOCK_OUT_UNLOCK_WINDOW_MS);
     return {
@@ -402,8 +443,17 @@ export default function DashboardScreen() {
       setNow(new Date());
       setDateString(formatDate());
     };
+
+    updateClock();
     const interval = setInterval(updateClock, 60000);
-    return () => clearInterval(interval);
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "active") updateClock();
+    });
+
+    return () => {
+      clearInterval(interval);
+      subscription.remove();
+    };
   }, []);
 
   useEffect(() => {
@@ -606,6 +656,7 @@ export default function DashboardScreen() {
         if (result.isInside) {
           const { attendanceLog } = await clockIn({
             siteId: deployment.site_id || deployment.client_sites.id,
+            scheduleId: displayShift?.scheduleId,
             locationEvidence: result.locationEvidence,
           });
 
@@ -622,6 +673,18 @@ export default function DashboardScreen() {
 
         // Always show map — inside or outside
       } catch (err) {
+        if (err.status === 409 && err.attendanceLog && !err.attendanceLog.clockOut) {
+          setActiveAttendanceLog(err.attendanceLog);
+          setIsOnDuty(true);
+          showToast({
+            icon: "checkmark-circle-outline",
+            title: "Already Timed In",
+            message: "Your active attendance log has been restored.",
+            type: "success",
+          });
+          return;
+        }
+
         showToast({
           icon: "alert-circle-outline",
           title: "Unable to Time In",
@@ -699,15 +762,23 @@ export default function DashboardScreen() {
   const todayShift = todaySchedule?.scheduleDays?.find((item) => item.date === todayDateKey)
     || (todaySchedule?.selectedDate === todayDateKey ? todaySchedule?.selectedShift : null)
     || null;
+  const activeAttendanceShiftDateKey = activeAttendanceLog
+    ? getActiveShiftDateKey({
+      logDate: activeAttendanceLog.logDate,
+      clockIn: activeAttendanceLog.clockIn,
+      shiftStart: activeAttendanceLog.shiftStart,
+      shiftEnd: activeAttendanceLog.shiftEnd,
+    })
+    : null;
   const activeAttendanceShift = activeAttendanceLog?.scheduleId
     ? todaySchedule?.scheduleDays?.find((item) => (
       item.scheduleId === activeAttendanceLog.scheduleId
-      && (!activeAttendanceLog.logDate || item.date === activeAttendanceLog.logDate)
+      && (!activeAttendanceShiftDateKey || item.date === activeAttendanceShiftDateKey)
     ))
     : null;
   const activeAttendanceFallbackShift = activeAttendanceLog?.shiftStart && activeAttendanceLog?.shiftEnd
     ? {
-      date: activeAttendanceLog.logDate,
+      date: activeAttendanceShiftDateKey,
       shiftStart: activeAttendanceLog.shiftStart,
       shiftEnd: activeAttendanceLog.shiftEnd,
     }
@@ -750,7 +821,11 @@ export default function DashboardScreen() {
     if (!value || value === "--") return "--";
     const dt = parseShiftDateTime(dateKey, value);
     if (!dt) return String(value);
-    return dt.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    return dt.toLocaleTimeString("en-US", {
+      timeZone: BUSINESS_TIME_ZONE,
+      hour: "numeric",
+      minute: "2-digit",
+    });
   };
   const displayShiftStartFormatted = formatShiftDisplay(displayShiftDateKey, displayShiftStart);
   const displayShiftEndFormatted = formatShiftDisplay(displayShiftDateKey, displayShiftEnd);
