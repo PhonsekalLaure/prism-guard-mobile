@@ -1,4 +1,8 @@
 import authService from "@/services/authService";
+import {
+  appendLeaveSubmissionFormData,
+  normalizeLeaveSubmissionPayload,
+} from "@/utils/leaveSubmissionPayload";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
 
@@ -79,30 +83,20 @@ export const submitLeaveRequest = async ({
   requestedDates = [],
   silPurpose = "standard",
 }) => {
-  const apiLeaveType = ["maternity", "paternity"].includes(leaveType)
-    ? "maternity_paternity"
-    : leaveType;
-  const leaveSubtype = ["maternity", "paternity"].includes(leaveType)
-    ? leaveType
-    : "";
-  const qualifyingEventDate = leaveType === "maternity"
-    ? deliveryDate
-    : leaveType === "paternity"
-      ? childBirthDate
-      : "";
-
-  const formData = new FormData();
-  formData.append("leaveType", apiLeaveType);
-  if (leaveSubtype) formData.append("leaveSubtype", leaveSubtype);
-  if (qualifyingEventDate) formData.append("qualifyingEventDate", qualifyingEventDate);
-  if (apiLeaveType === "service_incentive") formData.append("silPurpose", silPurpose);
-  formData.append("requestedDates", JSON.stringify(requestedDates));
-  formData.append("startDate", startDate);
-  formData.append("endDate", endDate);
-  formData.append("reason", reason);
-  if (supportingDocument) {
-    formData.append("supportingDocument", supportingDocument);
-  }
+  const formData = appendLeaveSubmissionFormData(
+    new FormData(),
+    normalizeLeaveSubmissionPayload({
+      leaveType,
+      startDate,
+      endDate,
+      reason,
+      supportingDocument,
+      deliveryDate,
+      childBirthDate,
+      requestedDates,
+      silPurpose,
+    }),
+  );
 
   return request("/requests", {
     method: "POST",
