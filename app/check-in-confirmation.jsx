@@ -17,13 +17,31 @@ export default function CheckInConfirmation() {
   const router = useRouter();
 
   const params = useLocalSearchParams();
-  const post        = normalizeSiteGeofence(JSON.parse(params.post));
-  const rawGuardCoords = JSON.parse(params.guardCoords);
-  const guardCoords = {
-    latitude: normalizeCoordinate(rawGuardCoords?.latitude, "guard latitude"),
-    longitude: normalizeCoordinate(rawGuardCoords?.longitude, "guard longitude"),
-    accuracy: Number(rawGuardCoords?.accuracy),
-  };
+  let post;
+  let rawGuardCoords;
+  let guardCoords;
+
+  try {
+    post = normalizeSiteGeofence(JSON.parse(params.post || "{}"));
+    rawGuardCoords = JSON.parse(params.guardCoords || "{}");
+    guardCoords = {
+      latitude: normalizeCoordinate(rawGuardCoords?.latitude, "guard latitude"),
+      longitude: normalizeCoordinate(rawGuardCoords?.longitude, "guard longitude"),
+      accuracy: Number(rawGuardCoords?.accuracy),
+    };
+  } catch {
+    return (
+      <View style={[styles.container, styles.errorContainer]}>
+        <Text style={styles.errorTitle}>Check-in details unavailable</Text>
+        <Text style={styles.errorText}>
+          The location verification details could not be loaded.
+        </Text>
+        <TouchableOpacity style={styles.button} onPress={() => router.back()}>
+          <Text style={styles.buttonText}>Back to Dashboard</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
   const distance    = Number(params.distance);
   const checkType   = params.checkType;
   const timestamp   = params.timestamp;
@@ -101,6 +119,24 @@ export default function CheckInConfirmation() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
+  errorContainer: {
+    justifyContent: "center",
+    padding: 24,
+  },
+  errorTitle: {
+    color: PrismColors.navy,
+    fontSize: 20,
+    fontWeight: "700",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  errorText: {
+    color: "#667085",
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 24,
+    textAlign: "center",
+  },
   map:       { height: "45%" },
   card: {
     flex:                 1,

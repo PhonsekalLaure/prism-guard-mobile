@@ -1,10 +1,9 @@
 // app/(tabs)/profile.jsx
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Modal,
-  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,

@@ -184,7 +184,14 @@ const authService = {
 
   async getProfile() {
     const profile = await AsyncStorage.getItem("profile");
-    return profile ? JSON.parse(profile) : null;
+    if (!profile) return null;
+
+    try {
+      return JSON.parse(profile);
+    } catch {
+      await AsyncStorage.removeItem("profile");
+      return null;
+    }
   },
 
   async updateAvatar(uri) {
