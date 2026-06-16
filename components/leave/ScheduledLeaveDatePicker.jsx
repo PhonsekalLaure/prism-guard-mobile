@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { PrismColors } from "@/constants/prismTheme";
 import { fetchMonthlySchedule } from "@/services/scheduleService";
+import leavePolicyRules from "@/utils/leavePolicyRules";
 import {
   getDateKey,
   getMonthKey,
@@ -19,6 +20,7 @@ import {
   parseDateKey,
 } from "@/utils/leaveDates";
 
+const { getScheduledDatesInRange } = leavePolicyRules;
 const DAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 const MONTH_FORMATTER = new Intl.DateTimeFormat("en-US", {
   month: "long",
@@ -71,9 +73,12 @@ export default function ScheduledLeaveDatePicker({
   multiple = false,
   minDate,
   maxDate,
+  maxSelectedDates = null,
   selectableMode = "scheduled",
+  rangeSelection = false,
   rangeStartDate,
   onSelect,
+  onSelectRange,
   onClose,
 }) {
   const initialMonth = useMemo(
@@ -85,11 +90,13 @@ export default function ScheduledLeaveDatePicker({
   const [scheduleCache, setScheduleCache] = useState({});
   const [loadingMonthKeys, setLoadingMonthKeys] = useState([]);
   const [error, setError] = useState("");
+  const [internalRangeStartDate, setInternalRangeStartDate] = useState(null);
 
   useEffect(() => {
     if (!visible) return;
     setMonth(initialMonth.month);
     setYear(initialMonth.year);
+    setInternalRangeStartDate(null);
   }, [initialMonth.month, initialMonth.year, visible]);
 
   const visibleMonthKey = getMonthKey(year, month);
@@ -127,18 +134,20 @@ export default function ScheduledLeaveDatePicker({
     loadMonth(visibleMonthKey);
   }, [loadMonth, visibleMonthKey]);
 
+  const effectiveRangeStartDate = rangeStartDate || internalRangeStartDate;
+
   useEffect(() => {
-    if (!visible || !rangeStartDate) return;
+    if (!visible || !effectiveRangeStartDate) return;
 
     const visibleMonthEnd = getDateKey(
       year,
       month,
       new Date(year, month + 1, 0).getDate(),
     );
-    getMonthKeysBetween(rangeStartDate, visibleMonthEnd)
+    getMonthKeysBetween(effectiveRangeStartDate, visibleMonthEnd)
       .filter((monthKey) => monthKey !== visibleMonthKey)
       .forEach(loadMonth);
-  }, [loadMonth, month, rangeStartDate, visible, visibleMonthKey, year]);
+  }, [effectiveRangeStartDate, loadMonth, month, visible, visibleMonthKey, year]);
 
   const scheduledSet = useMemo(
     () => new Set(scheduleCache[visibleMonthKey]?.scheduledDates || []),
@@ -214,6 +223,16 @@ export default function ScheduledLeaveDatePicker({
     }
   };
 
+  const getSelectableRange = useCallback((dateKey) => {
+    if (!effectiveRangeStartDate || compareDateKeys(dateKey, effectiveRangeStartDate) < 0) {
+      return [];
+    }
+    if (!hasLoadedDateRange(effectiveRangeStartDate, dateKey)) {
+      return null;
+    }
+    return getScheduledDatesInRange(effectiveRangeStartDate, dateKey, allLoadedSelectableDates);
+  }, [allLoadedSelectableDates, effectiveRangeStartDate, hasLoadedDateRange]);
+
   const getDisabledReason = (dateKey) => {
     if (isLoading) {
       return "loading";
@@ -241,18 +260,40 @@ export default function ScheduledLeaveDatePicker({
       return "not-scheduled";
     }
     if (
-      rangeStartDate
-      && compareDateKeys(dateKey, rangeStartDate) >= 0
-      && !hasLoadedDateRange(rangeStartDate, dateKey)
+      effectiveRangeStartDate
+      && compareDateKeys(dateKey, effectiveRangeStartDate) >= 0
+      && !hasLoadedDateRange(effectiveRangeStartDate, dateKey)
     ) {
       return "loading";
     }
     if (
-      rangeStartDate
-      && compareDateKeys(dateKey, rangeStartDate) >= 0
-      && !isDateRangeScheduled(rangeStartDate, dateKey, allLoadedSelectableDates)
+      effectiveRangeStartDate
+      && !rangeSelection
+      && compareDateKeys(dateKey, effectiveRangeStartDate) >= 0
+      && !isDateRangeScheduled(effectiveRangeStartDate, dateKey, allLoadedSelectableDates)
     ) {
       return "range-has-off-day";
+    }
+    if (
+      rangeSelection
+      && effectiveRangeStartDate
+      && compareDateKeys(dateKey, effectiveRangeStartDate) >= 0
+    ) {
+      const rangeDates = getSelectableRange(dateKey);
+      if (rangeDates === null) return "loading";
+      if (rangeDates.length === 0) return "not-scheduled";
+      if (maxSelectedDates && rangeDates.length > maxSelectedDates) {
+        return "selection-limit";
+      }
+    }
+    if (
+      !rangeSelection
+      && multiple
+      && maxSelectedDates
+      && !selectedDates.includes(dateKey)
+      && selectedDates.length >= maxSelectedDates
+    ) {
+      return "selection-limit";
     }
     return null;
   };
@@ -317,6 +358,22 @@ export default function ScheduledLeaveDatePicker({
                 disabled={!cell.current || isDisabled}
                 onPress={() => {
                   if (!dateKey || isDisabled) return;
+                  if (rangeSelection) {
+                    if (
+                      !internalRangeStartDate
+                      || compareDateKeys(dateKey, internalRangeStartDate) < 0
+                    ) {
+                      setInternalRangeStartDate(dateKey);
+                      onSelect?.(dateKey);
+                      return;
+                    }
+
+                    const rangeDates = getSelectableRange(dateKey);
+                    if (!rangeDates || rangeDates.length === 0) return;
+                    onSelectRange?.(rangeDates);
+                    onClose?.();
+                    return;
+                  }
                   onSelect?.(dateKey);
                   if (!multiple) onClose?.();
                 }}
@@ -326,16 +383,22 @@ export default function ScheduledLeaveDatePicker({
                     styles.dayCircle,
                     !cell.current && styles.outsideCircle,
                     isDisabled && cell.current && styles.disabledCircle,
+                    rangeSelection
+                      && dateKey === internalRangeStartDate
+                      && styles.rangeStartCircle,
                     isSelected && styles.selectedCircle,
                   ]}
                 >
                   <Text
                     style={[
                       styles.dayText,
-                      !cell.current && styles.outsideText,
-                      isDisabled && cell.current && styles.disabledText,
-                      isSelected && styles.selectedText,
-                    ]}
+                    !cell.current && styles.outsideText,
+                    isDisabled && cell.current && styles.disabledText,
+                    rangeSelection
+                      && dateKey === internalRangeStartDate
+                      && styles.rangeStartText,
+                    isSelected && styles.selectedText,
+                  ]}
                   >
                     {cell.day}
                   </Text>
@@ -353,9 +416,11 @@ export default function ScheduledLeaveDatePicker({
                 ? "Weekday"
                 : selectableMode === "any"
                 ? "Available day"
-                : selectableMode === "sick"
-                ? "Sick leave eligible day"
-                : "Scheduled shift day"}
+              : selectableMode === "sick"
+              ? "Sick leave eligible day"
+              : rangeSelection
+              ? "Scheduled shift range"
+              : "Scheduled shift day"}
             </Text>
           </View>
           <View style={styles.legendItem}>
@@ -485,6 +550,10 @@ const styles = StyleSheet.create({
   selectedCircle: {
     backgroundColor: PrismColors.navy,
   },
+  rangeStartCircle: {
+    borderWidth: 2,
+    borderColor: PrismColors.navy,
+  },
   dayText: {
     fontSize: 13,
     fontWeight: "700",
@@ -498,6 +567,10 @@ const styles = StyleSheet.create({
   },
   selectedText: {
     color: "#fff",
+  },
+  rangeStartText: {
+    color: PrismColors.navy,
+    fontWeight: "800",
   },
   legend: {
     flexDirection: "row",

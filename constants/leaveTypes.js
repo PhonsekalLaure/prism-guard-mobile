@@ -18,7 +18,7 @@ export const LEAVE_OPTIONS = [
     value: "emergency",
     label: LEAVE_TYPE_LABELS.emergency,
     icon: "alert-circle",
-    pickerMeta: "1-5 days",
+    pickerMeta: "Today through last 3 days",
   },
   {
     value: "maternity",
@@ -36,5 +36,6 @@ export const LEAVE_OPTIONS = [
     value: "service_incentive",
     label: LEAVE_TYPE_LABELS.service_incentive,
     icon: "briefcase",
+    pickerMeta: "5-day annual balance",
   },
 ];

@@ -36,13 +36,13 @@ function getStartDateBounds(formData) {
   }
 
   if (leaveType === "emergency") {
-    return { minDate: today, maxDate: today };
+    return { minDate: addDaysToDateKey(today, -3), maxDate: today };
   }
 
   if (leaveType === "service_incentive") {
     return formData.silPurpose === "sick_substitution"
       ? { maxDate: today }
-      : { minDate: today };
+      : { minDate: addDaysToDateKey(today, 1) };
   }
 
   return { minDate: today };
@@ -63,7 +63,15 @@ function getDocumentPlaceholder(leaveType) {
   return "Attach PDF or image";
 }
 
-const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, submitDisabled }) => {
+const LeaveForm = ({
+  formData,
+  leaveCredits,
+  employeeGender,
+  onChange,
+  onSubmit,
+  errorMessage,
+  submitDisabled,
+}) => {
   const [showLeavePicker, setShowLeavePicker] = useState(false);
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
@@ -75,6 +83,12 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
   const todayDateKey = getTodayDateKey();
   const selectableMode = getSelectableMode(formData.leaveType);
   const requestedDates = formData.requestedDates || [];
+  const isStandardSil = formData.leaveType === "service_incentive"
+    && formData.silPurpose === "standard";
+  const selectedCredit = leaveCreditsByType[formData.leaveType];
+  const maxSelectedDates = isStandardSil && typeof selectedCredit?.remainingDays === "number"
+    ? selectedCredit.remainingDays
+    : null;
 
   const updateRequestedDates = (dates) => {
     const sorted = [...new Set(dates)].sort();
@@ -226,11 +240,12 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
         {showStartPicker && (
           <ScheduledLeaveDatePicker
             visible={showStartPicker}
-            title="Select Start Date"
+            title={isStandardSil ? "Select SIL Date Range" : "Select Start Date"}
             selectedDate={formData.startDate}
             selectedDates={requestedDates}
             minDate={startDateBounds.minDate}
             maxDate={startDateBounds.maxDate}
+            maxSelectedDates={maxSelectedDates}
             selectableMode={
               formData.leaveType === "service_incentive"
                 && formData.silPurpose === "sick_substitution"
@@ -238,15 +253,19 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
                 : selectableMode
             }
             multiple={formData.leaveType !== "maternity"}
+            rangeSelection={isStandardSil}
             onSelect={(dateKey) => {
               if (formData.leaveType === "maternity") {
                 updateRequestedDates(
                   getDateRange(dateKey, addDaysToDateKey(dateKey, 104)),
                 );
+              } else if (isStandardSil) {
+                updateRequestedDates([dateKey]);
               } else {
                 toggleRequestedDate(dateKey);
               }
             }}
+            onSelectRange={updateRequestedDates}
             onClose={() => setShowStartPicker(false)}
           />
         )}
@@ -401,6 +420,7 @@ const LeaveForm = ({ formData, leaveCredits, onChange, onSubmit, errorMessage, s
         }}
         onClose={() => setShowLeavePicker(false)}
         leaveCreditsByType={leaveCreditsByType}
+        employeeGender={employeeGender}
       />
     </View>
   );

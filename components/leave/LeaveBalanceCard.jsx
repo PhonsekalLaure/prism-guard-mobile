@@ -13,7 +13,7 @@ const LeaveBalanceCard = ({ credits = 0, loading = false }) => {
           <Text style={styles.typeLabel}>{item.leaveTypeLabel}</Text>
           <Text style={styles.balanceValue}>
             {item.leaveType === "service_incentive"
-              ? `${item.remainingRequests ?? 0}/${item.maxRequests ?? 2} requests, ${item.remainingDays ?? 0} days`
+              ? `${item.remainingDays ?? 0} of ${item.totalAllocated ?? 0} days`
               : `${item.remainingRequests ?? 0} of ${item.maxRequests ?? 2} requests`}
           </Text>
         </View>

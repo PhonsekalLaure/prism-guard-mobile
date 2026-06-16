@@ -14,6 +14,19 @@ function getDisplayId(profile) {
   return profile?.employee_id_number || "PRISM-----";
 }
 
+async function refreshProfileIfMissingGender(profile) {
+  if (!profile?.id || profile.gender !== undefined) return profile;
+
+  try {
+    const data = await authService.getMe();
+    if (!data?.profile) return profile;
+    await AsyncStorage.setItem("profile", JSON.stringify(data.profile));
+    return data.profile;
+  } catch {
+    return profile;
+  }
+}
+
 export function ActiveDeploymentAccessProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [email, setEmail] = useState("");
@@ -44,10 +57,11 @@ export function ActiveDeploymentAccessProvider({ children }) {
     setError(null);
 
     try {
-      const [storedProfile, storedEmail] = await Promise.all([
+      const [cachedProfile, storedEmail] = await Promise.all([
         authService.getProfile(),
         AsyncStorage.getItem("user_email"),
       ]);
+      const storedProfile = await refreshProfileIfMissingGender(cachedProfile);
 
       if (!mountedRef.current || seq !== requestSeq.current) return null;
 

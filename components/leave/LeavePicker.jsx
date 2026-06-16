@@ -8,20 +8,20 @@ import {
     View,
 } from "react-native";
 import { LEAVE_OPTIONS } from "@/constants/leaveTypes";
+import leavePolicyRules from "@/utils/leavePolicyRules";
+
+const {
+  getUnavailableLeaveTypeReason,
+  isLeaveTypeAvailableForGender,
+} = leavePolicyRules;
 
 function getCreditRemaining(credit) {
-  return credit?.remainingDays ?? credit?.remainingRequests;
+  if (typeof credit?.remainingDays === "number") return credit.remainingDays;
+  return credit?.remainingRequests;
 }
 
 function getPickerMetaText(option, credit) {
   if (option.pickerMeta) return option.pickerMeta;
-
-  if (
-    typeof credit?.remainingDays === "number"
-    && typeof credit?.remainingRequests === "number"
-  ) {
-    return `${credit.remainingRequests} request(s), ${credit.remainingDays} day(s) left`;
-  }
 
   if (typeof credit?.remainingDays === "number") {
     return `${credit.remainingDays} day${credit.remainingDays === 1 ? "" : "s"} left`;
@@ -48,6 +48,7 @@ const LeavePicker = ({
   onSelect,
   onClose,
   leaveCreditsByType = {},
+  employeeGender = null,
 }) => (
   <Modal
     visible={visible}
@@ -66,8 +67,11 @@ const LeavePicker = ({
         const active = selected === opt.value;
         const credit = leaveCreditsByType[opt.creditType || opt.value];
         const remaining = getCreditRemaining(credit);
-        const metaText = getPickerMetaText(opt, credit);
-        const disabled = remaining === 0 || credit?.remainingRequests === 0;
+        const genderAllowed = isLeaveTypeAvailableForGender(opt.value, employeeGender);
+        const unavailableReason = getUnavailableLeaveTypeReason(opt.value, employeeGender);
+        const metaText = unavailableReason || getPickerMetaText(opt, credit);
+        const requestLimitReached = opt.value !== "service_incentive" && credit?.remainingRequests === 0;
+        const disabled = !genderAllowed || remaining === 0 || requestLimitReached;
         return (
           <TouchableOpacity
             key={opt.value}

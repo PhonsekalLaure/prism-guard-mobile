@@ -5,7 +5,11 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "updates": {
-      "enabled": false
+      "enabled": true,
+      "url": "https://u.expo.dev/283ba29e-1522-45fa-9730-c2ef1e3463ff"
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "icon": "./assets/images/app-icon.png",
     "scheme": "prismguardmobile",

@@ -85,8 +85,10 @@ function getLeaveFormError(formData) {
   }
 
   if (formData.leaveType === "emergency") {
-    if (dates[0] !== today) return "Emergency leave must start today.";
-    if (dates.length > 5) return "Emergency leave can include at most 5 working days.";
+    const earliestEmergencyDate = addDaysToDateKey(today, -3);
+    if (dates.some((date) => date < earliestEmergencyDate || date > today)) {
+      return "Emergency leave can only use scheduled shifts from today through the last 3 days.";
+    }
   }
 
   if (formData.leaveType === "maternity") {
@@ -106,9 +108,9 @@ function getLeaveFormError(formData) {
   if (
     formData.leaveType === "service_incentive"
     && formData.silPurpose !== "sick_substitution"
-    && dates.some((date) => date < today)
+    && dates.some((date) => date <= today)
   ) {
-    return "Standard Service Incentive Leave cannot be filed in the past.";
+    return "Standard Service Incentive Leave can only be filed for future scheduled shifts.";
   }
 
   return null;
@@ -142,11 +144,21 @@ async function validateLeaveDates(leaveType, silPurpose, requestedDates) {
       : "Sick-related leave can only use past absent shifts or today's scheduled shift.";
   }
 
-  if (!requestedDates.every((date) => scheduledSet.has(date))) {
-    return "You can only request leave on scheduled working days.";
-  }
-
   if (leaveType === "emergency") {
+    const earliestEmergencyDate = addDaysToDateKey(today, -3);
+    const emergencySet = new Set([
+      ...[...absentSet].filter((date) => date >= earliestEmergencyDate && date < today),
+      ...[...scheduledSet].filter((date) => date === today),
+    ]);
+    const validGraceDates = requestedDates.every((date) => (
+      date >= earliestEmergencyDate
+      && date <= today
+      && emergencySet.has(date)
+    ));
+    if (!validGraceDates) {
+      return "Emergency leave can only use missed scheduled shifts from today through the last 3 days.";
+    }
+
     const [startDate] = requestedDates;
     const endDate = requestedDates[requestedDates.length - 1];
     const expectedDates = [];
@@ -155,7 +167,7 @@ async function validateLeaveDates(leaveType, silPurpose, requestedDates) {
       cursor <= endDate;
       cursor = addDaysToDateKey(cursor, 1)
     ) {
-      if (scheduledSet.has(cursor)) expectedDates.push(cursor);
+      if (emergencySet.has(cursor)) expectedDates.push(cursor);
     }
     if (
       expectedDates.length !== requestedDates.length
@@ -165,13 +177,17 @@ async function validateLeaveDates(leaveType, silPurpose, requestedDates) {
     }
   }
 
+  if (!requestedDates.every((date) => scheduledSet.has(date))) {
+    return "You can only request leave on scheduled working days.";
+  }
+
   return null;
 }
 
 export default function LeaveScreen() {
   const router = useRouter();
   const isFocused = useIsFocused();
-  const { deployment, deploymentLoading, profileLoading } = useActiveDeploymentAccess();
+  const { deployment, deploymentLoading, profile, profileLoading } = useActiveDeploymentAccess();
 
   const [formData, setFormData] = useState({
     leaveType: "",
@@ -489,6 +505,7 @@ export default function LeaveScreen() {
           <LeaveForm
             formData={formData}
             leaveCredits={credits}
+            employeeGender={profile?.gender || null}
             onChange={handleFormChange}
             onSubmit={handleOpenReview}
             errorMessage={validationError}
