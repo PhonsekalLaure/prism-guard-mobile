@@ -65,15 +65,6 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      [
-        "react-native-maps",
-        {
-          "maps": {
-            "ios": "AIzaSyDR7xPxWS78_gnWcqC2zocNjSSpYoO_LpM",
-            "android": "AIzaSyDR7xPxWS78_gnWcqC2zocNjSSpYoO_LpM"
-          }
-        }
-      ],
       "expo-web-browser",
       "expo-font",
       "expo-image"
