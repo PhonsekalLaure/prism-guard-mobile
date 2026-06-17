@@ -18,6 +18,7 @@ export default function AttendanceGeofenceMonitor() {
   const { deployment, profile } = useActiveDeploymentAccess();
   const [attendanceLogId, setAttendanceLogId] = useState(null);
   const [backgroundTrackingActive, setBackgroundTrackingActive] = useState(false);
+  const [appState, setAppState] = useState(AppState.currentState);
 
   const refreshActiveAttendance = useCallback(async () => {
     if (!profile?.id) {
@@ -36,6 +37,10 @@ export default function AttendanceGeofenceMonitor() {
   const enableBackgroundTracking = useCallback(async () => {
     const site = deployment?.client_sites;
     if (!attendanceLogId || !site) return;
+    if (AppState.currentState !== "active") {
+      setBackgroundTrackingActive(false);
+      return;
+    }
 
     try {
       const supported = await isBackgroundLocationSupported();
@@ -106,6 +111,7 @@ export default function AttendanceGeofenceMonitor() {
       ACTIVE_ATTENDANCE_REFRESH_MS,
     );
     const appStateSubscription = AppState.addEventListener("change", (nextState) => {
+      setAppState(nextState);
       if (nextState === "active") refreshActiveAttendance();
     });
 
@@ -117,7 +123,9 @@ export default function AttendanceGeofenceMonitor() {
 
   useEffect(() => {
     if (attendanceLogId && deployment?.client_sites) {
-      enableBackgroundTracking();
+      if (appState === "active") {
+        enableBackgroundTracking();
+      }
       return undefined;
     }
 
@@ -126,7 +134,7 @@ export default function AttendanceGeofenceMonitor() {
       console.warn("Could not stop background attendance tracking:", err.message || err);
     });
     return undefined;
-  }, [attendanceLogId, deployment, enableBackgroundTracking]);
+  }, [appState, attendanceLogId, deployment, enableBackgroundTracking]);
 
   useGeofenceMonitor(deployment, {
     attendanceLogId,

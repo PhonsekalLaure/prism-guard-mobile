@@ -12,6 +12,7 @@ const LAST_INSIDE_PING_KEY = "attendance_background_last_inside_ping";
 const NOTIFIED_KEY_PREFIX = "geofence_guard_notified";
 const BACKGROUND_UPDATE_INTERVAL_MS = 5 * 60 * 1000;
 const INSIDE_PING_INTERVAL_MS = 3 * 60 * 60 * 1000;
+const MAX_BACKGROUND_LOCATION_AGE_MS = 60 * 1000;
 
 function getNotifiedKey(attendanceLogId) {
   return `${NOTIFIED_KEY_PREFIX}:${attendanceLogId}`;
@@ -99,6 +100,11 @@ async function processBackgroundLocation(location) {
   if (!context?.attendanceLogId || !coords) return;
 
   const now = Date.now();
+  const capturedAt = Number(location?.timestamp) || now;
+  if (now - capturedAt > MAX_BACKGROUND_LOCATION_AGE_MS) {
+    return;
+  }
+
   const probablyInside = isProbablyInside(coords, context);
   const lastInsidePing = Number(
     await AsyncStorage.getItem(LAST_INSIDE_PING_KEY) || 0,
@@ -141,6 +147,19 @@ if (!TaskManager.isTaskDefined(ATTENDANCE_LOCATION_TASK)) {
     try {
       await processBackgroundLocation(latestLocation);
     } catch (taskError) {
+      if (
+        taskError.status === 404
+        || taskError.code === "NO_ACTIVE_ATTENDANCE_LOG"
+        || /active attendance log not found/i.test(String(taskError.message || ""))
+      ) {
+        await stopAttendanceBackgroundTracking().catch(() => null);
+        return;
+      }
+
+      if (/location reading is stale/i.test(String(taskError.message || ""))) {
+        return;
+      }
+
       console.warn(
         "Background attendance location upload failed:",
         taskError.message || taskError,

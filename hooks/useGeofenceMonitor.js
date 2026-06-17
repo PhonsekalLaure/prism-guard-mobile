@@ -58,6 +58,7 @@ export function useGeofenceMonitor(
 
     const checkGeofence = async () => {
       if (checkInProgressRef.current) return;
+      if (AppState.currentState !== "active") return;
 
       checkInProgressRef.current = true;
       try {

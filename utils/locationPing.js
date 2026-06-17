@@ -73,6 +73,7 @@ export async function saveLocationPing({
   const challenge = await parseResponse(challengeResponse);
   if (!challengeResponse.ok) {
     const error = new Error(challenge.error || "Failed to create location challenge");
+    error.status = challengeResponse.status;
     error.code = challenge.code;
     throw error;
   }
@@ -89,6 +90,11 @@ export async function saveLocationPing({
   }
 
   const data = await parseResponse(response);
-  if (!response.ok) throw new Error(data.error || "Failed to save ping");
+  if (!response.ok) {
+    const error = new Error(data.error || "Failed to save ping");
+    error.status = response.status;
+    error.code = data.code;
+    throw error;
+  }
   return data;
 }
