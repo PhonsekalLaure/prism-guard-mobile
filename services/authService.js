@@ -223,6 +223,29 @@ const authService = {
     return data;
   },
 
+  async updateProfile({ phone, emergencyName, emergencyNum }) {
+    const apiResponse = await this.authenticatedFetch(
+      `${BASE_URL}/api/mobile/auth/profile`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({
+          phone,
+          emergencyName,
+          emergencyNum,
+        }),
+      }
+    );
+
+    const data = await parseJsonResponse(apiResponse);
+    if (!apiResponse.ok) throw new Error(data.error || 'Failed to update profile');
+
+    if (data.profile) {
+      await AsyncStorage.setItem("profile", JSON.stringify(data.profile));
+    }
+
+    return data;
+  },
+
   async changeEmail(email) {
     if (!email || !email.trim()) {
       throw new Error('Please enter a valid email address.');

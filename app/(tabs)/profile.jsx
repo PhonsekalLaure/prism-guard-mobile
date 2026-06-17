@@ -52,6 +52,7 @@ export default function ProfileScreen() {
   const [emailStatus, setEmailStatus] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
   const [toast, setToast] = useState({
     visible: false,
     icon: "checkmark-circle",
@@ -179,13 +180,29 @@ export default function ProfileScreen() {
           emergencyNameFromProfile={emergencyName}
           emergencyNumFromProfile={emergencyNum}
           editMode={editMode}
+          saving={profileSaving}
           onEditModeChange={setEditMode}
-          onSave={(data) => {
-            console.log("Saved:", data);
+          onSave={async (data) => {
+            setProfileSaving(true);
+            try {
+              const result = await authService.updateProfile(data);
+              if (result.profile) {
+                setProfile(result.profile);
+              }
+              showToast(
+                "checkmark-circle",
+                "Changes Saved",
+                "Your profile has been updated."
+              );
+            } finally {
+              setProfileSaving(false);
+            }
+          }}
+          onSaveError={(err) => {
             showToast(
-              "checkmark-circle",
-              "Changes Saved",
-              "Your profile has been updated."
+              "alert-circle",
+              "Update Failed",
+              err?.message || "Couldn't save profile changes. Try again."
             );
           }}
         />

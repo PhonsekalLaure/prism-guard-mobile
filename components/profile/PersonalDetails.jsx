@@ -39,8 +39,10 @@ export default function PersonalDetails({
   emergencyNameFromProfile = "",
   emergencyNumFromProfile = "",
   editMode = false,
+  saving = false,
   onEditModeChange,
   onSave,
+  onSaveError,
 }) {
   const [email, setEmail] = useState(emailFromAuth);
   const [phone, setPhone] = useState(phoneFromProfile);
@@ -65,9 +67,16 @@ export default function PersonalDetails({
     if (emergencyNumFromProfile) setEmergencyNum(emergencyNumFromProfile);
   }, [emergencyNumFromProfile]);
 
-  const handleToggle = () => {
+  const handleToggle = async () => {
+    if (saving) return;
+
     if (editMode && onSave) {
-      onSave({ phone, address, emergencyName, emergencyNum });
+      try {
+        await onSave({ phone, emergencyName, emergencyNum });
+      } catch (err) {
+        onSaveError?.(err);
+        return;
+      }
     }
     onEditModeChange?.(!editMode);
   };
@@ -76,11 +85,11 @@ export default function PersonalDetails({
     <View style={styles.card}>
       <View style={styles.titleRow}>
         <Text style={styles.titleText}>Personal Details</Text>
-        <TouchableOpacity onPress={handleToggle}>
+        <TouchableOpacity onPress={handleToggle} disabled={saving}>
           <Ionicons
             name={editMode ? "save-outline" : "create-outline"}
             size={18}
-            color={GOLD}
+            color={saving ? "#aaa" : GOLD}
           />
         </TouchableOpacity>
       </View>
@@ -93,18 +102,18 @@ export default function PersonalDetails({
         onChangeText={setEmail}
       />
       <InfoRow
+        icon="location-outline"
+        label="Address"
+        value={address}
+        editable={false}
+        onChangeText={setAddress}
+      />
+      <InfoRow
         icon="call-outline"
         label="Mobile Number"
         value={phone}
         editable={editMode}
         onChangeText={setPhone}
-      />
-      <InfoRow
-        icon="location-outline"
-        label="Address"
-        value={address}
-        editable={editMode}
-        onChangeText={setAddress}
       />
       <InfoRow
         icon="heart-outline"
