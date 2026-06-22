@@ -183,7 +183,7 @@ export default function EarningsScreen() {
               <Ionicons name="wallet-outline" size={34} color={C.primary} />
               <Text style={styles.emptyTitle}>Earnings are being prepared</Text>
               <Text style={styles.emptyText}>
-                Payroll estimates will appear here once records are available for this assignment.
+                Your payroll details will appear after HR approves your first payroll.
               </Text>
             </View>
           )}

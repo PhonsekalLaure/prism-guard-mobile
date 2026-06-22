@@ -26,7 +26,10 @@ export function getNotificationRoute(data = {}) {
   }
 
   if (route === "/(tabs)/schedule" || screen === "schedule") {
-    return "/(tabs)/schedule";
+    const logDate = data.logDate || data.log_date || null;
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(logDate || ""))
+      ? `/(tabs)/schedule?date=${encodeURIComponent(logDate)}`
+      : "/(tabs)/schedule";
   }
 
   if (screen === "announcement_detail" && announcementId) {

@@ -219,6 +219,9 @@ export default function CashAdvanceScreen() {
   const available = limitData?.available_limit ?? 0;
   const minAmount = limitData?.min_amount ?? 0;
   const parsed    = parseFloat(amount) || 0;
+  const requestLimit = limitData?.request_limit_per_cutoff ?? 2;
+  const requestsRemaining = limitData?.requests_remaining_this_cutoff ?? requestLimit;
+  const requestLimitReached = requestsRemaining <= 0;
 
   const amountError = (() => {
     if (!amount) return null;
@@ -227,7 +230,11 @@ export default function CashAdvanceScreen() {
     return null;
   })();
 
-  const canSubmit = parsed >= minAmount && parsed <= available && reason !== '' && !submitting;
+  const canSubmit = !requestLimitReached
+    && parsed >= minAmount
+    && parsed <= available
+    && reason !== ''
+    && !submitting;
   const historyTotalPages = Math.max(
     Math.ceil(historyTotalCount / HISTORY_PAGE_SIZE),
     1,
@@ -309,9 +316,14 @@ export default function CashAdvanceScreen() {
               <>
                 <Text style={styles.limitAmount}>{toCurrency(available)}</Text>
                 {limitData && (
-                  <Text style={styles.limitSub}>
-                    {toCurrency(limitData.outstanding)} outstanding of {toCurrency(limitData.total_limit)} limit
-                  </Text>
+                  <>
+                    <Text style={styles.limitSub}>
+                      {toCurrency(limitData.outstanding)} outstanding of {toCurrency(limitData.total_limit)} limit
+                    </Text>
+                    <Text style={styles.limitSub}>
+                      {requestsRemaining} of {requestLimit} requests remaining this cutoff
+                    </Text>
+                  </>
                 )}
               </>
             )}
@@ -323,6 +335,11 @@ export default function CashAdvanceScreen() {
 
         {/* Form Card */}
         <View style={styles.card}>
+          {requestLimitReached && (
+            <Text style={styles.errorMsg}>
+              You have reached the two-request limit for this payroll cutoff.
+            </Text>
+          )}
 
           {/* Amount */}
           <Text style={styles.fieldLabel}>Amount Required</Text>

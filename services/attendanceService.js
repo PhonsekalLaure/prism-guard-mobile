@@ -104,3 +104,21 @@ export const clockOut = async ({
     }),
   });
 };
+
+export const submitAbsenceContest = async ({
+  scheduleId,
+  logDate,
+  reasonCode,
+  reasonText,
+}) => {
+  const data = await request('/contests', {
+    method: 'POST',
+    body: JSON.stringify({
+      scheduleId,
+      logDate,
+      reasonCode,
+      reasonText,
+    }),
+  });
+  return data.contest;
+};
