@@ -723,6 +723,18 @@ export default function DashboardScreen() {
 
       const position = await validateGuardLocation(deployment.client_sites);
       const timestamp = new Date().toISOString();
+      setLocationVerification({
+        post: position.post,
+        guardCoords: position.coords,
+        distance: position.distance,
+        checkType: "logout",
+        timestamp,
+        isInside: position.isInside,
+      });
+
+      if (!position.isInside) {
+        throw new Error("You must be inside your assigned site to time out.");
+      }
 
       if (!activeAttendanceLog?.id) {
         throw new Error("No active attendance log found.");
@@ -735,14 +747,6 @@ export default function DashboardScreen() {
 
       setActiveAttendanceLog(null);
       setIsOnDuty(false);
-      setLocationVerification({
-        post: position.post,
-        guardCoords: position.coords,
-        distance: position.distance,
-        checkType: "logout",
-        timestamp,
-        isInside: position.isInside,
-      });
     } catch (err) {
       console.error("Clock-out failed:", err);
       setIsOnDuty(Boolean(activeAttendanceLog));

@@ -226,7 +226,7 @@ export default function ScheduleScreen() {
       ? fallbackDeployment
       : null)
     || null;
-  const isSelectedAbsent = Boolean(schedule?.absentDates?.includes(selectedDate));
+  const isSelectedAbsent = Boolean(selectedShift?.isAbsent);
   const selectedContest = selectedShift?.contest || null;
   const canContestAbsence = Boolean(isSelectedAbsent && selectedShift?.scheduleId && !selectedContest);
   const contestStatusLabel = selectedContest?.status === "pending"
