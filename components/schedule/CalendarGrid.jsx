@@ -112,6 +112,9 @@ export default function CalendarGrid({
           <Text style={styles.legendText}>Absent</Text>
         </View>
       </View>
+      <Text style={styles.contestHint}>
+        Select an absent date on the calendar to contest attendance.
+      </Text>
     </View>
   );
 }
@@ -181,4 +184,10 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 11, color: "#666" },
+  contestHint: {
+    marginTop: 10,
+    fontSize: 12,
+    lineHeight: 17,
+    color: PrismColors.textSecondary || "#666",
+  },
 });

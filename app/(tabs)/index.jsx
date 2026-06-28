@@ -836,11 +836,14 @@ export default function DashboardScreen() {
     if (!value || value === "--") return "--";
     const dt = parseShiftDateTime(dateKey, value);
     if (!dt) return String(value);
-    return dt.toLocaleTimeString("en-US", {
+    const parts = new Intl.DateTimeFormat("en-US", {
       timeZone: BUSINESS_TIME_ZONE,
-      hour: "numeric",
+      hour: "2-digit",
       minute: "2-digit",
-    });
+      hourCycle: "h23",
+    }).formatToParts(dt);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${Number(values.hour)}:${values.minute}`;
   };
   const displayShiftStartFormatted = formatShiftDisplay(displayShiftDateKey, displayShiftStart);
   const displayShiftEndFormatted = formatShiftDisplay(displayShiftDateKey, displayShiftEnd);

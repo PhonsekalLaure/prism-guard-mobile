@@ -11,6 +11,7 @@ function getInitials(value = "") {
 export default function DeploymentCard({
   location,
   address,
+  company,
   avatarUrl,
   timeStart,
   timeEnd,
@@ -51,11 +52,12 @@ export default function DeploymentCard({
               onError={() => setImageFailed(true)}
             />
           ) : (
-            <Text style={styles.icon}>{getInitials(location || address)}</Text>
+            <Text style={styles.icon}>{getInitials(company || location || address)}</Text>
           )}
         </View>
         <View style={styles.details}>
           <Text style={styles.location}>{location}</Text>
+          {!!company && <Text style={styles.company}>{company}</Text>}
           {!!address && <Text style={styles.address}>{address}</Text>}
           {!!timeStart && !!timeEnd && (
             <Text style={styles.time}>
@@ -109,6 +111,7 @@ const styles = StyleSheet.create({
   icon: { fontSize: 13, fontWeight: "800", color: PrismColors.navy },
   details: { flex: 1 },
   location: { fontSize: 15, fontWeight: "700", color: PrismColors.navy },
+  company: { fontSize: 12, color: PrismColors.navy, marginTop: 2, fontWeight: "600" },
   address: { fontSize: 12, color: "#999", marginTop: 2 },
   time: {
     fontSize: 12,

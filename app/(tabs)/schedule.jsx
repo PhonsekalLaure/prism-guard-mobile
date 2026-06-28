@@ -356,7 +356,8 @@ export default function ScheduleScreen() {
         />
         <DeploymentCard
           location={selectedShift?.siteName}
-          address={selectedShift?.siteAddress || selectedShift?.company}
+          address={selectedShift?.siteAddress}
+          company={selectedShift?.company || selectedDeployment?.company}
           avatarUrl={selectedShift?.clientAvatarUrl || selectedDeployment?.clientAvatarUrl}
           timeStart={selectedShift?.shiftStart}
           timeEnd={selectedShift?.shiftEnd}
