@@ -1,5 +1,5 @@
 import { useIsFocused } from "@react-navigation/native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
     Alert,
@@ -43,6 +43,12 @@ import {
 } from "@/constants/prismTheme";
 
 const LEAVE_HISTORY_PAGE_SIZE = 3;
+
+function getFirstParamValue(...values) {
+  const value = values.find((item) => item !== undefined && item !== null && item !== "");
+  return Array.isArray(value) ? value[0] : value || null;
+}
+
 const INITIAL_LEAVE_FORM_DATA = {
   leaveType: "",
   startDate: "",
@@ -197,8 +203,11 @@ async function validateLeaveDates(leaveType, silPurpose, requestedDates) {
 
 export default function LeaveScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const isFocused = useIsFocused();
   const { deployment, deploymentLoading, profile, profileLoading } = useActiveDeploymentAccess();
+  const focusedLeaveRequestId = getFirstParamValue(params.requestId, params.leaveRequestId);
+  const leaveHistoryPageSize = focusedLeaveRequestId ? 25 : LEAVE_HISTORY_PAGE_SIZE;
 
   const [formData, setFormData] = useState(INITIAL_LEAVE_FORM_DATA);
 
@@ -218,6 +227,7 @@ export default function LeaveScreen() {
   const [scheduleValidationError, setScheduleValidationError] = useState("");
   const [submittedVisible, setSubmittedVisible] = useState(false);
   const scheduleValidationSeq = useRef(0);
+  const scrollViewRef = useRef(null);
   const accessDeniedAlertShownRef = useRef(false);
 
   const navigateBackToSchedule = useCallback(() => {
@@ -231,7 +241,7 @@ export default function LeaveScreen() {
     try {
       const [creditResult, requestResult] = await Promise.all([
         fetchLeaveCredits(),
-        fetchLeaveRequests({ page: 1, limit: LEAVE_HISTORY_PAGE_SIZE }),
+        fetchLeaveRequests({ page: 1, limit: leaveHistoryPageSize }),
       ]);
       setCredits(creditResult);
       setRequests(requestResult.requests);
@@ -243,7 +253,7 @@ export default function LeaveScreen() {
       setCreditsLoading(false);
       setRequestsLoading(false);
     }
-  }, []);
+  }, [leaveHistoryPageSize]);
 
   const loadLeaveHistory = useCallback(async (page) => {
     setRequestsLoading(true);
@@ -251,7 +261,7 @@ export default function LeaveScreen() {
     try {
       const result = await fetchLeaveRequests({
         page,
-        limit: LEAVE_HISTORY_PAGE_SIZE,
+        limit: leaveHistoryPageSize,
       });
       setRequests(result.requests);
       setRequestsPage(result.page);
@@ -261,7 +271,7 @@ export default function LeaveScreen() {
     } finally {
       setRequestsLoading(false);
     }
-  }, []);
+  }, [leaveHistoryPageSize]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -294,6 +304,16 @@ export default function LeaveScreen() {
   const handleFormChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
+
+  useEffect(() => {
+    if (!focusedLeaveRequestId || requestsLoading) return undefined;
+    if (!requests.some((request) => request.id === focusedLeaveRequestId)) return undefined;
+
+    const timer = setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [focusedLeaveRequestId, requests, requestsLoading]);
 
   useEffect(() => {
     let active = true;
@@ -475,7 +495,7 @@ export default function LeaveScreen() {
   };
 
   const requestsTotalPages = Math.max(
-    Math.ceil(requestsTotalCount / LEAVE_HISTORY_PAGE_SIZE),
+    Math.ceil(requestsTotalCount / leaveHistoryPageSize),
     1,
   );
 
@@ -494,6 +514,7 @@ export default function LeaveScreen() {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -523,6 +544,7 @@ export default function LeaveScreen() {
             onPageChange={handleHistoryPageChange}
             onCancel={handleCancelRequest}
             onOpenDocument={handleOpenDocument}
+            focusedRequestId={focusedLeaveRequestId}
           />
         </ScrollView>
       </KeyboardAvoidingView>

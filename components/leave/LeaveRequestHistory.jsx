@@ -25,6 +25,7 @@ function LeaveRequestHistory({
   onPageChange,
   onCancel,
   onOpenDocument,
+  focusedRequestId = null,
 }) {
   const previousDisabled = loading || page <= 1;
   const nextDisabled = loading || page >= totalPages;
@@ -41,8 +42,9 @@ function LeaveRequestHistory({
       ) : (
         requests.map((request) => {
           const status = STATUS_STYLES[request.status] || STATUS_STYLES.pending;
+          const isFocused = focusedRequestId && request.id === focusedRequestId;
           return (
-            <View key={request.id} style={styles.item}>
+            <View key={request.id} style={[styles.item, isFocused && styles.focusedItem]}>
               <View style={styles.itemTop}>
                 <View style={styles.itemTitleWrap}>
                   <Text style={styles.itemTitle}>
@@ -147,6 +149,10 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     gap: 8,
+  },
+  focusedItem: {
+    borderColor: "#f59e0b",
+    backgroundColor: "#fffbeb",
   },
   itemTop: {
     flexDirection: "row",

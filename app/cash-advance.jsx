@@ -1,6 +1,6 @@
 // prism-guard-mobile/app/cash-advance.jsx
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
   Modal,
   Platform,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import ScreenWrapper from '@/components/dashboard/ScreenWrapper';
 import { Ionicons } from '@expo/vector-icons';
 import {
@@ -36,6 +36,11 @@ const REASONS = [
 
 const HIT = { top: 12, bottom: 12, left: 12, right: 12 };
 const HISTORY_PAGE_SIZE = 3;
+
+function getFirstParamValue(...values) {
+  const value = values.find((item) => item !== undefined && item !== null && item !== '');
+  return Array.isArray(value) ? value[0] : value || null;
+}
 
 const C = {
   primary:    '#1A3C8F',
@@ -164,6 +169,11 @@ const RequestSubmittedModal = ({ visible, amountLabel, onDone }) => (
 // ─── screen ───────────────────────────────────────────────────────
 
 export default function CashAdvanceScreen() {
+  const params = useLocalSearchParams();
+  const focusedCashAdvanceId = getFirstParamValue(params.requestId, params.cashAdvanceId);
+  const historyPageSize = focusedCashAdvanceId ? 25 : HISTORY_PAGE_SIZE;
+  const scrollViewRef = useRef(null);
+
   const [limitData, setLimitData]       = useState(null);
   const [limitLoading, setLimitLoading] = useState(true);
   const [limitError, setLimitError]     = useState(null);
@@ -198,7 +208,7 @@ export default function CashAdvanceScreen() {
       setHistoryError(null);
       const result = await fetchCashAdvanceHistory({
         page,
-        limit: HISTORY_PAGE_SIZE,
+        limit: historyPageSize,
       });
       setHistory(result.history);
       setHistoryPage(result.page);
@@ -208,12 +218,22 @@ export default function CashAdvanceScreen() {
     } finally {
       setHistoryLoading(false);
     }
-  }, []);
+  }, [historyPageSize]);
 
   useEffect(() => {
     loadLimit();
     loadHistory(1);
   }, [loadLimit, loadHistory]);
+
+  useEffect(() => {
+    if (!focusedCashAdvanceId || historyLoading) return undefined;
+    if (!history.some((item) => item.id === focusedCashAdvanceId)) return undefined;
+
+    const timer = setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [focusedCashAdvanceId, history, historyLoading]);
 
   // ── derived ───────────────────────────────────────────────────────
   const available = limitData?.available_limit ?? 0;
@@ -236,7 +256,7 @@ export default function CashAdvanceScreen() {
     && reason !== ''
     && !submitting;
   const historyTotalPages = Math.max(
-    Math.ceil(historyTotalCount / HISTORY_PAGE_SIZE),
+    Math.ceil(historyTotalCount / historyPageSize),
     1,
   );
 
@@ -301,6 +321,7 @@ export default function CashAdvanceScreen() {
       </View>
 
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
@@ -457,9 +478,10 @@ export default function CashAdvanceScreen() {
               const status = String(item.status || 'pending').toLowerCase();
               const statusMeta = STATUS_META[status] || STATUS_META.pending;
               const amountLabel = toCurrency(item.amount_approved || item.amount_requested);
+              const isFocused = focusedCashAdvanceId && item.id === focusedCashAdvanceId;
 
               return (
-                <View key={item.id} style={styles.historyItem}>
+                <View key={item.id} style={[styles.historyItem, isFocused && styles.historyItemFocused]}>
                   <View style={[styles.historyIcon, { backgroundColor: `${statusMeta.color}18` }]}>
                     <Ionicons name={statusMeta.icon} size={18} color={statusMeta.color} />
                   </View>
@@ -679,6 +701,13 @@ const styles = StyleSheet.create({
     paddingVertical:  12,
     borderTopWidth:   1,
     borderTopColor:   '#EEF0F5',
+  },
+  historyItemFocused: {
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderTopColor: '#F4C542',
+    backgroundColor: '#FFF8E1',
   },
   historyIcon: {
     width:          36,
