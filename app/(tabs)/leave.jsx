@@ -43,6 +43,17 @@ import {
 } from "@/constants/prismTheme";
 
 const LEAVE_HISTORY_PAGE_SIZE = 3;
+const INITIAL_LEAVE_FORM_DATA = {
+  leaveType: "",
+  startDate: "",
+  endDate: "",
+  requestedDates: [],
+  reason: "",
+  supportingDocument: null,
+  deliveryDate: "",
+  childBirthDate: "",
+  silPurpose: "standard",
+};
 
 const LeaveSubmittedModal = ({ visible, onDone }) => (
   <Modal transparent animationType="fade" visible={visible} onRequestClose={onDone}>
@@ -189,17 +200,7 @@ export default function LeaveScreen() {
   const isFocused = useIsFocused();
   const { deployment, deploymentLoading, profile, profileLoading } = useActiveDeploymentAccess();
 
-  const [formData, setFormData] = useState({
-    leaveType: "",
-    startDate: "",
-    endDate: "",
-    requestedDates: [],
-    reason: "",
-    supportingDocument: null,
-    deliveryDate: "",
-    childBirthDate: "",
-    silPurpose: "standard",
-  });
+  const [formData, setFormData] = useState(INITIAL_LEAVE_FORM_DATA);
 
   const [modalVisible, setModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -408,6 +409,8 @@ export default function LeaveScreen() {
     setLoading(true);
     try {
       await submitLeaveRequest(formData);
+      setFormData(INITIAL_LEAVE_FORM_DATA);
+      setScheduleValidationError("");
       await loadLeaveData();
       setModalVisible(false);
       setSubmittedVisible(true);

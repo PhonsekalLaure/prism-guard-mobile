@@ -27,6 +27,7 @@ import {
 import { fetchAllAnnouncements } from "@/services/announcementsService";
 import { fetchNotificationStats } from "@/services/notificationService";
 import { fetchMonthlySchedule } from "@/services/scheduleService";
+import dashboardShiftTiming from "@/utils/dashboardShiftTiming";
 import { validateGuardLocation } from "@/utils/geofence";
 import { getBusinessDateKey, getDateKey, getTodayParts } from "@/utils/scheduleDates";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -43,6 +44,7 @@ const SHIFT_END_REMINDERS = [
 const CLOCK_OUT_UNLOCK_WINDOW_MS = 60 * 60 * 1000;
 const BUSINESS_TIME_ZONE = "Asia/Manila";
 const BUSINESS_UTC_OFFSET = "+08:00";
+const { getActionableShift } = dashboardShiftTiming;
 
 const formatDate = () => {
   const now = new Date();
@@ -129,6 +131,7 @@ const getShiftStartEnd = (dateKey, shiftStart, shiftEnd) => {
 
   return { startAt, endAt: normalizedEndAt };
 };
+
 
 const getActiveShiftDateKey = ({ logDate, clockIn, shiftStart, shiftEnd }) => {
   const clockInDateKey = getBusinessDateKey(clockIn);
@@ -766,6 +769,14 @@ export default function DashboardScreen() {
   const todayShift = todaySchedule?.scheduleDays?.find((item) => item.date === todayDateKey)
     || (todaySchedule?.selectedDate === todayDateKey ? todaySchedule?.selectedShift : null)
     || null;
+  const actionableShift = getActionableShift({
+    scheduleDays: todaySchedule?.scheduleDays || [],
+    selectedDate: todaySchedule?.selectedDate,
+    selectedShift: todaySchedule?.selectedShift,
+    todayDateKey,
+    now,
+    isOnDuty,
+  });
   const activeAttendanceShiftDateKey = activeAttendanceLog
     ? getActiveShiftDateKey({
       logDate: activeAttendanceLog.logDate,
@@ -788,7 +799,7 @@ export default function DashboardScreen() {
     }
     : null;
   const scheduleLoaded = !todayScheduleLoading && todaySchedule !== null;
-  const noShiftToday = scheduleLoaded && !todayShift && !isOnDuty;
+  const noShiftToday = scheduleLoaded && !actionableShift && !isOnDuty;
   // If there's no shift for today, try to pick a sensible fallback from the schedule:
   let fallbackShift = null;
   if (!todayShift && todaySchedule?.scheduleDays?.length) {
@@ -817,7 +828,7 @@ export default function DashboardScreen() {
   const deploymentShiftEnd = deployment?.shift_end || deployment?.shiftEnd || deployment?.end_time;
   const displayShift = isOnDuty && (activeAttendanceShift || activeAttendanceFallbackShift)
     ? (activeAttendanceShift || activeAttendanceFallbackShift)
-    : (todayShift || fallbackShift);
+    : (actionableShift || fallbackShift);
   const displayShiftDateKey = displayShift?.date || activeAttendanceLog?.logDate || todayDateKey;
   const displayShiftStart = displayShift?.shiftStart || deploymentShiftStart || "--";
   const displayShiftEnd = displayShift?.shiftEnd || deploymentShiftEnd || "--";

@@ -27,42 +27,48 @@ const TimeInButton = ({
   const pressScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (!isOnDuty && !disabled && !noShiftToday) {
-      const pulse = Animated.loop(
-        Animated.parallel([
-          Animated.sequence([
-            Animated.timing(pulseAnim, {
-              toValue: 1.55,
-              duration: 1000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(pulseAnim, {
-              toValue: 1,
-              duration: 1000,
-              useNativeDriver: true,
-            }),
-          ]),
-          Animated.sequence([
-            Animated.timing(pulseOpacity, {
-              toValue: 0,
-              duration: 1000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(pulseOpacity, {
-              toValue: 0.6,
-              duration: 1000,
-              useNativeDriver: true,
-            }),
-          ]),
-        ]),
-      );
-      pulse.start();
-      return () => pulse.stop();
+    if (disabled) {
+      pulseAnim.setValue(1);
+      pulseOpacity.setValue(0.25);
+      return undefined;
     }
 
+    const baseOpacity = noShiftToday ? 0.45 : 0.6;
     pulseAnim.setValue(1);
-    pulseOpacity.setValue(disabled || noShiftToday ? 0.25 : 0);
-  }, [disabled, isOnDuty, noShiftToday, pulseAnim, pulseOpacity]);
+    pulseOpacity.setValue(baseOpacity);
+
+    const pulse = Animated.loop(
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.55,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.timing(pulseOpacity, {
+            toValue: 0,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseOpacity, {
+            toValue: baseOpacity,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]),
+    );
+
+    pulse.start();
+    return () => pulse.stop();
+  }, [disabled, noShiftToday, pulseAnim, pulseOpacity]);
 
   const animatePress = (toValue) => {
     Animated.spring(pressScale, {
@@ -79,6 +85,8 @@ const TimeInButton = ({
         style={[
           styles.pulseRing,
           compact && styles.pulseRingCompact,
+          isOnDuty && styles.pulseRingActive,
+          noShiftToday && styles.pulseRingNoShift,
           disabled && styles.pulseRingChecking,
           {
             transform: [{ scale: pulseAnim }],
@@ -169,6 +177,14 @@ const styles = StyleSheet.create({
     borderRadius: 39,
     backgroundColor: "rgba(125, 211, 252, 0.22)",
     borderColor: "#7DD3FC",
+  },
+  pulseRingActive: {
+    backgroundColor: "rgba(230, 178, 21, 0.22)",
+    borderColor: PrismColors.goldLight,
+  },
+  pulseRingNoShift: {
+    backgroundColor: "rgba(220, 38, 38, 0.18)",
+    borderColor: "#DC2626",
   },
   pulseRingChecking: {
     borderWidth: 4,

@@ -5,6 +5,8 @@ import KpiGrid from "@/components/schedule/KpiGrid";
 import MonthSelector from "@/components/schedule/MonthSelector";
 import RequestLeaveButton from "@/components/schedule/Requestleavebutton";
 import ScheduleHeader from "@/components/schedule/Scheduleheader";
+import { Ionicons } from "@expo/vector-icons";
+import { PrismColors, PrismShadows, PrismSpacing, PrismTypography } from "@/constants/prismTheme";
 import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
 import { submitAbsenceContest } from "@/services/attendanceService";
 import { fetchNotificationStats } from "@/services/notificationService";
@@ -17,7 +19,7 @@ import {
 } from "@/utils/scheduleDates";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 const ABSENCE_CONTEST_REASONS = [
   { code: "emergency", label: "Emergency" },
@@ -25,6 +27,50 @@ const ABSENCE_CONTEST_REASONS = [
   { code: "app_issue", label: "App issue" },
   { code: "other", label: "Other" },
 ];
+const OPEN_LEAVE_STATUSES = new Set(["pending", "approved"]);
+const LEAVE_TYPE_LABELS = {
+  sick: "Sick leave",
+  emergency: "Emergency leave",
+  maternity_paternity: "Maternity/Paternity leave",
+  service_incentive: "Service incentive leave",
+};
+
+function getLeaveStatusTitle(status) {
+  if (status === "pending") return "Leave request pending review";
+  if (status === "approved") return "Approved leave recorded";
+  return null;
+}
+
+function formatLeaveType(value) {
+  return LEAVE_TYPE_LABELS[value] || "Leave request";
+}
+
+const NOTICE_META = {
+  success: { icon: "checkmark-circle", color: PrismColors.success },
+  warning: { icon: "alert-circle", color: PrismColors.warning },
+  danger: { icon: "close-circle", color: PrismColors.danger },
+  info: { icon: "information-circle", color: PrismColors.navy },
+};
+
+function ScheduleNoticeModal({ visible, title, message, type = "info", onDone }) {
+  const meta = NOTICE_META[type] || NOTICE_META.info;
+  return (
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onDone}>
+      <View style={styles.noticeOverlay}>
+        <View style={styles.noticeCard}>
+          <View style={[styles.noticeIconWrap, { backgroundColor: `${meta.color}18` }]}>
+            <Ionicons name={meta.icon} size={34} color={meta.color} />
+          </View>
+          <Text style={styles.noticeTitle}>{title}</Text>
+          <Text style={styles.noticeMessage}>{message}</Text>
+          <Pressable style={styles.noticeDoneButton} onPress={onDone}>
+            <Text style={styles.noticeDoneText}>OK</Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 export default function ScheduleScreen() {
   const router = useRouter();
@@ -45,12 +91,17 @@ export default function ScheduleScreen() {
   const [contestReasonCode, setContestReasonCode] = useState("no_mobile_data");
   const [contestReason, setContestReason] = useState("");
   const [contestSubmitting, setContestSubmitting] = useState(false);
+  const [noticeModal, setNoticeModal] = useState(null);
   const scheduleRequestSeq = useRef(0);
   const selectedDayRef = useRef(today.day);
   const hasFocusedOnceRef = useRef(false);
 
   const clampedSelectedDay = getClampedDay(year, month, selectedDay);
   const selectedDate = getDateKey(year, month, clampedSelectedDay);
+
+  const showNotice = useCallback((notice) => {
+    setNoticeModal({ type: "info", ...notice });
+  }, []);
 
   useEffect(() => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(requestedDate || ""))) return;
@@ -180,7 +231,11 @@ export default function ScheduleScreen() {
   const handleSubmitContest = async () => {
     const reasonText = contestReason.trim();
     if (reasonText.length < 10) {
-      Alert.alert("Reason Required", "Please describe what happened in at least 10 characters.");
+      showNotice({
+        title: "Reason Required",
+        message: "Please describe what happened in at least 10 characters.",
+        type: "warning",
+      });
       return;
     }
 
@@ -195,22 +250,38 @@ export default function ScheduleScreen() {
       setContestModalVisible(false);
       setContestReasonCode("no_mobile_data");
       setContestReason("");
-      Alert.alert("Contest Submitted", "HRIS will review your attendance contest.");
+      showNotice({
+        title: "Contest Submitted",
+        message: "HRIS will review your attendance contest.",
+        type: "success",
+      });
       loadSchedule({ refresh: true });
     } catch (err) {
-      Alert.alert("Unable to Submit", err.message || "Please try again later.");
+      showNotice({
+        title: "Unable to Submit",
+        message: err.message || "Please try again later.",
+        type: "danger",
+      });
     } finally {
       setContestSubmitting(false);
     }
   };
   const handleRequestLeave = () => {
     if (accessLoading) {
-      Alert.alert("Checking Access", "Please try again in a moment.");
+      showNotice({
+        title: "Checking Access",
+        message: "Please try again in a moment.",
+        type: "warning",
+      });
       return;
     }
 
     if (!deployment) {
-      Alert.alert("No Access", "You have no access to this right now.");
+      showNotice({
+        title: "No Access",
+        message: "You have no access to this right now.",
+        type: "danger",
+      });
       return;
     }
 
@@ -228,7 +299,13 @@ export default function ScheduleScreen() {
     || null;
   const isSelectedAbsent = Boolean(selectedShift?.isAbsent);
   const selectedContest = selectedShift?.contest || null;
-  const canContestAbsence = Boolean(isSelectedAbsent && selectedShift?.scheduleId && !selectedContest);
+  const selectedLeaveStatus = selectedShift?.leaveStatus || null;
+  const hasSelectedOpenLeave = OPEN_LEAVE_STATUSES.has(selectedLeaveStatus);
+  const selectedLeaveStatusTitle = getLeaveStatusTitle(selectedLeaveStatus);
+  const selectedLeaveTypeLabel = formatLeaveType(selectedShift?.leaveType);
+  const canContestAbsence = Boolean(
+    isSelectedAbsent && selectedShift?.scheduleId && !selectedContest && !hasSelectedOpenLeave
+  );
   const contestStatusLabel = selectedContest?.status === "pending"
     ? "Attendance contest pending review"
     : selectedContest?.status === "approved"
@@ -292,6 +369,14 @@ export default function ScheduleScreen() {
             {selectedContest?.reviewNotes ? (
               <Text style={styles.contestStatusSubtext}>{selectedContest.reviewNotes}</Text>
             ) : null}
+          </View>
+        ) : null}
+        {selectedLeaveStatusTitle ? (
+          <View style={styles.leaveStatusCard}>
+            <Text style={styles.leaveStatusText}>{selectedLeaveStatusTitle}</Text>
+            <Text style={styles.leaveStatusSubtext}>
+              {selectedLeaveTypeLabel} covers this date. Attendance contesting is unavailable for this shift.
+            </Text>
           </View>
         ) : null}
         {canContestAbsence ? (
@@ -363,6 +448,13 @@ export default function ScheduleScreen() {
           </View>
         </View>
       </Modal>
+      <ScheduleNoticeModal
+        visible={Boolean(noticeModal)}
+        title={noticeModal?.title || "Notice"}
+        message={noticeModal?.message || ""}
+        type={noticeModal?.type || "info"}
+        onDone={() => setNoticeModal(null)}
+      />
     </ScreenWrapper>
   );
 }
@@ -379,6 +471,17 @@ const styles = StyleSheet.create({
   },
   contestStatusText: { color: "#7a4d00", fontWeight: "700", fontSize: 13 },
   contestStatusSubtext: { color: "#7a4d00", fontSize: 12, marginTop: 6, lineHeight: 17 },
+  leaveStatusCard: {
+    backgroundColor: "#eef7f1",
+    marginHorizontal: 16,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#9dcfaa",
+  },
+  leaveStatusText: { color: "#235332", fontWeight: "700", fontSize: 13 },
+  leaveStatusSubtext: { color: "#235332", fontSize: 12, marginTop: 6, lineHeight: 17 },
   contestButton: {
     backgroundColor: "#1f5f8b",
     marginHorizontal: 16,
@@ -388,6 +491,58 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   contestButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  noticeOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(13, 31, 60, 0.48)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: PrismSpacing.lg,
+  },
+  noticeCard: {
+    width: "100%",
+    maxWidth: 360,
+    backgroundColor: PrismColors.white,
+    borderRadius: 18,
+    padding: PrismSpacing.lg,
+    alignItems: "center",
+    ...PrismShadows.header,
+  },
+  noticeIconWrap: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: PrismSpacing.md,
+  },
+  noticeTitle: {
+    fontSize: PrismTypography.lg,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.navy,
+    textAlign: "center",
+  },
+  noticeMessage: {
+    marginTop: PrismSpacing.xs,
+    fontSize: PrismTypography.sm,
+    color: PrismColors.textSecondary,
+    lineHeight: 19,
+    textAlign: "center",
+  },
+  noticeDoneButton: {
+    width: "100%",
+    marginTop: PrismSpacing.lg,
+    borderRadius: 12,
+    backgroundColor: PrismColors.gold,
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    ...PrismShadows.button,
+  },
+  noticeDoneText: {
+    fontSize: PrismTypography.base,
+    fontWeight: PrismTypography.bold,
+    color: PrismColors.navy,
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.45)",

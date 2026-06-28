@@ -31,6 +31,12 @@ const titleCase = (value) =>
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
+const getSubmissionSourceLabel = (incident) => {
+  if (incident?.submissionSource === "open_attendance_log") return "Timed-in report";
+  if (incident?.submissionSource === "active_deployment") return "No active time-in";
+  return "Source not recorded";
+};
+
 function formatDateTime(value) {
   if (!value) return "Not recorded";
   const date = new Date(value);
@@ -177,6 +183,12 @@ export default function IncidentDetailScreen() {
               <View style={styles.badgeRow}>
                 <Text style={styles.badge}>{titleCase(incident.reviewStatus || incident.status)}</Text>
                 <Text style={styles.badge}>{titleCase(incident.severity || "medium")}</Text>
+                <Text style={[
+                  styles.badge,
+                  !incident.submittedWhileTimedIn && styles.badgeWarning,
+                ]}>
+                  {getSubmissionSourceLabel(incident)}
+                </Text>
               </View>
               <Text style={styles.meta}>{incident.siteName || "Unknown site"}</Text>
               <Text style={styles.meta}>Submitted {formatDateTime(incident.submittedAt || incident.createdAt)}</Text>
@@ -322,6 +334,10 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: PrismRadius.full,
     overflow: "hidden",
+  },
+  badgeWarning: {
+    backgroundColor: "#FEF3C7",
+    color: "#92400E",
   },
   meta: {
     marginTop: PrismSpacing.xs,

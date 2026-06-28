@@ -28,6 +28,7 @@ import {
   PrismTypography,
 } from "@/constants/prismTheme";
 import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
+import { fetchActiveAttendance } from "@/services/attendanceService";
 import incidentService from "@/services/incidentService";
 
 const formatDateTime = (date) => {
@@ -69,6 +70,12 @@ const titleCase = (value) =>
 
 const HISTORY_PAGE_SIZE = 3;
 const MIN_NARRATIVE_LENGTH = 10;
+
+const getSubmissionSourceLabel = (incident) => {
+  if (incident?.submissionSource === "open_attendance_log") return "Timed-in report";
+  if (incident?.submissionSource === "active_deployment") return "No active time-in";
+  return "Source not recorded";
+};
 
 const IncompleteReportModal = ({ visible, characterCount, minimumCount, onClose }) => (
   <Modal transparent animationType="fade" visible={visible} onRequestClose={onClose}>
@@ -154,6 +161,7 @@ export default function ReportScreen() {
   const [historyError, setHistoryError] = useState(null);
   const [submittedReportId, setSubmittedReportId] = useState(null);
   const [incompleteModalVisible, setIncompleteModalVisible] = useState(false);
+  const [activeAttendanceLog, setActiveAttendanceLog] = useState(null);
   const accessDeniedAlertShownRef = useRef(false);
 
   const locationLabel = deployment?.client_sites?.site_name || "Current assigned site";
@@ -200,6 +208,13 @@ export default function ReportScreen() {
 
     let active = true;
     loadIncidentHistory({ page: 1, isActive: () => active });
+    fetchActiveAttendance()
+      .then((attendanceLog) => {
+        if (active) setActiveAttendanceLog(attendanceLog || null);
+      })
+      .catch(() => {
+        if (active) setActiveAttendanceLog(null);
+      });
     return () => {
       active = false;
     };
@@ -225,6 +240,11 @@ export default function ReportScreen() {
     );
   }
 
+  const openReviewModal = (timestamp = new Date()) => {
+    setOccurredAt(timestamp);
+    setModalVisible(true);
+  };
+
   const handleSubmitPress = () => {
     if (submitting) return;
 
@@ -234,8 +254,19 @@ export default function ReportScreen() {
     }
 
     const now = new Date();
-    setOccurredAt(now);
-    setModalVisible(true);
+    if (!activeAttendanceLog?.id) {
+      Alert.alert(
+        "Submit without time-in?",
+        "You are not currently timed in. The report will still be sent, and Operations will see it was submitted without an active attendance log.",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Submit Anyway", onPress: () => openReviewModal(now) },
+        ],
+      );
+      return;
+    }
+
+    openReviewModal(now);
   };
 
   const handleConfirm = async () => {
@@ -340,9 +371,17 @@ export default function ReportScreen() {
                   <Text style={styles.historyItemTitle} numberOfLines={1}>
                     {incident.title || "Incident report"}
                   </Text>
-                  <Text style={styles.historyBadge}>
-                    {titleCase(incident.reviewStatus || incident.status)}
-                  </Text>
+                  <View style={styles.historyBadgeGroup}>
+                    <Text style={styles.historyBadge}>
+                      {titleCase(incident.reviewStatus || incident.status)}
+                    </Text>
+                    <Text style={[
+                      styles.historyBadge,
+                      !incident.submittedWhileTimedIn && styles.historyBadgeWarning,
+                    ]}>
+                      {getSubmissionSourceLabel(incident)}
+                    </Text>
+                  </View>
                 </View>
                 <Text style={styles.historyMeta} numberOfLines={1}>
                   {incident.reportId} | {incident.siteName || "Unknown site"}
@@ -520,6 +559,10 @@ const styles = StyleSheet.create({
     fontWeight: PrismTypography.bold,
     color: PrismColors.navy,
   },
+  historyBadgeGroup: {
+    alignItems: "flex-end",
+    gap: 4,
+  },
   historyBadge: {
     backgroundColor: PrismColors.goldDim,
     color: PrismColors.navy,
@@ -529,6 +572,10 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 999,
     overflow: "hidden",
+  },
+  historyBadgeWarning: {
+    backgroundColor: "#FEF3C7",
+    color: "#92400E",
   },
   historyMeta: {
     marginTop: 3,
