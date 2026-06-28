@@ -5,6 +5,7 @@ import { registerPushToken } from "@/utils/pushNotifications";
 import { stopAttendanceBackgroundTracking } from "@/utils/backgroundAttendanceLocation";
 
 const BASE_URL = process.env.EXPO_PUBLIC_API_URL || "http://localhost:3000";
+const PIN_LOGIN_KEY = "pin_login_code";
 
 async function parseJsonResponse(response) {
   const text = await response.text();
@@ -35,6 +36,7 @@ async function clearRuntimeSessionState() {
 
 const authService = {
   async login(email, password) {
+    const existingProfile = await this.getProfile();
     await clearRuntimeSessionState();
 
     const response = await fetch(`${BASE_URL}/api/mobile/auth/login`, {
@@ -53,6 +55,9 @@ const authService = {
     await AsyncStorage.setItem("refresh_token", data.session.refresh_token);
     await AsyncStorage.setItem("profile", JSON.stringify(data.profile));
     await AsyncStorage.setItem("user_email", data.user.email);
+    if (existingProfile?.id && data.profile?.id && existingProfile.id !== data.profile.id) {
+      await AsyncStorage.removeItem(PIN_LOGIN_KEY);
+    }
     if (data.profile?.id) {
       registerPushToken(data.profile.id);
     }
@@ -130,6 +135,65 @@ const authService = {
     await AsyncStorage.removeItem("refresh_token");
     await AsyncStorage.removeItem("profile");
     await AsyncStorage.removeItem("user_email");
+    await AsyncStorage.removeItem(PIN_LOGIN_KEY);
+  },
+
+  async getPinLoginState() {
+    const [pin, refreshToken, profileRaw] = await Promise.all([
+      AsyncStorage.getItem(PIN_LOGIN_KEY),
+      AsyncStorage.getItem("refresh_token"),
+      AsyncStorage.getItem("profile"),
+    ]);
+
+    let profile = null;
+    if (profileRaw) {
+      try {
+        profile = JSON.parse(profileRaw);
+      } catch {
+        profile = null;
+      }
+    }
+
+    return {
+      enabled: !!pin && !!refreshToken && !!profile,
+      profile,
+    };
+  },
+
+  async setPinLogin(pin) {
+    const normalizedPin = String(pin || "").trim();
+    if (!/^\d{4}$/.test(normalizedPin)) {
+      throw new Error("PIN must be exactly 4 digits.");
+    }
+
+    const refreshToken = await AsyncStorage.getItem("refresh_token");
+    if (!refreshToken) {
+      throw new Error("Sign in with your email and password before setting a PIN.");
+    }
+
+    await AsyncStorage.setItem(PIN_LOGIN_KEY, normalizedPin);
+  },
+
+  async clearPinLogin() {
+    await AsyncStorage.removeItem(PIN_LOGIN_KEY);
+  },
+
+  async unlockWithPin(pin) {
+    const savedPin = await AsyncStorage.getItem(PIN_LOGIN_KEY);
+    if (!savedPin) {
+      throw new Error("PIN login is not configured on this device.");
+    }
+
+    if (String(pin || "").trim() !== savedPin) {
+      throw new Error("Incorrect PIN.");
+    }
+
+    await this.refreshSession();
+    const profile = await this.getProfile();
+    if (profile?.id) {
+      registerPushToken(profile.id);
+    }
+    return profile;
   },
 
   async getToken() {

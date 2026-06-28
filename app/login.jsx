@@ -13,7 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useActiveDeploymentAccess } from "@/hooks/useActiveDeploymentAccess";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Image,
   KeyboardAvoidingView,
@@ -255,11 +255,60 @@ export default function LoginScreen() {
   const { refreshAccess } = useActiveDeploymentAccess();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [pin, setPin] = useState("");
+  const [setupPin, setSetupPin] = useState("");
+  const [confirmSetupPin, setConfirmSetupPin] = useState("");
+  const [rememberedProfile, setRememberedProfile] = useState(null);
+  const [pinMode, setPinMode] = useState(false);
+  const [pinLoading, setPinLoading] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
+  const [showPinSetup, setShowPinSetup] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pinSetupSaving, setPinSetupSaving] = useState(false);
   const [error, setError] = useState("");
+  const [pinSetupError, setPinSetupError] = useState("");
+
+  const navigateHome = () => {
+    setShowSuccess(true);
+    setTimeout(() => {
+      setShowSuccess(false);
+      router.replace("/(tabs)");
+    }, 900);
+  };
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadPinState() {
+      try {
+        const state = await authService.getPinLoginState();
+        if (!active) return;
+        setRememberedProfile(state.profile || null);
+        setPinMode(state.enabled);
+      } catch {
+        if (!active) return;
+        setRememberedProfile(null);
+        setPinMode(false);
+      } finally {
+        if (active) setPinLoading(false);
+      }
+    }
+
+    loadPinState();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const refreshBeforeHome = async () => {
+    try {
+      await refreshAccess();
+    } catch (_err) {
+      // ignore refresh errors here; protected screens will retry through their services
+    }
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -270,23 +319,97 @@ export default function LoginScreen() {
       setError("");
       setLoading(true);
       await authService.login(email, password);
-      // refresh profile/deployment state before navigating to the home tab
-      setShowSuccess(true);
-      try {
-        await refreshAccess();
-      } catch (_err) {
-        // ignore refresh errors here; we'll still navigate
+      await refreshBeforeHome();
+      const pinState = await authService.getPinLoginState();
+      setRememberedProfile(pinState.profile || null);
+      if (!pinState.enabled) {
+        setShowPinSetup(true);
+        return;
       }
-      setTimeout(() => {
-        setShowSuccess(false);
-        router.replace("/(tabs)");
-      }, 1200);
+      navigateHome();
     } catch (err) {
       setError(err?.message || "Login failed. Please try again.");
     } finally {
       setLoading(false);
     }
   };
+
+  const handlePinUnlock = async () => {
+    if (!/^\d{4}$/.test(pin)) {
+      setError("Enter your 4-digit PIN.");
+      return;
+    }
+
+    try {
+      setError("");
+      setLoading(true);
+      await authService.unlockWithPin(pin);
+      await refreshBeforeHome();
+      navigateHome();
+    } catch (err) {
+      setError(err?.message || "Could not unlock with PIN.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUseEmailInstead = () => {
+    setPinMode(false);
+    setPin("");
+    setError("");
+  };
+
+  const handleForgetPin = async () => {
+    setLoading(true);
+    try {
+      await authService.logout();
+      setPinMode(false);
+      setRememberedProfile(null);
+      setPin("");
+      setError("PIN removed. Sign in with your email and password.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSavePin = async () => {
+    if (!/^\d{4}$/.test(setupPin)) {
+      setPinSetupError("PIN must be exactly 4 digits.");
+      return;
+    }
+    if (setupPin !== confirmSetupPin) {
+      setPinSetupError("PINs do not match.");
+      return;
+    }
+
+    try {
+      setPinSetupSaving(true);
+      setPinSetupError("");
+      await authService.setPinLogin(setupPin);
+      setShowPinSetup(false);
+      setSetupPin("");
+      setConfirmSetupPin("");
+      navigateHome();
+    } catch (err) {
+      setPinSetupError(err?.message || "Could not save PIN.");
+    } finally {
+      setPinSetupSaving(false);
+    }
+  };
+
+  const handleSkipPinSetup = async () => {
+    await authService.clearPinLogin();
+    setShowPinSetup(false);
+    setSetupPin("");
+    setConfirmSetupPin("");
+    setPinSetupError("");
+    navigateHome();
+  };
+
+  const rememberedName = [
+    rememberedProfile?.first_name,
+    rememberedProfile?.last_name,
+  ].filter(Boolean).join(" ").trim();
 
   return (
     <KeyboardAvoidingView
@@ -308,62 +431,125 @@ export default function LoginScreen() {
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.inputLabel}>Email</Text>
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your email"
-              placeholderTextColor={PrismColors.textSecondary}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-          </View>
+          {pinMode ? (
+            <>
+              <Text style={styles.pinTitle}>Enter Guard PIN</Text>
+              {rememberedName ? (
+                <Text style={styles.pinProfileText}>{rememberedName}</Text>
+              ) : null}
+              <Text style={styles.inputLabel}>PIN</Text>
+              <View style={styles.inputGroup}>
+                <TextInput
+                  style={[styles.input, styles.pinInput]}
+                  placeholder="4-digit PIN"
+                  placeholderTextColor={PrismColors.textSecondary}
+                  value={pin}
+                  onChangeText={(value) => setPin(value.replace(/\D/g, "").slice(0, 4))}
+                  keyboardType="number-pad"
+                  secureTextEntry
+                  maxLength={4}
+                />
+              </View>
 
-          <Text style={styles.inputLabel}>Password</Text>
-          <View style={styles.inputGroup}>
-            <TextInput
-              style={[styles.input, styles.passwordInput]}
-              placeholder="Enter your password"
-              placeholderTextColor={PrismColors.textSecondary}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry={!showPassword}
-            />
-            <TouchableOpacity
-              style={styles.eyeBtn}
-              onPress={() => setShowPassword(!showPassword)}
-            >
-              <Ionicons
-                name={showPassword ? "eye-outline" : "eye-off-outline"}
-                size={20}
-                color={PrismColors.textSecondary}
-              />
-              <Text style={styles.eyeIcon}>{showPassword ? "👁" : "🙈"}</Text>
-            </TouchableOpacity>
-          </View>
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              <TouchableOpacity
+                style={[styles.primaryBtn, loading && { opacity: 0.7 }]}
+                onPress={handlePinUnlock}
+                disabled={loading || pinLoading}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {loading ? "Unlocking..." : "Unlock"}
+                </Text>
+              </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.primaryBtn, loading && { opacity: 0.7 }]}
-            onPress={handleLogin}
-            disabled={loading}
-          >
-            <Text style={styles.primaryBtnText}>
-              {loading ? "Signing in..." : "Sign In"}
-            </Text>
-          </TouchableOpacity>
+              <View style={styles.pinActions}>
+                <TouchableOpacity
+                  style={styles.secondaryBtn}
+                  onPress={handleUseEmailInstead}
+                  disabled={loading}
+                >
+                  <Text style={styles.secondaryBtnText}>Use email instead</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.secondaryBtn}
+                  onPress={handleForgetPin}
+                  disabled={loading}
+                >
+                  <Text style={styles.secondaryBtnText}>Forget PIN</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.inputLabel}>Email</Text>
+              <View style={styles.inputGroup}>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your email"
+                  placeholderTextColor={PrismColors.textSecondary}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                />
+              </View>
 
-          <TouchableOpacity
-            style={styles.forgotBtn}
-            onPress={() => setShowForgot(true)}
-          >
-            <Text style={styles.forgotText}>Forgot password?</Text>
-          </TouchableOpacity>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={styles.inputGroup}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder="Enter your password"
+                  placeholderTextColor={PrismColors.textSecondary}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity
+                  style={styles.eyeBtn}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color={PrismColors.textSecondary}
+                  />
+                </TouchableOpacity>
+              </View>
+
+              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+              <TouchableOpacity
+                style={[styles.primaryBtn, loading && { opacity: 0.7 }]}
+                onPress={handleLogin}
+                disabled={loading}
+              >
+                <Text style={styles.primaryBtnText}>
+                  {loading ? "Signing in..." : "Sign In"}
+                </Text>
+              </TouchableOpacity>
+
+              {rememberedProfile ? (
+                <TouchableOpacity
+                  style={styles.forgotBtn}
+                  onPress={() => {
+                    setPinMode(true);
+                    setError("");
+                  }}
+                >
+                  <Text style={styles.forgotText}>Use PIN instead</Text>
+                </TouchableOpacity>
+              ) : null}
+
+              <TouchableOpacity
+                style={styles.forgotBtn}
+                onPress={() => setShowForgot(true)}
+              >
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
-
         <Text style={styles.footer}>© 2026 PRISM-GUARD System</Text>
       </ScrollView>
 
@@ -377,6 +563,58 @@ export default function LoginScreen() {
         </View>
       </Modal>
 
+      <Modal transparent visible={showPinSetup} animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalIcon}>#</Text>
+            <Text style={styles.modalTitle}>Set Guard PIN</Text>
+            <Text style={styles.modalText}>
+              Create a 4-digit PIN for faster sign in on this device.
+            </Text>
+            <View style={styles.inputGroup}>
+              <TextInput
+                style={[styles.input, styles.pinInput]}
+                placeholder="New PIN"
+                placeholderTextColor={PrismColors.textSecondary}
+                value={setupPin}
+                onChangeText={(value) => setSetupPin(value.replace(/\D/g, "").slice(0, 4))}
+                keyboardType="number-pad"
+                secureTextEntry
+                maxLength={4}
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <TextInput
+                style={[styles.input, styles.pinInput]}
+                placeholder="Confirm PIN"
+                placeholderTextColor={PrismColors.textSecondary}
+                value={confirmSetupPin}
+                onChangeText={(value) => setConfirmSetupPin(value.replace(/\D/g, "").slice(0, 4))}
+                keyboardType="number-pad"
+                secureTextEntry
+                maxLength={4}
+              />
+            </View>
+            {pinSetupError ? <Text style={styles.errorText}>{pinSetupError}</Text> : null}
+            <TouchableOpacity
+              style={[styles.primaryBtn, styles.modalPrimaryBtn, pinSetupSaving && { opacity: 0.7 }]}
+              onPress={handleSavePin}
+              disabled={pinSetupSaving}
+            >
+              <Text style={styles.primaryBtnText}>
+                {pinSetupSaving ? "Saving..." : "SAVE PIN"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.forgotBtn}
+              onPress={handleSkipPinSetup}
+              disabled={pinSetupSaving}
+            >
+              <Text style={styles.forgotText}>Skip for now</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       <ForgotPasswordModal
         visible={showForgot}
         onClose={() => setShowForgot(false)}
@@ -445,6 +683,39 @@ const styles = StyleSheet.create({
     color: PrismColors.textPrimary,
   },
   passwordInput: { paddingRight: PrismSpacing.md },
+  pinInput: { textAlign: "center", letterSpacing: 8, fontWeight: PrismTypography.bold },
+  pinTitle: {
+    color: PrismColors.textPrimary,
+    fontSize: PrismTypography.lg,
+    fontWeight: PrismTypography.extraBold,
+    textAlign: "center",
+    marginBottom: PrismSpacing.xs,
+  },
+  pinProfileText: {
+    color: PrismColors.textSecondary,
+    fontSize: PrismTypography.sm,
+    textAlign: "center",
+    marginBottom: PrismSpacing.md,
+  },
+  pinActions: {
+    flexDirection: "row",
+    gap: PrismSpacing.sm,
+    marginTop: PrismSpacing.md,
+  },
+  secondaryBtn: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: PrismColors.border,
+    borderRadius: PrismRadius.md,
+    paddingVertical: PrismSpacing.sm,
+    alignItems: "center",
+    backgroundColor: PrismColors.offWhite,
+  },
+  secondaryBtnText: {
+    color: PrismColors.navy,
+    fontSize: PrismTypography.xs,
+    fontWeight: PrismTypography.bold,
+  },
   eyeBtn: {
     width: 38,
     height: 38,
