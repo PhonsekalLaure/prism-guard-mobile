@@ -131,7 +131,7 @@ async function getAccurateCurrentPosition() {
     )
       .then(assertNotMocked)
       .catch((err) => {
-        if (err?.code === "MOCK_LOCATION_DETECTED") {
+        if (err?.code === "MOCK_LOCATION_DETECTED" || err?.code === "LOCATION_TIMEOUT") {
           throw err;
         }
       });
