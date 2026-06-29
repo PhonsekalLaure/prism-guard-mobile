@@ -45,6 +45,23 @@ const CLOCK_OUT_UNLOCK_WINDOW_MS = 60 * 60 * 1000;
 const BUSINESS_TIME_ZONE = "Asia/Manila";
 const BUSINESS_UTC_OFFSET = "+08:00";
 const { getActionableShift, getShiftClockInAvailability } = dashboardShiftTiming;
+const TIME_IN_LOCATION_ERROR_TOASTS = {
+  MOCK_LOCATION_DETECTED: {
+    icon: "alert-circle-outline",
+    title: "Mock Location Detected",
+  },
+  LOCATION_TIMEOUT: {
+    icon: "time-outline",
+    title: "Location Verification Timeout",
+  },
+};
+
+const getTimeInErrorToast = (err) => ({
+  icon: TIME_IN_LOCATION_ERROR_TOASTS[err?.code]?.icon || "alert-circle-outline",
+  title: TIME_IN_LOCATION_ERROR_TOASTS[err?.code]?.title || "Unable to Time In",
+  message: err?.message || "Something went wrong. Please try again.",
+  type: "error",
+});
 
 const formatDate = () => {
   const now = new Date();
@@ -712,12 +729,7 @@ export default function DashboardScreen() {
           return;
         }
 
-        showToast({
-          icon: "alert-circle-outline",
-          title: "Unable to Time In",
-          message: err.message || "Something went wrong. Please try again.",
-          type: "error",
-        });
+        showToast(getTimeInErrorToast(err));
         console.error(err);
       } finally {
         setLoading(false);

@@ -6,6 +6,25 @@ const DEFAULT_GEOFENCE_RADIUS_METERS = 100;
 const MAX_ACCEPTABLE_ACCURACY_METERS = 75;
 const LOCATION_ATTEMPT_COUNT = 3;
 const LOCATION_TIMEOUT_MS = 12000;
+const ANDROID_MOCK_PREFLIGHT_TIMEOUT_MS = 5000;
+
+const MOCK_LOCATION_MESSAGE = "Mock location detected. Disable fake GPS and try again.";
+const LOCATION_TIMEOUT_MESSAGE =
+  "Location verification timed out. Disable fake GPS or location override apps, then try again.";
+
+function createLocationError(message, code) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function createMockLocationError() {
+  return createLocationError(MOCK_LOCATION_MESSAGE, "MOCK_LOCATION_DETECTED");
+}
+
+function createLocationTimeoutError() {
+  return createLocationError(LOCATION_TIMEOUT_MESSAGE, "LOCATION_TIMEOUT");
+}
 
 export function normalizeCoordinate(value, fieldName = "coordinate") {
   const parsed = Number(value);
@@ -75,11 +94,17 @@ function withTimeout(promise, timeoutMs) {
   let timeoutId;
   const timeout = new Promise((_, reject) => {
     timeoutId = setTimeout(() => {
-      reject(new Error("Location request timed out"));
+      reject(createLocationTimeoutError());
     }, timeoutMs);
   });
 
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timeoutId));
+}
+
+function assertNotMocked(position) {
+  if (position?.mocked === true) {
+    throw createMockLocationError();
+  }
 }
 
 function isBetterPosition(candidate, current) {
@@ -97,6 +122,19 @@ function isBetterPosition(candidate, current) {
 async function getAccurateCurrentPosition() {
   if (Platform.OS === "android") {
     await Location.enableNetworkProviderAsync().catch(() => undefined);
+    await withTimeout(
+      Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        mayShowUserSettingsDialog: true,
+      }),
+      ANDROID_MOCK_PREFLIGHT_TIMEOUT_MS,
+    )
+      .then(assertNotMocked)
+      .catch((err) => {
+        if (err?.code === "MOCK_LOCATION_DETECTED") {
+          throw err;
+        }
+      });
   }
 
   let bestPosition = null;
@@ -112,6 +150,7 @@ async function getAccurateCurrentPosition() {
         LOCATION_TIMEOUT_MS,
       );
 
+      assertNotMocked(position);
       samples.push(position);
       if (isBetterPosition(position, bestPosition)) {
         bestPosition = position;
@@ -126,6 +165,9 @@ async function getAccurateCurrentPosition() {
         break;
       }
     } catch (err) {
+      if (err?.code === "MOCK_LOCATION_DETECTED") {
+        throw err;
+      }
       if (!bestPosition && attempt === LOCATION_ATTEMPT_COUNT - 1) {
         throw err;
       }
@@ -156,12 +198,6 @@ export async function validateGuardLocation(site) {
   const { bestPosition: position, samples } = await getAccurateCurrentPosition();
 
   const { latitude, longitude, accuracy } = position.coords;
-  const mocked = samples.some((sample) => sample?.mocked === true);
-  if (mocked) {
-    const error = new Error("Mock location detected. Disable fake GPS and try again.");
-    error.code = "MOCK_LOCATION_DETECTED";
-    throw error;
-  }
 
   const distance = getDistanceMeters(
     { latitude, longitude },
