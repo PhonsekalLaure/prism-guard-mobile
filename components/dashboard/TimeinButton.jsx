@@ -21,10 +21,13 @@ const TimeInButton = ({
   disabled = false,
   compact = false,
   noShiftToday = false,
+  clockInLocked = false,
+  clockInWindowClosed = false,
 }) => {
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseOpacity = useRef(new Animated.Value(0.6)).current;
   const pressScale = useRef(new Animated.Value(1)).current;
+  const isUnavailable = noShiftToday || clockInLocked || clockInWindowClosed;
 
   useEffect(() => {
     if (disabled) {
@@ -33,7 +36,7 @@ const TimeInButton = ({
       return undefined;
     }
 
-    const baseOpacity = noShiftToday ? 0.45 : 0.6;
+    const baseOpacity = isUnavailable ? 0.45 : 0.6;
     pulseAnim.setValue(1);
     pulseOpacity.setValue(baseOpacity);
 
@@ -68,7 +71,7 @@ const TimeInButton = ({
 
     pulse.start();
     return () => pulse.stop();
-  }, [disabled, noShiftToday, pulseAnim, pulseOpacity]);
+  }, [disabled, isUnavailable, pulseAnim, pulseOpacity]);
 
   const animatePress = (toValue) => {
     Animated.spring(pressScale, {
@@ -86,7 +89,7 @@ const TimeInButton = ({
           styles.pulseRing,
           compact && styles.pulseRingCompact,
           isOnDuty && styles.pulseRingActive,
-          noShiftToday && styles.pulseRingNoShift,
+          isUnavailable && styles.pulseRingNoShift,
           disabled && styles.pulseRingChecking,
           {
             transform: [{ scale: pulseAnim }],
@@ -101,7 +104,7 @@ const TimeInButton = ({
             styles.button,
             compact && styles.buttonCompact,
             isOnDuty && styles.buttonActive,
-            noShiftToday && styles.buttonNoShift,
+            isUnavailable && styles.buttonNoShift,
             disabled && styles.buttonDisabled,
           ]}
           onPress={onPress}
@@ -110,7 +113,7 @@ const TimeInButton = ({
           activeOpacity={0.85}
           disabled={disabled}
         >
-          {noShiftToday ? (
+          {isUnavailable ? (
             <Text
               style={[
                 styles.buttonIcon,
@@ -118,7 +121,7 @@ const TimeInButton = ({
                 styles.buttonIconNoShift,
               ]}
             >
-              🔒
+              {clockInWindowClosed ? "END" : "LOCK"}
             </Text>
           ) : disabled ? (
             <ActivityIndicator
@@ -142,10 +145,10 @@ const TimeInButton = ({
               styles.buttonLabel,
               compact && styles.buttonLabelCompact,
               isOnDuty && styles.buttonLabelActive,
-              noShiftToday && styles.buttonLabelNoShift,
+              isUnavailable && styles.buttonLabelNoShift,
             ]}
           >
-            {noShiftToday ? "NO SHIFT TODAY" : disabled ? "CHECKING" : isOnDuty ? "TIME OUT" : "TIME IN"}
+            {noShiftToday ? "NO SHIFT TODAY" : clockInWindowClosed ? "WINDOW CLOSED" : clockInLocked ? "OPENS SOON" : disabled ? "CHECKING" : isOnDuty ? "TIME OUT" : "TIME IN"}
           </Text>
         </TouchableOpacity>
       </Animated.View>

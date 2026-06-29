@@ -1,4 +1,5 @@
 const BUSINESS_UTC_OFFSET = "+08:00";
+const CLOCK_IN_EARLY_WINDOW_MS = 30 * 60 * 1000;
 
 function parseShiftDateTime(dateKey, timeValue) {
   if (!dateKey || !timeValue) return null;
@@ -54,6 +55,45 @@ function isShiftActiveNow(shift, date = new Date()) {
   return date >= window.startAt && date <= window.endAt;
 }
 
+function getShiftClockInAvailability(shift, date = new Date()) {
+  if (!shift?.date || !shift?.shiftStart || !shift?.shiftEnd) {
+    return { available: false, code: "unavailable" };
+  }
+  const window = getShiftStartEnd(shift.date, shift.shiftStart, shift.shiftEnd);
+  if (!window) return { available: false, code: "unavailable" };
+
+  const earliestClockInAt = new Date(window.startAt.getTime() - CLOCK_IN_EARLY_WINDOW_MS);
+  if (date < earliestClockInAt) {
+    return {
+      available: false,
+      code: "too_early",
+      earliestClockInAt,
+      shiftStartAt: window.startAt,
+      shiftEndAt: window.endAt,
+    };
+  }
+  if (date > window.endAt) {
+    return {
+      available: false,
+      code: "ended",
+      earliestClockInAt,
+      shiftStartAt: window.startAt,
+      shiftEndAt: window.endAt,
+    };
+  }
+  return {
+    available: true,
+    code: "available",
+    earliestClockInAt,
+    shiftStartAt: window.startAt,
+    shiftEndAt: window.endAt,
+  };
+}
+
+function isShiftClockInAvailable(shift, date = new Date()) {
+  return getShiftClockInAvailability(shift, date).available;
+}
+
 function getActionableShift({ scheduleDays = [], selectedShift = null, selectedDate = null, todayDateKey, now = new Date(), isOnDuty = false } = {}) {
   const todayShift = scheduleDays.find((item) => item.date === todayDateKey)
     || (selectedDate === todayDateKey ? selectedShift : null)
@@ -63,12 +103,15 @@ function getActionableShift({ scheduleDays = [], selectedShift = null, selectedD
     ? scheduleDays.find((item) => item.date < todayDateKey && isShiftActiveNow(item, now)) || null
     : null;
 
-  return todayShift || activeOvernightShift;
+  if (todayShift && isShiftClockInAvailable(todayShift, now)) return todayShift;
+  return activeOvernightShift;
 }
 
 module.exports = {
   getActionableShift,
+  getShiftClockInAvailability,
   getShiftStartEnd,
   isShiftActiveNow,
+  isShiftClockInAvailable,
   parseShiftDateTime,
 };

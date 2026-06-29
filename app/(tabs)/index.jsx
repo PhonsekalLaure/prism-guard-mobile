@@ -44,7 +44,7 @@ const SHIFT_END_REMINDERS = [
 const CLOCK_OUT_UNLOCK_WINDOW_MS = 60 * 60 * 1000;
 const BUSINESS_TIME_ZONE = "Asia/Manila";
 const BUSINESS_UTC_OFFSET = "+08:00";
-const { getActionableShift } = dashboardShiftTiming;
+const { getActionableShift, getShiftClockInAvailability } = dashboardShiftTiming;
 
 const formatDate = () => {
   const now = new Date();
@@ -298,6 +298,8 @@ const AttendanceMapCard = ({
   isOnDuty,
   loading,
   noShiftToday,
+  clockInTooEarly,
+  clockInWindowClosed,
   onActionPress,
 }) => {
   if (!site) return null;
@@ -317,7 +319,7 @@ const AttendanceMapCard = ({
     ? "rgba(230, 178, 21, 0.16)"
     : isInside ? "rgba(76, 175, 80, 0.15)" : "rgba(244, 67, 54, 0.15)";
   const statusText = !hasResult
-    ? (noShiftToday ? "No shift scheduled today" : "Ready to verify location")
+    ? (noShiftToday ? "No shift scheduled today" : clockInTooEarly ? "Time-in opens 30 minutes before shift" : clockInWindowClosed ? "Time-in window closed" : "Ready to verify location")
     : isInside
     ? `${label} recorded`
     : `Outside geofence - ${label} blocked`;
@@ -342,6 +344,8 @@ const AttendanceMapCard = ({
             onPress={onActionPress}
             disabled={loading}
             noShiftToday={noShiftToday}
+            clockInLocked={clockInTooEarly}
+            clockInWindowClosed={clockInWindowClosed}
             compact
           />
         </View>
@@ -631,6 +635,26 @@ export default function DashboardScreen() {
         return;
       }
 
+      if (clockInTooEarly) {
+        showToast({
+          icon: "time-outline",
+          title: "Time In Not Open",
+          message: "You can time in starting 30 minutes before your scheduled shift.",
+          type: "error",
+        });
+        return;
+      }
+
+      if (clockInWindowClosed) {
+        showToast({
+          icon: "time-outline",
+          title: "Time In Closed",
+          message: "Your scheduled shift time-in window has already ended.",
+          type: "error",
+        });
+        return;
+      }
+
       try {
         setLoading(true);
 
@@ -799,7 +823,18 @@ export default function DashboardScreen() {
     }
     : null;
   const scheduleLoaded = !todayScheduleLoading && todaySchedule !== null;
-  const noShiftToday = scheduleLoaded && !actionableShift && !isOnDuty;
+  const todayShiftClockInAvailability = todayShift
+    ? getShiftClockInAvailability(todayShift, now)
+    : null;
+  const clockInTooEarly = scheduleLoaded
+    && todayShiftClockInAvailability?.code === "too_early"
+    && !actionableShift
+    && !isOnDuty;
+  const clockInWindowClosed = scheduleLoaded
+    && todayShiftClockInAvailability?.code === "ended"
+    && !actionableShift
+    && !isOnDuty;
+  const noShiftToday = scheduleLoaded && !todayShift && !actionableShift && !isOnDuty;
   // If there's no shift for today, try to pick a sensible fallback from the schedule:
   let fallbackShift = null;
   if (!todayShift && todaySchedule?.scheduleDays?.length) {
@@ -828,7 +863,7 @@ export default function DashboardScreen() {
   const deploymentShiftEnd = deployment?.shift_end || deployment?.shiftEnd || deployment?.end_time;
   const displayShift = isOnDuty && (activeAttendanceShift || activeAttendanceFallbackShift)
     ? (activeAttendanceShift || activeAttendanceFallbackShift)
-    : (actionableShift || fallbackShift);
+    : (actionableShift || todayShift || fallbackShift);
   const displayShiftDateKey = displayShift?.date || activeAttendanceLog?.logDate || todayDateKey;
   const displayShiftStart = displayShift?.shiftStart || deploymentShiftStart || "--";
   const displayShiftEnd = displayShift?.shiftEnd || deploymentShiftEnd || "--";
@@ -920,6 +955,8 @@ export default function DashboardScreen() {
             isOnDuty={isOnDuty}
             loading={loading}
             noShiftToday={noShiftToday}
+            clockInTooEarly={clockInTooEarly}
+            clockInWindowClosed={clockInWindowClosed}
             onActionPress={handleMainAction}
           />
         ) : null}
